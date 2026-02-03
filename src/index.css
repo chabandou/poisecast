@@ -12,9 +12,6 @@
   --pc-line2: rgba(255, 255, 255, 0.10);
   --pc-shadow: rgba(0, 0, 0, 0.6);
   --pc-chamfer: 10px;
-  --pc-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --pc-transition-fast: 160ms;
-  --pc-transition: 220ms;
   --pc-header-h: 64px;
   --pc-status-h: 34px;
   --pc-nav-h: 64px;
@@ -67,6 +64,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
   background:
     repeating-linear-gradient(
       45deg,
@@ -89,12 +87,6 @@ body {
   opacity: 0.20;
 }
 
-
-@keyframes pcFadeSlide {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 /* Header (desktop) */
 .pcHeader {
   height: var(--pc-header-h);
@@ -104,6 +96,7 @@ body {
   justify-content: space-between;
   padding: 0 16px;
   background: rgba(18, 18, 18, 0.94);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(0, 255, 255, 0.16);
   position: relative;
   z-index: 2;
@@ -156,19 +149,6 @@ body {
   text-transform: uppercase;
   color: var(--pc-primary);
   opacity: 0.85;
-}
-
-.pcHeaderStatus {
-  flex: 1 1 auto;
-  margin: 0 16px;
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: rgba(0, 255, 255, 0.85);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pcHeaderRight { display: flex; align-items: center; gap: 12px; }
@@ -273,9 +253,6 @@ body {
 
 .pcSidebar {
   width: 360px;
-  flex: 0 0 360px;
-  min-width: 360px;
-  max-width: 360px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -283,8 +260,6 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 18px 44px var(--pc-shadow);
   overflow: hidden;
-  contain: content;
-  animation: pcFadeSlide var(--pc-transition) var(--pc-ease);
 }
 .pcSidebarHead {
   padding: 14px 14px 10px;
@@ -303,41 +278,10 @@ body {
   gap: 8px;
   color: var(--pc-primary);
 }
-.pcSidebarTabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.pcTabBtn {
-  flex: 1;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.6);
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  padding: 8px 10px;
-  cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
-}
-.pcTabBtn.active {
-  color: var(--pc-primary);
-  border-color: rgba(0, 255, 255, 0.35);
-  background: rgba(0, 255, 255, 0.08);
-}
-.pcLoadingTag {
-  margin-left: auto;
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  letter-spacing: 1.6px;
-  color: rgba(0, 255, 255, 0.7);
-}
 .pcSidebarBody {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  scrollbar-gutter: stable;
   padding: 12px;
 }
 .pcSidebarFoot {
@@ -414,32 +358,19 @@ body {
   font-size: 10px;
 }
 
-.pcSearchResults {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  contain: content;
-  animation: pcFadeSlide var(--pc-transition-fast) var(--pc-ease);
-}
+.pcSearchResults { margin-top: 10px; display: grid; gap: 10px; }
 .pcSearchItem {
-  width: 100%;
-  min-width: 0;
   text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(18, 18, 18, 0.70);
   padding: 12px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 3px solid transparent;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
-  position: relative;
-  contain: content;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
 }
-.pcSearchItem:hover { background: rgba(30, 30, 30, 0.55); border-left-color: #fff; transform: translateY(-1px); }
+.pcSearchItem:hover { transform: translateY(-1px); border-color: rgba(0, 255, 255, 0.28); background: rgba(30, 30, 30, 0.75); }
 .pcSearchItem:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-.pcSearchItem.isLoading { border-left-color: var(--pc-primary); }
-.pcSearchItemTitle { font-weight: 700; font-size: 14px; color: #fff; min-width: 0; }
-.pcSearchItemMeta { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.pcSearchItemTitle { font-weight: 700; font-size: 14px; color: #fff; }
+.pcSearchItemMeta { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .pcPill {
   font-family: var(--pc-font-mono);
@@ -460,68 +391,28 @@ body {
 }
 .pcLink:hover { color: var(--pc-primary); }
 
-.pcSourceList { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.pcSourceList { display: grid; gap: 10px; }
 .pcSourceItem {
   text-align: left;
-  width: 100%;
-  min-width: 0;
   padding: 12px;
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(0, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-left: 3px solid transparent;
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
-  position: relative;
-  contain: content;
 }
-.pcSourceThumb {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--pc-primary);
-  margin-bottom: 10px;
-}
-.pcSourceThumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 7px;
-}
-.pcSourceItem:hover { background: rgba(30, 30, 30, 0.55); border-left-color: var(--pc-primary); transform: translateY(-1px); }
+.pcSourceItem:hover { background: rgba(30, 30, 30, 0.55); border-left-color: #fff; transform: translateY(-1px); }
 .pcSourceItem.active { border-left-color: var(--pc-primary); }
-.pcSourceItem.isLoading { border-left-color: var(--pc-primary); }
 .pcSourceItemTitle { font-weight: 700; color: #fff; font-size: 14px; }
-.pcSourceItemMeta { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .pcMonoUrl {
   margin-top: 6px;
   font-family: var(--pc-font-mono);
   font-size: 10px;
   color: rgba(255, 255, 255, 0.38);
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.pcItemStatus {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  color: rgba(0, 255, 255, 0.75);
-  letter-spacing: 1px;
-}
-.pcLoadingText {
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  color: rgba(0, 255, 255, 0.75);
-  letter-spacing: 1px;
 }
 
 .pcRow { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
@@ -562,8 +453,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  contain: content;
-  animation: pcFadeSlide var(--pc-transition) var(--pc-ease);
 }
 
 .pcNow {
@@ -574,9 +463,9 @@ body {
   box-shadow: 0 18px 44px var(--pc-shadow);
   overflow: hidden;
   position: relative;
-  animation: pcFadeSlide var(--pc-transition) var(--pc-ease);
 }
-.pcNowState {
+.pcNow::after {
+  content: 'ACTIVE';
   position: absolute;
   top: 10px;
   right: 18px;
@@ -585,34 +474,8 @@ body {
   font-style: italic;
   font-size: 110px;
   text-transform: uppercase;
-  line-height: 1;
-  pointer-events: none;
-  z-index: 0;
-}
-.pcNowStateText {
-  position: absolute;
-  top: 0;
-  right: 0;
-  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.05);
-  --pc-state-opacity: 0.55;
-  opacity: var(--pc-state-opacity);
-  will-change: transform, opacity;
-}
-.pcNowStateIdle { --pc-state-opacity: 0.35; color: rgba(255, 255, 255, 0.05); }
-.pcNowStateActive { --pc-state-opacity: 0.55; color: rgba(0, 255, 255, 0.10); }
-.pcNowStatePaused { --pc-state-opacity: 0.45; color: rgba(255, 255, 255, 0.08); }
-.pcNowStateIn { animation: pcStateInUp 240ms var(--pc-ease) both; }
-.pcNowStateOut { animation: pcStateOutUp 240ms var(--pc-ease) both; }
-
-@keyframes pcStateInUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: var(--pc-state-opacity); transform: translateY(0); }
-}
-
-@keyframes pcStateOutUp {
-  from { opacity: var(--pc-state-opacity); transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-10px); }
+  pointer-events: none;
 }
 .pcNowInner {
   height: 100%;
@@ -621,7 +484,6 @@ body {
   flex-direction: column;
   justify-content: center;
   overflow: auto;
-  scrollbar-gutter: stable;
   position: relative;
   z-index: 1;
 }
@@ -686,13 +548,7 @@ body {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.pcProgress {
-  margin-top: 0;
-  width: 100%;
-  max-width: 560px;
-  margin-left: auto;
-  margin-right: auto;
-}
+.pcProgress { margin-top: 18px; }
 .pcProgressTrack {
   height: 12px;
   background: rgba(18, 18, 18, 0.9);
@@ -722,73 +578,15 @@ body {
   font-family: var(--pc-font-mono);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.55);
-  width: 100%;
-}
-
-.pcPlayerStack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  flex: 1;
-  width: 100%;
-  margin-top: 18px;
 }
 
 .pcControls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  width: 100%;
-}
-.pcControlsRow {
+  margin-top: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 18px;
 }
-.pcControlsRowSecondary { gap: 12px; }
-.pcControlImport {
-  min-width: 110px;
-  justify-content: center;
-  height: 34px;
-  padding: 0 12px;
-}
-.pcDenoiseControl {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid rgba(0, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.35);
-}
-.pcDenoiseControl .pcMiniLabel { color: rgba(0, 255, 255, 0.8); }
-.pcDenoiseControl .pcProcState { margin-left: 4px; }
-.pcDenoiseSwitch { width: 48px; height: 22px; }
-.pcDenoiseSwitch .pcSwitchThumb { width: 18px; height: 18px; top: 2px; left: 3px; }
-.pcDenoiseSwitch.on .pcSwitchThumb { left: 27px; }
-
-.pcSpinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 2px solid rgba(0, 255, 255, 0.25);
-  border-top-color: var(--pc-primary);
-  animation: pcSpin 0.9s linear infinite;
-}
-.pcSpinnerSm { width: 12px; height: 12px; border-width: 2px; }
-.pcPlaySpinner {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-@keyframes pcSpin { to { transform: rotate(360deg); } }
 .pcSkip {
   width: 44px;
   height: 44px;
@@ -797,7 +595,6 @@ body {
   color: rgba(255, 255, 255, 0.80);
   cursor: pointer;
   transition: color 120ms ease, transform 120ms ease;
-  will-change: transform;
 }
 .pcSkip:hover { color: var(--pc-primary); transform: translateY(-1px); }
 .pcSkip:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
@@ -815,12 +612,8 @@ body {
   cursor: pointer;
   box-shadow: 0 0 30px rgba(0, 255, 255, 0.18);
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
-  position: relative;
-  will-change: transform;
 }
 .pcPlay:hover { background: var(--pc-primary); color: #000; transform: translateY(-1px); }
-.pcPlay.isLoading { cursor: wait; }
-.pcPlay:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 .pcAudio {
   position: absolute;
@@ -840,8 +633,6 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  contain: content;
-  animation: pcFadeSlide var(--pc-transition) var(--pc-ease);
 }
 .pcSectionHead {
   padding: 14px 18px;
@@ -896,8 +687,6 @@ body {
   padding: 14px 18px;
   display: grid;
   gap: 10px;
-  contain: content;
-  animation: pcFadeSlide var(--pc-transition-fast) var(--pc-ease);
 }
 .pcEpisodeItem {
   text-align: left;
@@ -909,7 +698,6 @@ body {
   gap: 14px;
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
-  contain: content;
 }
 .pcEpisodeItem:hover { transform: translateY(-1px); border-color: rgba(0, 255, 255, 0.25); background: rgba(30, 30, 30, 0.65); }
 .pcEpisodeItem.active { border-color: rgba(0, 255, 255, 0.45); box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.10) inset; }
@@ -943,6 +731,54 @@ body {
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* Processing panel (integrated) */
+.pcProcessingInline {
+  margin-top: 16px;
+  background: rgba(0, 0, 0, 0.40);
+  border: 1px solid rgba(0, 255, 255, 0.18);
+  padding: 14px;
+}
+
+.pcProcHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.pcProcTitle {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--pc-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pcDot { width: 8px; height: 8px; border-radius: 2px; background: var(--pc-primary); box-shadow: 0 0 14px rgba(0, 255, 255, 0.35); animation: pcPulse 1.2s infinite; }
+@keyframes pcPulse { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+.pcProcSpec { font-family: var(--pc-font-mono); font-size: 10px; color: rgba(255, 255, 255, 0.40); }
+
+.pcProcMid { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.pcProcDial {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--pc-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.pcProcDial::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(0, 255, 255, 0.10);
+  border-radius: 999px;
+  transform: scale(1.1);
+  animation: pcPulse 1.2s infinite;
+}
+.pcProcToggle { flex: 1; }
+.pcProcToggleTop { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .pcProcState { font-family: var(--pc-font-mono); font-size: 10px; color: rgba(255, 255, 255, 0.35); }
 .pcProcState.on { color: var(--pc-primary); }
 
@@ -969,6 +805,34 @@ body {
 }
 .pcSwitch.on .pcSwitchThumb { left: 32px; background: var(--pc-primary); }
 
+.pcProcBar {
+  margin-top: 8px;
+  height: 6px;
+  background: rgba(30, 30, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pcProcBarFill {
+  display: block;
+  height: 100%;
+  background: var(--pc-accent);
+}
+
+.pcProcLog {
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 10px;
+}
+.pcLogLine {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.3;
+}
+
+.pcProcActions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .pcMiniBtn {
   display: inline-flex;
   align-items: center;
@@ -1034,83 +898,19 @@ body {
 .pcApp.isMobile .pcSidebar,
 .pcApp.isMobile .pcMain { border-radius: 0; clip-path: none; box-shadow: none; }
 .pcApp.isMobile .pcSidebar { width: 100%; }
-.pcApp.isMobile .pcSidebar { min-width: 0; max-width: none; flex: 1 1 auto; }
-.pcApp.isMobile .pcMain { width: 100%; min-width: 0; gap: 0; padding: 0; }
+.pcApp.isMobile .pcMain { width: 100%; gap: 0; padding: 0; }
 .pcApp.isMobile .pcNow { flex: 1 1 auto; min-height: 0; border-left: none; border-right: none; }
-.pcApp.isMobile .pcNowInner { padding: 18px; justify-content: flex-start; -webkit-overflow-scrolling: touch; }
-.pcApp.isMobile .pcNowState { font-size: 84px; top: 6px; right: 10px; }
+.pcApp.isMobile .pcNowInner { padding: 18px; }
+.pcApp.isMobile .pcNow::after { font-size: 84px; top: 6px; right: 10px; }
 .pcApp.isMobile .pcMetaCard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pcApp.isMobile .pcEpisodes { flex: 1 1 auto; border-left: none; border-right: none; }
-.pcApp.isMobile .pcSidebarBody,
-.pcApp.isMobile .pcEpisodeList { -webkit-overflow-scrolling: touch; }
-.pcApp.isMobile .pcFeedMetaDesc {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.pcApp.isMobile[data-tab="sources"] .pcSourceList {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.pcApp.isMobile[data-tab="sources"] .pcSourceItem {
-  aspect-ratio: 1;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-.pcApp.isMobile[data-tab="sources"] .pcSourceItem .pcMonoUrl { display: none; }
-.pcApp.isMobile[data-tab="sources"] .pcSourceItemMeta { justify-content: center; }
-.pcApp.isMobile[data-tab="sources"] .pcSourceThumb {
-  width: 44px;
-  height: 44px;
-  margin-bottom: 8px;
-}
+.pcApp.isMobile .pcProcessingInline { display: none; }
 
-.pcApp.isMobile .pcShell { position: relative; overflow: hidden; }
-.pcApp.isMobile .pcSidebar,
-.pcApp.isMobile .pcMain {
-  position: absolute;
-  inset: 0;
-  transition: opacity var(--pc-transition) var(--pc-ease), transform var(--pc-transition) var(--pc-ease);
-  will-change: transform, opacity;
-}
-.pcApp.isMobile .pcSidebar { opacity: 0; transform: translateX(-16px); pointer-events: none; }
-.pcApp.isMobile .pcMain { opacity: 0; transform: translateX(16px); pointer-events: none; }
-.pcApp.isMobile[data-tab="sources"] .pcSidebar { opacity: 1; transform: translateX(0); pointer-events: auto; }
-.pcApp.isMobile[data-tab="search"] .pcSidebar { opacity: 1; transform: translateX(0); pointer-events: auto; }
-.pcApp.isMobile[data-tab="playing"] .pcMain,
-.pcApp.isMobile[data-tab="episodes"] .pcMain { opacity: 1; transform: translateX(0); pointer-events: auto; }
+.pcApp.isMobile .pcSidebar { display: none; }
+.pcApp.isMobile .pcMain { display: none; }
 
-.pcApp.isMobile .pcNow,
-.pcApp.isMobile .pcEpisodes {
-  position: absolute;
-  inset: 0;
-  transition: opacity var(--pc-transition) var(--pc-ease), transform var(--pc-transition) var(--pc-ease);
-  will-change: transform, opacity;
-}
-.pcApp.isMobile[data-tab="playing"] .pcNow { opacity: 1; transform: translateX(0); pointer-events: auto; }
-.pcApp.isMobile[data-tab="playing"] .pcEpisodes { opacity: 0; transform: translateX(-16px); pointer-events: none; }
-.pcApp.isMobile[data-tab="episodes"] .pcEpisodes { opacity: 1; transform: translateX(0); pointer-events: auto; }
-.pcApp.isMobile[data-tab="episodes"] .pcNow { opacity: 0; transform: translateX(16px); pointer-events: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .pcSidebar,
-  .pcMain,
-  .pcNow,
-  .pcEpisodes,
-  .pcSearchResults,
-  .pcEpisodeList {
-    animation: none;
-  }
-  .pcApp.isMobile .pcSidebar,
-  .pcApp.isMobile .pcMain,
-  .pcApp.isMobile .pcNow,
-  .pcApp.isMobile .pcEpisodes {
-    transition: none;
-    transform: none;
-  }
-}
+.pcApp.isMobile[data-tab="sources"] .pcSidebar { display: flex; }
+.pcApp.isMobile[data-tab="playing"] .pcMain { display: flex; }
+.pcApp.isMobile[data-tab="playing"] .pcEpisodes { display: none; }
+.pcApp.isMobile[data-tab="episodes"] .pcMain { display: flex; }
+.pcApp.isMobile[data-tab="episodes"] .pcNow { display: none; }
