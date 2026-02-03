@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PoiseCast - Vertical Stacked Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,500;0,700;0,900;1,500;1,900&amp;family=Rajdhani:wght@500;600;700&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "zzz-primary": "#00FFFF",
+                        "zzz-accent": "#00E6B8",
+                        "zzz-black": "#050505", 
+                        "zzz-dark": "#121212", 
+                        "zzz-surface": "#1E1E1E", 
+                        "zzz-text": "#E0E0E0",
+                        "zzz-text-muted": "#666666",
+                    },
+                    fontFamily: {
+                        display: ["Kanit", "sans-serif"],
+                        body: ["Rajdhani", "sans-serif"],
+                        mono: ["Share Tech Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'diagonal-stripes': "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.03) 10px, rgba(255, 255, 255, 0.03) 20px)",
+                        'halftone': "radial-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px)",
+                    },
+                    boxShadow: {
+                        'hard-yellow': '5px 5px 0px #00FFFF',
+                        'hard-black': '5px 5px 0px #000000',
+                        'inner-glow': 'inset 0 0 20px rgba(0, 255, 255, 0.1)',
+                    },
+                    animation: {
+                        'glitch-subtle': 'glitch 2s infinite linear alternate-reverse',
+                    },
+                    keyframes: {
+                        glitch: {
+                            '0%': { transform: 'translate(0)' },
+                            '20%': { transform: 'translate(-2px, 2px)' },
+                            '40%': { transform: 'translate(-2px, -2px)' },
+                            '60%': { transform: 'translate(2px, 2px)' },
+                            '80%': { transform: 'translate(2px, -2px)' },
+                            '100%': { transform: 'translate(0)' },
+                        }
+                    }
+                },
+            },
+        };
+    </script>
+<style type="text/tailwindcss">
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px
+        }
+        ::-webkit-scrollbar-track {
+            background: #050505
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00FFFF33;
+            border: 0px solid #000
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00FFFF88;
+        }
+        .clip-chamfer {
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)
+        }
+        .clip-diag-r {
+            clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%)
+        }
+        .text-outline {
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000
+        }
+        .writing-mode-vertical {
+            writing-mode: vertical-rl;
+        }
+    </style>
+</head>
+<body class="bg-zzz-black text-zzz-text font-display h-screen overflow-hidden selection:bg-zzz-primary selection:text-black">
+<div class="fixed inset-0 pointer-events-none bg-diagonal-stripes z-0 opacity-40"></div>
+<div class="fixed inset-0 pointer-events-none bg-[size:20px_20px] bg-halftone opacity-20 z-0"></div>
+<div class="relative z-10 h-screen flex flex-col">
+<header class="h-16 flex items-center justify-between bg-zzz-dark/95 backdrop-blur-md border-b border-zzz-primary/20 px-4 shrink-0 z-50">
+<div class="flex items-center gap-4">
+<div class="bg-zzz-primary text-black w-10 h-10 flex items-center justify-center font-black text-xl transform -skew-x-12 shadow-[3px_3px_0px_rgba(255,255,255,0.2)]">
+<span class="transform skew-x-12">P</span>
+</div>
+<div>
+<h1 class="text-2xl font-black italic tracking-tighter text-white uppercase leading-none">
+                        Poise<span class="text-zzz-primary">Cast</span>
+<span class="text-[8px] align-top bg-zzz-surface px-1 ml-1 not-italic font-mono text-zzz-text-muted">VER. 3.0</span>
+</h1>
+<div class="flex items-center gap-2 text-[8px] font-mono tracking-widest text-zzz-primary uppercase">
+<span>/// High-Res Audio</span>
+<span class="w-1 h-1 bg-white rounded-full"></span>
+<span>Zen Mode</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex bg-black border border-zzz-surface clip-chamfer pr-2">
+<div class="px-3 py-1 border-r border-zzz-surface flex flex-col justify-center">
+<span class="text-[7px] text-zzz-text-muted font-mono uppercase leading-none mb-0.5">System</span>
+<span class="text-[10px] font-bold text-zzz-primary leading-none">MODEL</span>
+</div>
+<select class="appearance-none bg-transparent text-white font-mono text-xs py-1.5 pl-2 pr-6 outline-none cursor-pointer">
+<option>Spectral Gate (Fast)</option>
+<option>Neural Voice v4</option>
+<option>Deep Isolation</option>
+</select>
+<span class="material-symbols-outlined absolute right-1.5 top-1/2 -translate-y-1/2 text-zzz-primary text-sm pointer-events-none">expand_more</span>
+</div>
+<div class="w-8 h-8 border border-zzz-surface flex items-center justify-center hover:bg-white hover:text-black transition-colors cursor-pointer clip-chamfer">
+<span class="material-symbols-outlined text-lg">settings</span>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<aside class="w-64 bg-zzz-dark/80 backdrop-blur-sm border-r border-zzz-surface flex flex-col shrink-0">
+<div class="p-4 border-b border-zzz-surface">
+<h2 class="text-sm font-black italic uppercase text-zzz-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">rss_feed</span>
+                        Input Sources
+                    </h2>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-2">
+<div class="group cursor-pointer bg-zzz-surface border-l-2 border-zzz-primary p-3 hover:bg-white/5 transition-all">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-white text-xs leading-tight group-hover:text-zzz-primary transition-colors">The Daily</h3>
+<span class="text-[8px] font-mono bg-zzz-black px-1 text-zzz-primary border border-zzz-surface">NYT</span>
+</div>
+<div class="flex items-center gap-1.5 mt-2">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-sm animate-pulse"></span>
+<span class="text-[9px] font-mono text-zzz-text-muted">Live Link</span>
+</div>
+</div>
+<div class="group cursor-pointer bg-black/40 border-l-2 border-transparent p-3 hover:border-white hover:bg-zzz-surface transition-all">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-zinc-400 text-xs leading-tight group-hover:text-white transition-colors">TechCrunch</h3>
+<span class="text-[8px] font-mono bg-zzz-black px-1 text-zinc-600 border border-zzz-surface group-hover:text-white">RSS</span>
+</div>
+<div class="mt-2 text-[9px] font-mono text-zzz-text-muted truncate">feeds.tc.com/pod...</div>
+</div>
+<div class="group cursor-pointer bg-black/40 border-l-2 border-transparent p-3 hover:border-white hover:bg-zzz-surface transition-all">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-zinc-400 text-xs leading-tight group-hover:text-white transition-colors">Hardcore History</h3>
+<span class="text-[8px] font-mono bg-zzz-black px-1 text-zinc-600 border border-zzz-surface group-hover:text-white">RSS</span>
+</div>
+<div class="mt-2 text-[9px] font-mono text-zzz-text-muted truncate">dancarlin.com/feed...</div>
+</div>
+</div>
+<div class="p-2 bg-black/40 border-t border-zzz-surface">
+<div class="flex gap-1">
+<input class="flex-1 bg-zzz-surface border-none text-[9px] font-mono text-white placeholder-zinc-600 focus:ring-1 focus:ring-zzz-primary h-7 px-2" placeholder="ADD SOURCE URL..." type="text"/>
+<button class="bg-zzz-primary text-black w-7 h-7 flex items-center justify-center hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-hidden relative">
+<section class="h-[45%] shrink-0 p-6 bg-gradient-to-b from-zzz-primary/5 to-transparent border-b border-zzz-surface relative group">
+<div class="absolute top-0 right-0 p-4 pointer-events-none">
+<span class="text-[8rem] font-black italic text-white/5 uppercase leading-none">ACTIVE</span>
+</div>
+<div class="relative h-full flex flex-col justify-center max-w-5xl mx-auto">
+<div class="flex items-center gap-3 mb-4">
+<div class="px-2 py-0.5 bg-zzz-primary text-black font-mono text-[10px] font-bold tracking-widest uppercase">Now Playing</div>
+<span class="text-[10px] font-mono text-zzz-text-muted uppercase">/// Side A /// Archive_Node_441</span>
+</div>
+<div class="flex items-end gap-8">
+<div class="flex-1">
+<h2 class="text-5xl font-black italic text-white uppercase tracking-tighter leading-none mb-6">
+                                    Can Trump Force Blue Cities to <br/>
+<span class="text-zzz-primary">Cooperate With ICE?</span>
+</h2>
+<div class="flex gap-6 text-xs font-mono text-zzz-text mb-8">
+<div class="flex flex-col">
+<span class="text-[9px] text-zzz-text-muted uppercase">Release Date</span>
+<span class="text-zzz-primary">02 FEB 2026</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[9px] text-zzz-text-muted uppercase">Duration</span>
+<span>34:12</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[9px] text-zzz-text-muted uppercase">Category</span>
+<span>POLITICS</span>
+</div>
+</div>
+<div class="space-y-2">
+<div class="w-full h-3 bg-zzz-dark border border-white/10 relative overflow-hidden clip-chamfer">
+<div class="absolute top-0 left-0 h-full w-[35%] bg-zzz-primary shadow-[0_0_15px_#00FFFF]"></div>
+<div class="absolute top-0 bottom-0 w-[2px] bg-white left-[35%] z-20"></div>
+</div>
+<div class="flex justify-between font-mono text-[10px] text-zzz-text-muted">
+<span>11:58</span>
+<span>-22:14</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-4">
+<button class="w-24 h-24 rounded-full border-4 border-zzz-primary text-zzz-primary flex items-center justify-center hover:bg-zzz-primary hover:text-black transition-all shadow-[0_0_30px_rgba(0,255,255,0.2)]">
+<span class="material-symbols-outlined text-6xl">pause</span>
+</button>
+<div class="flex gap-4">
+<button class="text-white hover:text-zzz-primary"><span class="material-symbols-outlined">skip_previous</span></button>
+<button class="text-white hover:text-zzz-primary"><span class="material-symbols-outlined">skip_next</span></button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="flex-1 flex flex-col overflow-hidden bg-zzz-black/40">
+<div class="px-6 py-4 flex justify-between items-center border-b border-zzz-surface bg-zzz-dark/30">
+<h2 class="text-xl font-black italic text-white uppercase tracking-tighter">
+                            Episodes <span class="text-[10px] font-mono not-italic text-zzz-text-muted font-normal ml-2 tracking-widest">/// DATA STORAGE</span>
+</h2>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-mono bg-zzz-primary/10 text-zzz-primary border border-zzz-primary/20 px-2 py-0.5 font-bold">2,756 FOUND</span>
+<div class="flex gap-1">
+<button class="p-1 hover:text-zzz-primary"><span class="material-symbols-outlined text-sm">filter_list</span></button>
+<button class="p-1 hover:text-zzz-primary"><span class="material-symbols-outlined text-sm">search</span></button>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+<div class="group bg-zzz-dark/60 border border-zzz-surface hover:border-zzz-primary/50 transition-all p-4 flex items-center gap-6 relative clip-chamfer">
+<div class="w-10 h-10 shrink-0 bg-zzz-surface flex items-center justify-center text-zzz-primary">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-md font-bold text-zinc-300 group-hover:text-white truncate">The Sunday Daily: Bad Bunny Takes Over America.</h3>
+<div class="flex gap-4 mt-1 font-mono text-[10px] text-zzz-text-muted">
+<span>01 FEB 2026</span>
+<span>45:00</span>
+<span class="text-zzz-accent">MUSIC_CULTURE</span>
+</div>
+</div>
+<div class="w-24 text-right">
+<span class="text-[10px] font-mono text-zzz-text-muted">#1208</span>
+</div>
+</div>
+<div class="group bg-zzz-dark/60 border border-zzz-surface hover:border-zzz-primary/50 transition-all p-4 flex items-center gap-6 relative clip-chamfer">
+<div class="w-10 h-10 shrink-0 bg-zzz-surface flex items-center justify-center text-zzz-primary">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-md font-bold text-zinc-300 group-hover:text-white truncate">“A Terrifying Line Is Being Crossed”: Mayor Jacob Frey on Minneapolis</h3>
+<div class="flex gap-4 mt-1 font-mono text-[10px] text-zzz-text-muted">
+<span>31 JAN 2026</span>
+<span>28:15</span>
+<span class="text-zzz-accent">CITY_POLITICS</span>
+</div>
+</div>
+<div class="w-24 text-right">
+<span class="text-[10px] font-mono text-zzz-text-muted">#1207</span>
+</div>
+</div>
+<div class="group bg-zzz-dark/60 border border-zzz-surface hover:border-zzz-primary/50 transition-all p-4 flex items-center gap-6 relative clip-chamfer">
+<div class="w-10 h-10 shrink-0 bg-zzz-surface flex items-center justify-center text-zzz-primary">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-md font-bold text-zinc-300 group-hover:text-white truncate">The Future of Remote Work: A Post-Pandemic Evaluation</h3>
+<div class="flex gap-4 mt-1 font-mono text-[10px] text-zzz-text-muted">
+<span>30 JAN 2026</span>
+<span>52:40</span>
+<span class="text-zzz-accent">SOCIETY</span>
+</div>
+</div>
+<div class="w-24 text-right">
+<span class="text-[10px] font-mono text-zzz-text-muted">#1206</span>
+</div>
+</div>
+</div>
+</section>
+<div class="absolute bottom-6 right-6 w-80 flex flex-col gap-3 pointer-events-auto">
+<div class="bg-zzz-dark border border-zzz-primary/30 p-4 clip-chamfer shadow-2xl backdrop-blur-md">
+<div class="flex justify-between items-center mb-4">
+<span class="text-[9px] font-mono text-zzz-primary flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-zzz-primary rounded-full animate-pulse"></span>
+                                PROCESSING
+                            </span>
+<span class="text-[9px] font-mono text-zzz-text-muted">48kHz / 24bit</span>
+</div>
+<div class="flex items-center gap-4 mb-4">
+<div class="w-16 h-16 bg-black rounded-full border border-zzz-surface flex items-center justify-center relative overflow-hidden">
+<div class="absolute inset-0 bg-zzz-primary opacity-5"></div>
+<span class="material-symbols-outlined text-zzz-primary text-2xl">graphic_eq</span>
+<div class="absolute inset-0 border border-zzz-primary/10 rounded-full scale-110 animate-pulse"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] font-mono text-white">DENOISE</span>
+<span class="text-[9px] font-mono text-zzz-primary">ON</span>
+</div>
+<div class="w-full h-1.5 bg-zzz-surface rounded-full overflow-hidden">
+<div class="w-3/4 h-full bg-zzz-accent"></div>
+</div>
+</div>
+</div>
+<div class="bg-black/80 border border-white/5 p-2 font-mono text-[8px] text-zinc-500 max-h-20 overflow-hidden shadow-inner">
+<p class="text-zzz-primary">&gt; Neural Engine: Ready</p>
+<p>&gt; Isolation Level: 85%</p>
+<p>&gt; Latency: 12ms</p>
+<p>&gt; Stream Buffer: Stable</p>
+</div>
+</div>
+</div>
+<div class="px-6 py-2 border-t border-zzz-surface/30 bg-zzz-dark/10 flex justify-between items-center">
+<div class="flex gap-4 text-[9px] font-mono text-zzz-text-muted uppercase">
+<span>CPU: 12%</span>
+<span>MEM: 2.1GB</span>
+<span>NET: 45MB/S</span>
+</div>
+<div class="text-[9px] font-mono font-bold text-zzz-text-muted/30 uppercase tracking-widest">
+                        BUILD_9921 // ZZZ_PROTO_SYSTEM_V3
+                    </div>
+</div>
+</main>
+</div>
+</div>
+
+</body></html>
