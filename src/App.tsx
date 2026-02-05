@@ -37,18 +37,6 @@ type MobileTab = 'search' | 'sources' | 'playing' | 'episodes'
 type SidebarTab = 'sources' | 'search'
 type NowState = 'idle' | 'active' | 'paused'
 
-const NOW_STATE_LABELS: Record<NowState, string> = {
-  idle: 'IDLE',
-  active: 'ACTIVE',
-  paused: 'PAUSED',
-}
-
-const NOW_STATE_CLASS: Record<NowState, string> = {
-  idle: 'pcNowStateIdle',
-  active: 'pcNowStateActive',
-  paused: 'pcNowStatePaused',
-}
-
 type SearchResultsProps = {
   results: ApplePodcastResult[]
   rssLoading: boolean
@@ -862,17 +850,7 @@ export default function App() {
   const canNext =
     sourceKind === 'remote' && episode ? episodesAll.findIndex((e) => e.guid === episode.guid) < episodesAll.length - 1 : false
 
-  const currentNowState: NowState = !episode ? 'idle' : isPlaying ? 'active' : 'paused'
-  const [nowState, setNowState] = useState<NowState>(currentNowState)
-  const [prevNowState, setPrevNowState] = useState<NowState | null>(null)
-
-  useEffect(() => {
-    if (currentNowState === nowState) return
-    setPrevNowState(nowState)
-    setNowState(currentNowState)
-    const timeout = window.setTimeout(() => setPrevNowState(null), 240)
-    return () => window.clearTimeout(timeout)
-  }, [currentNowState, nowState])
+  const nowState: NowState = !episode ? 'idle' : isPlaying ? 'active' : 'paused'
 
   useEffect(() => {
     const el = nowTitleRef.current

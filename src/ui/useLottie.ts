@@ -7,7 +7,7 @@ export type UseLottieOptions = {
   autoplay?: boolean
   playOnHover?: boolean
   enabled?: boolean
-  hoverRef?: RefObject<HTMLElement>
+  hoverRef?: RefObject<HTMLElement | null>
 }
 
 export function useLottie({
