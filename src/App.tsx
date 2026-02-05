@@ -29,6 +29,9 @@ import {
   IconUpload,
   IconWave,
 } from './ui/icons'
+import { useLottie } from './ui/useLottie'
+import playLoadingAnim from './assets/lottie/play-loading.json'
+import controlHoverAnim from './assets/lottie/control-hover.json'
 
 type MobileTab = 'search' | 'sources' | 'playing' | 'episodes'
 type SidebarTab = 'sources' | 'search'
@@ -209,6 +212,53 @@ function splitTitle(title: string): { head: string; accent?: string } {
   return { head: t }
 }
 
+function useScrambleText(text: string, durationMs = 700): string {
+  const [display, setDisplay] = useState(text)
+  const rafRef = useRef<number | null>(null)
+  const scrambleRef = useRef<number[]>([])
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&'
+
+  useEffect(() => {
+    if (!text) {
+      setDisplay(text)
+      return
+    }
+
+    const chars = text.split('')
+    const reveals = chars.map((ch, i) => {
+      if (!/[A-Za-z0-9]/.test(ch)) return 0
+      const base = i / Math.max(1, chars.length - 1)
+      return Math.min(1, base * 0.65 + Math.random() * 0.35)
+    })
+    scrambleRef.current = reveals
+
+    const start = performance.now()
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / durationMs)
+      const next = chars
+        .map((ch, i) => {
+          if (!/[A-Za-z0-9]/.test(ch)) return ch
+          if (p >= (scrambleRef.current[i] ?? 0)) return ch
+          return charset[Math.floor(Math.random() * charset.length)]
+        })
+        .join('')
+      setDisplay(next)
+      if (p < 1) {
+        rafRef.current = window.requestAnimationFrame(tick)
+      } else {
+        setDisplay(text)
+      }
+    }
+
+    rafRef.current = window.requestAnimationFrame(tick)
+    return () => {
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
+    }
+  }, [text, durationMs])
+
+  return display
+}
+
 async function corsProbe(url: string): Promise<boolean> {
   // Same-origin is always fine.
   try {
@@ -298,16 +348,73 @@ export default function App() {
   // Keep the status in the mobile top bar; desktop has the floating widget.
   const nowTitle = episode?.title ?? 'Select an episode'
   const split = useMemo(() => splitTitle(nowTitle), [nowTitle])
+  const nowTitleRef = useRef<HTMLHeadingElement | null>(null)
+  const headScramble = useScrambleText(split.head, 1000)
+  const accentScramble = useScrambleText(split.accent ?? '', 1000)
+
+  const playBtnRef = useRef<HTMLButtonElement | null>(null)
+  const prevBtnRef = useRef<HTMLButtonElement | null>(null)
+  const nextBtnRef = useRef<HTMLButtonElement | null>(null)
+  const importBtnRef = useRef<HTMLButtonElement | null>(null)
+  const denoiseBtnRef = useRef<HTMLButtonElement | null>(null)
 
   const releaseDate = useMemo(
     () => episode?.dateStamp ?? (sourceKind === 'local' ? 'LOCAL' : null),
     [episode?.dateStamp, sourceKind],
   )
+  const releaseLabel = releaseDate ?? '—'
+  const releaseScramble = useScrambleText(releaseLabel, 1000)
+  const sourceLabel = sourceKind === 'local' ? 'LOCAL_FILE' : podcast?.feed.title ?? 'NO_SOURCE'
+  const sourceScramble = useScrambleText(sourceLabel, 1000)
+  const nowTagLabel = !episode ? 'READY' : isPlaying ? 'NOW PLAYING' : 'PAUSED'
+  const nowTagScramble = useScrambleText(nowTagLabel, 1000)
 
   const progressPct = duration && duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
   const timeLeft = duration && duration > 0 ? Math.max(0, duration - currentTime) : null
   const isEpisodeLoading = !!loadingEpisodeId && episode?.guid === loadingEpisodeId
   const isDenoiseLoading = engineState === 'loading-model'
+
+  const playHoverLottie = useLottie({
+    animationData: controlHoverAnim,
+    loop: false,
+    autoplay: false,
+    playOnHover: true,
+    hoverRef: playBtnRef,
+  })
+  const playLoadingLottie = useLottie({
+    animationData: playLoadingAnim,
+    loop: true,
+    autoplay: true,
+    enabled: isEpisodeLoading,
+  })
+  const prevHoverLottie = useLottie({
+    animationData: controlHoverAnim,
+    loop: false,
+    autoplay: false,
+    playOnHover: true,
+    hoverRef: prevBtnRef,
+  })
+  const nextHoverLottie = useLottie({
+    animationData: controlHoverAnim,
+    loop: false,
+    autoplay: false,
+    playOnHover: true,
+    hoverRef: nextBtnRef,
+  })
+  const importHoverLottie = useLottie({
+    animationData: controlHoverAnim,
+    loop: false,
+    autoplay: false,
+    playOnHover: true,
+    hoverRef: importBtnRef,
+  })
+  const denoiseHoverLottie = useLottie({
+    animationData: controlHoverAnim,
+    loop: false,
+    autoplay: false,
+    playOnHover: true,
+    hoverRef: denoiseBtnRef,
+  })
 
   useEffect(() => {
     // Default load.
@@ -767,12 +874,28 @@ export default function App() {
     return () => window.clearTimeout(timeout)
   }, [currentNowState, nowState])
 
+  useEffect(() => {
+    const el = nowTitleRef.current
+    if (!el) return
+
+    const update = () => {
+      const style = window.getComputedStyle(el)
+      const lineHeight = Number.parseFloat(style.lineHeight)
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) return
+      const lines = Math.round(el.getBoundingClientRect().height / lineHeight)
+      el.classList.toggle('isLong', lines > 2)
+    }
+
+    const onResize = () => window.requestAnimationFrame(update)
+    update()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [nowTitle])
+
   const topStatus = useMemo(() => {
     return [
       `ENGINE: ${engineState.toUpperCase()}`,
       `DETAIL: ${engineDetail || 'READY'}`,
-      `SOURCE: ${sourceKind.toUpperCase()}`,
-      `CORS: ${sourceKind === 'local' ? 'N/A' : canDenoise === false ? 'BLOCKED' : 'UNKNOWN'}`,
     ]
       .filter(Boolean)
       .join('   ')
@@ -832,7 +955,6 @@ export default function App() {
               Poise<span>Cast</span>
               <span className="pcBrandVer">VER. 0.1</span>
             </div>
-            <div className="pcBrandSub">/// HIGH-RES AUDIO ● ZEN MODE</div>
           </div>
         </div>
 
@@ -973,31 +1095,17 @@ export default function App() {
             className="pcNow pcChamfer"
             data-state={nowState}
           >
-            <div className="pcNowState" aria-hidden="true">
-              {prevNowState ? (
-                <span
-                  key={`out-${prevNowState}`}
-                  className={`pcNowStateText pcNowStateOut ${NOW_STATE_CLASS[prevNowState]}`}
-                >
-                  {NOW_STATE_LABELS[prevNowState]}
-                </span>
-              ) : null}
-              <span key={`in-${nowState}`} className={`pcNowStateText pcNowStateIn ${NOW_STATE_CLASS[nowState]}`}>
-                {NOW_STATE_LABELS[nowState]}
-              </span>
-            </div>
             <div className="pcNowInner">
               <div className="pcNowTop">
-                <div className="pcTag">NOW PLAYING</div>
+                <div className="pcTag">{nowTagScramble}</div>
                 <div className="pcNowLine">
-                  /// {sourceKind === 'local' ? 'LOCAL_FILE' : podcast?.feed.title ?? 'NO_SOURCE'} ///{' '}
-                  {model ? model.id.toUpperCase() : 'MODEL'} /// {releaseDate ?? '—'}
+                  /// {sourceScramble} /// {releaseScramble}
                 </div>
               </div>
 
-              <h2 className="pcNowTitle">
-                <span className="pcNowTitleHead">{split.head}</span>
-                {split.accent ? <span className="pcNowTitleAccent">{split.accent}</span> : null}
+              <h2 className="pcNowTitle" ref={nowTitleRef}>
+                <span className="pcNowTitleHead">{headScramble}</span>
+                {split.accent ? <span className="pcNowTitleAccent">{accentScramble}</span> : null}
               </h2>
 
               <div className="pcPlayerStack">
@@ -1013,42 +1121,63 @@ export default function App() {
                 </div>
 
                 <div className="pcControls">
+                  <button
+                    ref={importBtnRef}
+                    className="pcMiniBtn pcControlImport pcControlsSide"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <span className="pcLottie pcLottieHover" ref={importHoverLottie.containerRef} />
+                    <IconUpload size={14} /> IMPORT
+                  </button>
+
                   <div className="pcControlsRow pcControlsRowPrimary">
-                    <button className="pcSkip" onClick={playPrev} disabled={!canPrev} title="Previous">
+                    <button
+                      ref={prevBtnRef}
+                      className="pcSkip"
+                      onClick={playPrev}
+                      disabled={!canPrev}
+                      title="Previous"
+                    >
+                      <span className="pcLottie pcLottieHover" ref={prevHoverLottie.containerRef} />
                       <IconPrev size={26} />
                     </button>
                     <button
+                      ref={playBtnRef}
                       className={`pcPlay ${isPlaying ? 'on' : ''} ${isEpisodeLoading ? 'isLoading' : ''}`}
                       onClick={() => void togglePlayPause()}
                       title={isEpisodeLoading ? 'Loading…' : 'Play / Pause'}
                       disabled={!episode || isEpisodeLoading}
                     >
+                      <span className="pcLottie pcLottieHover pcLottiePlay" ref={playHoverLottie.containerRef} />
+                      {isEpisodeLoading ? (
+                        <span className="pcLottie pcLottieLoading pcLottiePlay" ref={playLoadingLottie.containerRef} />
+                      ) : null}
                       {isPlaying ? <IconPause size={44} /> : <IconPlay size={44} />}
-                      {isEpisodeLoading ? <span className="pcSpinner pcPlaySpinner" aria-hidden="true" /> : null}
                     </button>
-                    <button className="pcSkip" onClick={playNext} disabled={!canNext} title="Next">
+                    <button
+                      ref={nextBtnRef}
+                      className="pcSkip"
+                      onClick={playNext}
+                      disabled={!canNext}
+                      title="Next"
+                    >
+                      <span className="pcLottie pcLottieHover" ref={nextHoverLottie.containerRef} />
                       <IconNext size={26} />
                     </button>
                   </div>
 
-                  <div className="pcControlsRow pcControlsRowSecondary">
-                    <button className="pcMiniBtn pcControlImport" onClick={() => fileInputRef.current?.click()}>
-                      <IconUpload size={14} /> IMPORT
-                    </button>
-                    <div className="pcDenoiseControl">
-                      <div className="pcMiniLabel">DENOISE</div>
-                      <button
-                        className={`pcSwitch pcDenoiseSwitch ${denoiseEnabled ? 'on' : ''}`}
-                        disabled={!episode || !model?.supported || isDenoiseLoading}
-                        onClick={() => void toggleDenoise(!denoiseEnabled)}
-                        title={isDenoiseLoading ? 'Loading…' : `Denoise ${denoiseEnabled ? 'On' : 'Off'}`}
-                      >
-                        <span className="pcSwitchThumb" />
-                      </button>
-                      <div className={`pcProcState ${denoiseEnabled ? 'on' : ''}`}>{denoiseEnabled ? 'ON' : 'OFF'}</div>
-                      {isDenoiseLoading ? <span className="pcSpinner pcSpinnerSm" aria-hidden="true" /> : null}
-                    </div>
-                  </div>
+                  <button
+                    ref={denoiseBtnRef}
+                    className={`pcDenoiseControl pcControlsSide ${denoiseEnabled ? 'on' : ''}`}
+                    disabled={!episode || !model?.supported || isDenoiseLoading}
+                    onClick={() => void toggleDenoise(!denoiseEnabled)}
+                    title={isDenoiseLoading ? 'Loading…' : `Denoise ${denoiseEnabled ? 'On' : 'Off'}`}
+                  >
+                    <span className="pcLottie pcLottieHover" ref={denoiseHoverLottie.containerRef} />
+                    <div className="pcMiniLabel">DENOISE</div>
+                    <div className={`pcProcState ${denoiseEnabled ? 'on' : ''}`}>{denoiseEnabled ? 'ON' : 'OFF'}</div>
+                    {isDenoiseLoading ? <span className="pcSpinner pcSpinnerSm" aria-hidden="true" /> : null}
+                  </button>
                 </div>
               </div>
 
