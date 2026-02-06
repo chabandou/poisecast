@@ -14,6 +14,25 @@ export const config = {
   runtime: 'nodejs',
 }
 
+const MAX_URL_LENGTH = 8_192
+const RATE_WINDOW_MS = parseNumberEnv(process.env.STREAM_PROXY_RATE_WINDOW_MS, 60_000, 1_000, 600_000)
+const RATE_MAX_REQUESTS = parseNumberEnv(process.env.STREAM_PROXY_RATE_MAX_REQUESTS, 120, 1, 10_000)
+const RATE_MAX_INFLIGHT = parseNumberEnv(process.env.STREAM_PROXY_RATE_MAX_INFLIGHT, 8, 1, 256)
+const RATE_BLOCK_MS = parseNumberEnv(process.env.STREAM_PROXY_RATE_BLOCK_MS, 120_000, 1_000, 3_600_000)
+const RATE_STATE_MAX_ENTRIES = parseNumberEnv(process.env.STREAM_PROXY_RATE_MAX_ENTRIES, 5_000, 100, 100_000)
+const ALLOWLIST = parseHostListEnv(process.env.STREAM_PROXY_ALLOWLIST)
+const BLOCKLIST = parseHostListEnv(process.env.STREAM_PROXY_BLOCKLIST)
+
+type RateEntry = {
+  windowStart: number
+  requestCount: number
+  inFlight: number
+  blockedUntil: number
+  lastSeen: number
+}
+
+const RATE_STATE = new Map<string, RateEntry>()
+
 function isPrivateIPv4(hostname: string): boolean {
   const parts = hostname.split('.').map((p) => Number.parseInt(p, 10))
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return false
@@ -37,6 +56,122 @@ function isBlockedHostname(hostname: string): boolean {
   return false
 }
 
+function parseHostListEnv(raw: string | undefined): string[] {
+  if (!raw) return []
+  return raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function parseNumberEnv(raw: string | undefined, fallback: number, min: number, max: number): number {
+  if (!raw) return fallback
+  const n = Number.parseInt(raw, 10)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, n))
+}
+
+function hostMatchesPattern(hostname: string, pattern: string): boolean {
+  if (!pattern) return false
+  if (pattern.startsWith('*.')) {
+    const suffix = pattern.slice(2)
+    return hostname === suffix || hostname.endsWith(`.${suffix}`)
+  }
+  return hostname === pattern
+}
+
+function isHostAllowedByPolicy(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  if (BLOCKLIST.some((p) => hostMatchesPattern(h, p))) return false
+  if (ALLOWLIST.length > 0) return ALLOWLIST.some((p) => hostMatchesPattern(h, p))
+  return true
+}
+
+function firstHeaderValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function getClientIp(req: { headers: Record<string, string | string[] | undefined> }): string {
+  const forwarded = firstHeaderValue(req.headers['x-forwarded-for'])
+  if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown'
+  const realIp = firstHeaderValue(req.headers['x-real-ip'])
+  if (realIp) return realIp.trim()
+  const cfIp = firstHeaderValue(req.headers['cf-connecting-ip'])
+  if (cfIp) return cfIp.trim()
+  return 'unknown'
+}
+
+function cleanupRateState(now: number): void {
+  const staleCutoff = now - Math.max(RATE_WINDOW_MS + RATE_BLOCK_MS, 300_000)
+  for (const [key, entry] of RATE_STATE.entries()) {
+    if (entry.inFlight === 0 && entry.lastSeen < staleCutoff) {
+      RATE_STATE.delete(key)
+    }
+  }
+
+  if (RATE_STATE.size <= RATE_STATE_MAX_ENTRIES) return
+
+  const entries = Array.from(RATE_STATE.entries())
+  entries.sort((a, b) => a[1].lastSeen - b[1].lastSeen)
+  const toDrop = RATE_STATE.size - RATE_STATE_MAX_ENTRIES
+  for (let i = 0; i < toDrop; i += 1) {
+    const key = entries[i]?.[0]
+    if (key) RATE_STATE.delete(key)
+  }
+}
+
+function tryAcquireRateSlot(ip: string, now: number): { ok: true } | { ok: false; retryAfterSeconds: number } {
+  cleanupRateState(now)
+
+  const entry =
+    RATE_STATE.get(ip) ??
+    {
+      windowStart: now,
+      requestCount: 0,
+      inFlight: 0,
+      blockedUntil: 0,
+      lastSeen: now,
+    }
+
+  if (now < entry.blockedUntil) {
+    entry.lastSeen = now
+    RATE_STATE.set(ip, entry)
+    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000)) }
+  }
+
+  if (now - entry.windowStart >= RATE_WINDOW_MS) {
+    entry.windowStart = now
+    entry.requestCount = 0
+  }
+
+  if (entry.inFlight >= RATE_MAX_INFLIGHT) {
+    entry.lastSeen = now
+    RATE_STATE.set(ip, entry)
+    return { ok: false, retryAfterSeconds: 1 }
+  }
+
+  if (entry.requestCount >= RATE_MAX_REQUESTS) {
+    entry.blockedUntil = now + RATE_BLOCK_MS
+    entry.lastSeen = now
+    RATE_STATE.set(ip, entry)
+    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil(RATE_BLOCK_MS / 1000)) }
+  }
+
+  entry.requestCount += 1
+  entry.inFlight += 1
+  entry.lastSeen = now
+  RATE_STATE.set(ip, entry)
+  return { ok: true }
+}
+
+function releaseRateSlot(ip: string): void {
+  const entry = RATE_STATE.get(ip)
+  if (!entry) return
+  entry.inFlight = Math.max(0, entry.inFlight - 1)
+  entry.lastSeen = Date.now()
+  RATE_STATE.set(ip, entry)
+}
+
 function readQueryUrl(req: { query?: Record<string, string | string[] | undefined> }): string | null {
   const raw = req.query?.url
   if (!raw) return null
@@ -44,11 +179,13 @@ function readQueryUrl(req: { query?: Record<string, string | string[] | undefine
 }
 
 function parseTargetUrl(raw: string): URL | null {
-  if (raw.length > 8_192) return null
+  if (raw.length > MAX_URL_LENGTH) return null
   try {
     const parsed = new URL(raw)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    if (parsed.username || parsed.password) return null
     if (isBlockedHostname(parsed.hostname)) return null
+    if (!isHostAllowedByPolicy(parsed.hostname)) return null
     return parsed
   } catch {
     return null
@@ -110,6 +247,14 @@ export default async function handler(
     return
   }
 
+  const clientIp = getClientIp(req)
+  const rateGate = tryAcquireRateSlot(clientIp, Date.now())
+  if (!rateGate.ok) {
+    res.setHeader('retry-after', String(rateGate.retryAfterSeconds))
+    res.status(429).json({ error: 'Rate limit exceeded' })
+    return
+  }
+
   const upstreamHeaders: Record<string, string> = {}
   const range = req.headers.range
   const ifRange = req.headers['if-range']
@@ -146,5 +291,7 @@ export default async function handler(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     res.status(502).json({ error: 'Upstream fetch failed', detail: message })
+  } finally {
+    releaseRateSlot(clientIp)
   }
 }

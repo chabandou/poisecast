@@ -386,9 +386,17 @@ function isSameOriginUrl(value: string): boolean {
 
 async function probeStreamProxy(proxyUrl: string): Promise<boolean> {
   const ctrl = new AbortController()
-  const timer = window.setTimeout(() => ctrl.abort(), 2500)
+  const timer = window.setTimeout(() => ctrl.abort(), 7000)
   try {
-    const res = await fetch(proxyUrl, { method: 'HEAD', cache: 'no-store', signal: ctrl.signal })
+    const res = await fetch(proxyUrl, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      cache: 'no-store',
+      signal: ctrl.signal,
+    })
+    if (res.body) {
+      void res.body.cancel().catch(() => {})
+    }
     return res.ok
   } catch {
     return false
@@ -422,7 +430,6 @@ export default function App() {
   const [modelId, setModelId] = useState(MODELS[0]?.id ?? 'denoiser_model')
   const model = useMemo(() => MODELS.find((m) => m.id === modelId) ?? MODELS[0], [modelId])
   const getRemotePlaybackUrl = useCallback((ep: PodcastEpisode): string => {
-    if (import.meta.env.DEV) return ep.enclosureUrl
     if (proxyBypassRef.current.has(ep.guid)) return ep.enclosureUrl
     return buildStreamProxyUrl(ep.enclosureUrl)
   }, [])
