@@ -30,7 +30,8 @@ Firefox install paths:
 
 ## Notes / Constraints
 
-- Denoising uses WebAudio (`MediaElementAudioSourceNode`). For cross-origin podcast audio, the host must allow CORS or the audio graph will be muted.
+- Remote episode playback is routed through `/api/stream` (same-origin proxy) in production so denoising can attach without host CORS support.
+- In local static runs (`bun dev` / `bun run preview`), `/api/stream` is not available and playback falls back to direct episode URLs.
 - Workaround (no server): use **Import file** in the player to process a locally-downloaded episode.
 - v1 supports the time-domain model (`denoiser_model.onnx`). The UMXHQ spectral models require an STFT pipeline (not implemented yet).
 

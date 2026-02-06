@@ -372,6 +372,31 @@ function inferAudioExtension(url: string, mimeType?: string): string {
   return '.mp3'
 }
 
+function buildStreamProxyUrl(sourceUrl: string): string {
+  return `/api/stream?url=${encodeURIComponent(sourceUrl)}`
+}
+
+function isSameOriginUrl(value: string): boolean {
+  try {
+    return new URL(value, window.location.href).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
+async function probeStreamProxy(proxyUrl: string): Promise<boolean> {
+  const ctrl = new AbortController()
+  const timer = window.setTimeout(() => ctrl.abort(), 2500)
+  try {
+    const res = await fetch(proxyUrl, { method: 'HEAD', cache: 'no-store', signal: ctrl.signal })
+    return res.ok
+  } catch {
+    return false
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 export default function App() {
   const isMobile = useIsMobile(980)
   const [mobileTab, setMobileTab] = useState<MobileTab>('sources')
@@ -380,6 +405,8 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const proxyBypassRef = useRef<Set<string>>(new Set())
+  const proxyVerifiedRef = useRef<Set<string>>(new Set())
 
   const engineRef = useRef<DenoiseEngine | null>(null)
   const initPromiseRef = useRef<Promise<void> | null>(null)
@@ -394,6 +421,11 @@ export default function App() {
 
   const [modelId, setModelId] = useState(MODELS[0]?.id ?? 'denoiser_model')
   const model = useMemo(() => MODELS.find((m) => m.id === modelId) ?? MODELS[0], [modelId])
+  const getRemotePlaybackUrl = useCallback((ep: PodcastEpisode): string => {
+    if (import.meta.env.DEV) return ep.enclosureUrl
+    if (proxyBypassRef.current.has(ep.guid)) return ep.enclosureUrl
+    return buildStreamProxyUrl(ep.enclosureUrl)
+  }, [])
   const warmModelCache = useCallback(async (nextModelId: string) => {
     const next = MODELS.find((m) => m.id === nextModelId)
     if (!next) return
@@ -837,11 +869,20 @@ export default function App() {
       objectUrlRef.current = null
     }
 
-    // Cautious default: do NOT set `crossOrigin` for normal playback.
-    // Many podcast hosts don't allow CORS; forcing `crossOrigin="anonymous"`
-    // can cause the media request to fail entirely.
+    let playbackUrl = getRemotePlaybackUrl(ep)
+    if (playbackUrl !== ep.enclosureUrl && !proxyVerifiedRef.current.has(ep.guid)) {
+      const proxyOk = await probeStreamProxy(playbackUrl)
+      if (!proxyOk) {
+        proxyBypassRef.current.add(ep.guid)
+        playbackUrl = ep.enclosureUrl
+        setEngineDetail('Proxy unavailable for this episode. Using direct stream.')
+      } else {
+        proxyVerifiedRef.current.add(ep.guid)
+      }
+    }
+
     audioEl.removeAttribute('crossorigin')
-    audioEl.src = ep.enclosureUrl
+    audioEl.src = playbackUrl
     audioEl.load()
 
     try {
@@ -851,7 +892,7 @@ export default function App() {
     }
 
     if (isMobile) setMobileTab('playing')
-  }, [isMobile])
+  }, [getRemotePlaybackUrl, isMobile])
 
   const handleSearchSelect = useCallback(
     (result: ApplePodcastResult) => {
@@ -972,6 +1013,8 @@ export default function App() {
   async function toggleDenoise(next: boolean) {
     const audioEl = audioRef.current
     if (!audioEl || !episode) return
+    const remotePlaybackUrl = sourceKind === 'remote' ? getRemotePlaybackUrl(episode) : episode.enclosureUrl
+    const remoteNeedsCors = sourceKind === 'remote' && !isSameOriginUrl(remotePlaybackUrl)
 
     if (!next) {
       setDenoiseEnabled(false)
@@ -983,7 +1026,7 @@ export default function App() {
     setEngineDetail('')
     setEngineState(engineRef.current?.status.state ?? 'idle')
 
-    const ok = sourceKind === 'local' ? true : await corsProbe(episode.enclosureUrl)
+    const ok = sourceKind === 'local' ? true : remoteNeedsCors ? await corsProbe(remotePlaybackUrl) : true
     setCanDenoise(ok)
     if (!ok) {
       setDenoiseEnabled(false)
@@ -996,8 +1039,9 @@ export default function App() {
       // even if the host supports CORS (because it was initially loaded without CORS).
       const wasPaused = audioEl.paused
       const t = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
-      audioEl.crossOrigin = 'anonymous'
-      audioEl.src = episode.enclosureUrl
+      if (remoteNeedsCors) audioEl.crossOrigin = 'anonymous'
+      else audioEl.removeAttribute('crossorigin')
+      audioEl.src = remotePlaybackUrl
       audioEl.load()
       await new Promise<void>((resolve) => {
         const done = () => resolve()
