@@ -44,6 +44,12 @@ type SearchResultsProps = {
   onSelect: (result: ApplePodcastResult) => void
 }
 
+type BeforeInstallPromptEvent = Event & {
+  platforms: string[]
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+  prompt: () => Promise<void>
+}
+
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
   try {
     const res = await fetch(
@@ -275,6 +281,97 @@ async function corsProbe(url: string): Promise<boolean> {
   }
 }
 
+function isStandaloneMode(): boolean {
+  const nav = window.navigator as Navigator & { standalone?: boolean }
+  return window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true
+}
+
+function getInstallHelpMessage(): string {
+  const ua = window.navigator.userAgent
+  const isAndroid = /Android/i.test(ua)
+  const isWindows = /Windows/i.test(ua)
+  const isIOS = /iPad|iPhone|iPod/i.test(ua)
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua)
+  const isFirefox = /Firefox|FxiOS/i.test(ua)
+
+  if (isFirefox && isWindows) {
+    return 'Firefox on Windows: click the Web Apps button in the address bar to install this site. If it is missing, update Firefox and use a regular (non-private) window.'
+  }
+  if (isFirefox && isAndroid) {
+    return 'Firefox on Android: open the browser menu, then choose Install or Add to Home screen.'
+  }
+  if (isIOS && isSafari) {
+    return 'Safari on iOS: tap Share, then choose "Add to Home Screen".'
+  }
+  if (isFirefox) {
+    return 'Firefox web-app install is currently available on Windows desktop and Android. On this device, use Chrome or Edge.'
+  }
+  return 'If no prompt appears, open your browser menu and choose "Install app" or "Add to Home screen".'
+}
+
+const MODEL_CACHE_NAME = 'poisecast-assets'
+const AUDIO_FILE_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
+const MIME_TO_EXT: Record<string, string> = {
+  'audio/mpeg': '.mp3',
+  'audio/mp3': '.mp3',
+  'audio/mp4': '.m4a',
+  'audio/x-m4a': '.m4a',
+  'audio/aac': '.aac',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/flac': '.flac',
+  'audio/x-flac': '.flac',
+  'audio/ogg': '.ogg',
+  'audio/opus': '.opus',
+  'audio/webm': '.webm',
+}
+
+async function cacheModelOnDemand(modelUrl: string): Promise<void> {
+  if (!('caches' in window)) return
+
+  const absoluteUrl = new URL(modelUrl, window.location.href).toString()
+  const cache = await caches.open(MODEL_CACHE_NAME)
+  const hit = await cache.match(absoluteUrl, { ignoreSearch: true })
+  if (hit) return
+
+  const res = await fetch(absoluteUrl, { cache: 'no-store' })
+  if (!res.ok) {
+    throw new Error(`Model download failed (${res.status})`)
+  }
+  await cache.put(absoluteUrl, res.clone())
+}
+
+function isLikelyAudioFile(file: File): boolean {
+  if (file.type.startsWith('audio/')) return true
+  return /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus|webm|m4b|mp4)$/i.test(file.name)
+}
+
+function sanitizeFileName(value: string): string {
+  const clean = value
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return clean || 'episode'
+}
+
+function inferAudioExtension(url: string, mimeType?: string): string {
+  if (mimeType) {
+    const normalized = mimeType.toLowerCase().split(';', 1)[0]
+    const mapped = MIME_TO_EXT[normalized]
+    if (mapped) return mapped
+  }
+
+  try {
+    const pathname = new URL(url, window.location.href).pathname
+    const match = pathname.match(/\.([A-Za-z0-9]{2,8})$/)
+    if (match) return `.${match[1].toLowerCase()}`
+  } catch {
+    // Ignore parse failures and fall back to mp3.
+  }
+
+  return '.mp3'
+}
+
 export default function App() {
   const isMobile = useIsMobile(980)
   const [mobileTab, setMobileTab] = useState<MobileTab>('sources')
@@ -297,6 +394,20 @@ export default function App() {
 
   const [modelId, setModelId] = useState(MODELS[0]?.id ?? 'denoiser_model')
   const model = useMemo(() => MODELS.find((m) => m.id === modelId) ?? MODELS[0], [modelId])
+  const warmModelCache = useCallback(async (nextModelId: string) => {
+    const next = MODELS.find((m) => m.id === nextModelId)
+    if (!next) return
+    try {
+      await cacheModelOnDemand(next.url)
+    } catch {
+      // Best effort: model can still be fetched normally when denoise is enabled.
+    }
+  }, [])
+  const onModelChange = useCallback((nextModelId: string) => {
+    setModelId(nextModelId)
+    setEngineDetail('Switching models requires refresh (v1).')
+    void warmModelCache(nextModelId)
+  }, [warmModelCache])
 
   const [rssUrl, setRssUrl] = useState(DEFAULT_FEEDS[0]?.rssUrl ?? '')
   const [rssLoading, setRssLoading] = useState(false)
@@ -311,6 +422,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<ApplePodcastResult[]>([])
   const [loadingFeedUrl, setLoadingFeedUrl] = useState<string | null>(null)
   const [loadingEpisodeId, setLoadingEpisodeId] = useState<string | null>(null)
+  const [downloadingEpisodeId, setDownloadingEpisodeId] = useState<string | null>(null)
   const [feedImages, setFeedImages] = useState<Record<string, string>>({})
   const feedImageFetchRef = useRef<Set<string>>(new Set())
 
@@ -321,6 +433,9 @@ export default function App() {
   const [engineDetail, setEngineDetail] = useState<string>('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
   const [canDenoise, setCanDenoise] = useState<boolean | null>(null)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode())
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -403,6 +518,48 @@ export default function App() {
     playOnHover: true,
     hoverRef: denoiseBtnRef,
   })
+
+  useEffect(() => {
+    const mode = window.matchMedia('(display-mode: standalone)')
+    const onModeChange = () => setIsInstalled(isStandaloneMode())
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setInstallPrompt(event as BeforeInstallPromptEvent)
+    }
+    const onInstalled = () => {
+      setInstallPrompt(null)
+      setIsInstalled(true)
+    }
+
+    onModeChange()
+    mode.addEventListener?.('change', onModeChange)
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+
+    return () => {
+      mode.removeEventListener?.('change', onModeChange)
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  const triggerInstall = useCallback(async () => {
+    if (installing) return
+    if (!installPrompt) {
+      window.alert(getInstallHelpMessage())
+      return
+    }
+    setInstalling(true)
+    try {
+      await installPrompt.prompt()
+      const { outcome } = await installPrompt.userChoice
+      if (outcome === 'accepted') setInstallPrompt(null)
+    } finally {
+      setInstalling(false)
+    }
+  }, [installPrompt, installing])
+
+  const canInstall = !isInstalled
 
   useEffect(() => {
     // Default load.
@@ -637,6 +794,7 @@ export default function App() {
       setEngineState('loading-model')
       setEngineDetail('Loading ONNX session…')
       initPromiseRef.current = (async () => {
+        await cacheModelOnDemand(model.url)
         await engineRef.current!.init({ modelUrl: model.url, sampleRateHz: model.sampleRateHz })
         engineRef.current!.setWarmupMs(250)
       })()
@@ -714,9 +872,66 @@ export default function App() {
     [isMobile, loadFeed],
   )
 
+  const handleEpisodeDownload = useCallback(
+    async (ep: PodcastEpisode) => {
+      if (downloadingEpisodeId === ep.guid) return
+      setDownloadingEpisodeId(ep.guid)
+      setEngineDetail('Preparing download…')
+
+      try {
+        const res = await fetch(ep.enclosureUrl, { mode: 'cors' })
+        if (!res.ok) {
+          throw new Error(`Download failed: ${res.status} ${res.statusText}`)
+        }
+
+        const blob = await res.blob()
+        const ext = inferAudioExtension(ep.enclosureUrl, blob.type || res.headers.get('content-type') || undefined)
+        const fileName = `${sanitizeFileName(ep.title)}${ext}`
+        const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' })
+
+        const canShareWithFiles =
+          typeof navigator.share === 'function' &&
+          typeof navigator.canShare === 'function' &&
+          navigator.canShare({ files: [file] })
+
+        if (isMobile && canShareWithFiles) {
+          await navigator.share({ files: [file], title: ep.title })
+          setEngineDetail('Download ready. Use Save to Files from the share sheet.')
+          return
+        }
+
+        const blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = fileName
+        a.rel = 'noopener noreferrer'
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000)
+        setEngineDetail('Download started.')
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          setEngineDetail('Download canceled.')
+          return
+        }
+        setEngineDetail('Direct file save blocked by the host. Opening source URL.')
+        window.open(ep.enclosureUrl, '_blank', 'noopener,noreferrer')
+      } finally {
+        setDownloadingEpisodeId(null)
+      }
+    },
+    [downloadingEpisodeId, isMobile],
+  )
+
   async function startLocalFile(file: File) {
     const audioEl = audioRef.current
     if (!audioEl) return
+    if (!isLikelyAudioFile(file)) {
+      setEngineDetail('File is not recognized as audio. Try MP3, M4A, WAV, FLAC, or OGG.')
+      return
+    }
 
     setCanDenoise(null)
     setDenoiseEnabled(false)
@@ -906,18 +1121,20 @@ export default function App() {
             {loadingEpisodeId === ep.guid ? <span className="pcLoadingText">LOADING…</span> : null}
           </div>
         </div>
-        <a
+        <button
+          type="button"
           className="pcMiniBtn pcEpisodeDownload pcChamfer"
-          href={ep.enclosureUrl}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            void handleEpisodeDownload(ep)
+          }}
+          disabled={downloadingEpisodeId === ep.guid}
         >
-          DOWNLOAD
-        </a>
+          {downloadingEpisodeId === ep.guid ? 'SAVING…' : 'DOWNLOAD'}
+        </button>
       </div>
     ))
-  }, [episodes, episode?.guid, startEpisode])
+  }, [episodes, episode?.guid, loadingEpisodeId, downloadingEpisodeId, startEpisode, handleEpisodeDownload])
 
   return (
     <div className={`pcApp ${isMobile ? 'isMobile' : ''}`} data-tab={mobileTab} data-playstate={nowState}>
@@ -939,6 +1156,11 @@ export default function App() {
         <div className="pcHeaderStatus">{topStatus}</div>
 
         <div className="pcHeaderRight">
+          {canInstall ? (
+            <button className="pcMiniBtn pcInstallBtn pcChamfer" onClick={() => void triggerInstall()} disabled={installing}>
+              {installing ? 'INSTALLING…' : 'INSTALL APP'}
+            </button>
+          ) : null}
           <div className="pcSelectWrap pcChamfer">
             <div className="pcSelectMeta">
               <div className="pcSelectMetaLabel">SYSTEM</div>
@@ -948,8 +1170,7 @@ export default function App() {
               className="pcSelect"
               value={modelId}
               onChange={(e) => {
-                setModelId(e.target.value)
-                setEngineDetail('Switching models requires refresh (v1).')
+                onModelChange(e.target.value)
               }}
             >
               {MODELS.map((m) => (
@@ -964,13 +1185,20 @@ export default function App() {
 
       <div className="pcMobileStatus">
         <div className="pcMobileStatusText">{topStatus}</div>
-        <button
-          className={`pcMobileDenoise ${denoiseEnabled ? 'on' : ''}`}
-          disabled={!episode || !model?.supported}
-          onClick={() => void toggleDenoise(!denoiseEnabled)}
-        >
-          {denoiseEnabled ? 'ON' : 'OFF'}
-        </button>
+        <div className="pcMobileStatusActions">
+          {canInstall ? (
+            <button className="pcMobileInstall" onClick={() => void triggerInstall()} disabled={installing}>
+              {installing ? 'INSTALLING…' : 'INSTALL'}
+            </button>
+          ) : null}
+          <button
+            className={`pcMobileDenoise ${denoiseEnabled ? 'on' : ''}`}
+            disabled={!episode || !model?.supported}
+            onClick={() => void toggleDenoise(!denoiseEnabled)}
+          >
+            {denoiseEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
       </div>
 
       <div className="pcShell">
@@ -1045,8 +1273,7 @@ export default function App() {
                   className="pcInlineSelect"
                   value={modelId}
                   onChange={(e) => {
-                    setModelId(e.target.value)
-                    setEngineDetail('Switching models requires refresh (v1).')
+                    onModelChange(e.target.value)
                   }}
                 >
                   {MODELS.map((m) => (
@@ -1208,7 +1435,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="audio/*"
+        accept={AUDIO_FILE_ACCEPT}
         style={{ display: 'none' }}
         onChange={(e) => {
           const file = e.target.files?.[0]

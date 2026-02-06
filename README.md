@@ -10,10 +10,23 @@ bun install
 bun dev
 ```
 
+For PWA install/offline checks, use a production preview:
+
+```bash
+bun run build
+bun run preview
+```
+
+Firefox install paths:
+
+- Windows: use the Web Apps button in the address bar.
+- Android: open browser menu and choose **Install** / **Add to Home screen**.
+
 ## Models
 
 - ONNX models are served from `public/models/`.
 - ONNX Runtime WASM binaries are served from `public/ort/`.
+- PWA install precaches the default model. Other models are cached on demand when selected/used.
 
 ## Notes / Constraints
 

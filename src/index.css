@@ -256,6 +256,8 @@ body {
   z-index: 3;
 }
 .pcMobileStatusText {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--pc-font-mono);
   font-size: 10px;
   letter-spacing: 0.9px;
@@ -264,6 +266,22 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.pcMobileStatusActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.pcMobileInstall {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(242, 233, 215, 0.9);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.pcMobileInstall:disabled { opacity: 0.45; cursor: not-allowed; }
 .pcMobileDenoise {
   border: 1px solid rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.08);
@@ -993,6 +1011,7 @@ body {
   gap: 12px;
 }
 .pcEpisodeDownload { margin-left: auto; white-space: nowrap; }
+.pcEpisodeDownload:disabled { opacity: 0.55; cursor: wait; }
 
 .pcEmpty {
   padding: 20px;
@@ -1121,6 +1140,7 @@ body {
 }
 .pcMiniBtn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; border-color: rgba(255, 255, 255, 0.45); }
 .pcMiniBtn.pcMiniBtnFull { width: 100%; justify-content: center; }
+.pcInstallBtn { white-space: nowrap; }
 .pcMiniLink {
   font-family: var(--pc-font-mono);
   font-size: 11px;

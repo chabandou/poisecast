@@ -19,6 +19,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+      devOptions: {
+        enabled: true,
+      },
       manifest: {
         name: 'Poisecast',
         short_name: 'Poisecast',
@@ -26,6 +29,8 @@ export default defineConfig({
         theme_color: '#0b0f14',
         background_color: '#0b0f14',
         display: 'standalone',
+        id: '/',
+        scope: '/',
         start_url: '/',
         icons: [
           {
@@ -47,9 +52,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precaching big assets is expensive and can fail on low-storage devices, but you asked
-        // for "offline by default" for the selected model + ORT WASM. We keep glob ignores
-        // and explicitly list only the required files with content-based revisions.
+        // Precache only the default model + core ORT WASM needed for first-run offline use.
+        // Other models remain on-demand and will be cached when selected/used.
         globIgnores: ['**/*.wasm', '**/*.onnx'],
 
         // Workbox default is 2 MiB; our `.onnx` and `.wasm` exceed that by a lot.
@@ -59,10 +63,8 @@ export default defineConfig({
         additionalManifestEntries: (() => {
           const here = path.dirname(fileURLToPath(import.meta.url))
           const pub = path.join(here, 'public')
-
           const files = [
             'models/denoiser_model.onnx',
-            // ORT wasm variants (ORT will pick based on browser features).
             'ort/ort-wasm.wasm',
             'ort/ort-wasm-simd.wasm',
           ]
