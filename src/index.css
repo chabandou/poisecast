@@ -209,6 +209,16 @@ body {
   color: var(--pc-primary);
 }
 
+.pcStatusIndicator.booting .pcStatusDot {
+  background: #f4c58b;
+  animation: pulse 1.8s infinite;
+  box-shadow: 0 0 10px rgba(244, 197, 139, 0.55);
+}
+
+.pcStatusIndicator.booting .pcStatusText {
+  color: #f4c58b;
+}
+
 .pcBandwidth {
   font-family: var(--pc-font-mono);
   font-size: 12px;
@@ -2172,6 +2182,37 @@ body {
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
 }
 
+.pcFooterSlideUp {
+  animation: pcFooterSlideUp 260ms cubic-bezier(0.18, 0.84, 0.33, 1) both;
+}
+
+.pcFooterSlideOut {
+  animation: pcFooterSlideOut 220ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+@keyframes pcFooterSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pcFooterSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
 .pcFooterProgress {
   position: absolute;
   top: 0;
@@ -2179,6 +2220,7 @@ body {
   right: 0;
   height: 2px;
   background: var(--pc-border-subtle);
+  overflow: visible;
 }
 
 .pcFooterProgressTrack {
@@ -2186,6 +2228,47 @@ body {
   width: 100%;
   height: 100%;
   cursor: pointer;
+}
+
+.pcFooterProgressTooltip {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%) translateY(6px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid rgba(242, 233, 215, 0.22);
+  background: rgba(16, 16, 16, 0.94);
+  color: var(--pc-text-main);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.pcFooterProgress:hover .pcFooterProgressTooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pcFooterProgressTime {
+  color: var(--pc-primary);
+}
+
+.pcFooterProgressDuration {
+  color: var(--pc-muted);
+  font-weight: 700;
+}
+
+.pcFooterProgressSep {
+  color: var(--pc-muted);
+  opacity: 0.7;
 }
 
 .pcFooterProgressFill {
@@ -2319,15 +2402,15 @@ body {
 .pcFooterCenter {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
 }
 
 .pcFooterPlayerControls {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 18px;
 }
 
 .pcFooterControlBtn {
@@ -2347,6 +2430,49 @@ body {
   opacity: 0.35;
   cursor: not-allowed;
   transform: none;
+}
+
+.pcFooterControlWithTooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pcFooterControlTooltip {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  transform: translateX(-50%) translateY(6px);
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid rgba(242, 233, 215, 0.22);
+  background: rgba(16, 16, 16, 0.94);
+  color: var(--pc-text-main);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.pcFooterControlWithTooltip:hover .pcFooterControlTooltip,
+.pcFooterControlWithTooltip:focus-within .pcFooterControlTooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pcFooterProcessBtn.on {
+  color: var(--pc-primary);
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
+.pcFooterSeekBtn .material-symbols-outlined {
+  font-size: 21px;
 }
 
 .pcFooterPlayBtn {
@@ -2392,43 +2518,6 @@ body {
   margin: 16px 0;
   opacity: 0.3;
   width: 100%;
-}
-
-.pcFooterTimeControls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  max-width: 512px;
-  justify-content: center;
-}
-
-.pcFooterTimeCurrent,
-.pcFooterTimeTotal {
-  font-size: 10px;
-  font-family: var(--pc-font-mono);
-  color: var(--pc-primary);
-  min-width: 40px;
-  text-align: center;
-}
-
-.pcFooterTimeTotal {
-  color: var(--pc-muted);
-}
-
-.pcFooterTimeTrack {
-  flex: 1;
-  height: 2px;
-  background: var(--pc-border-subtle);
-  border-radius: 1px;
-  overflow: hidden;
-  position: relative;
-}
-
-.pcFooterTimeFill {
-  height: 100%;
-  background: rgba(0, 229, 255, 0.3);
-  width: 38%;
 }
 
 .pcFooterRight {

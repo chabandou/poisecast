@@ -29,7 +29,6 @@ import {
   IconPrev,
   IconRss,
   IconSearch,
-  IconUpload,
   IconWave,
 } from './ui/icons'
 
@@ -437,6 +436,7 @@ function getInstallHelpMessage(): string {
 
 const MODEL_CACHE_NAME = 'poisecast-assets'
 const AUDIO_FILE_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
+const FOOTER_SLIDE_MS = 260
 const MIME_TO_EXT: Record<string, string> = {
   'audio/mpeg': '.mp3',
   'audio/mp3': '.mp3',
@@ -543,6 +543,7 @@ export default function App() {
   const proxyBypassRef = useRef<Set<string>>(new Set())
   const proxyVerifiedRef = useRef<Set<string>>(new Set())
   const lastInferenceAtRef = useRef(0)
+  const footerCloseTimerRef = useRef<number | null>(null)
 
   const engineRef = useRef<DenoiseEngine | null>(null)
   const initPromiseRef = useRef<Promise<void> | null>(null)
@@ -597,6 +598,8 @@ export default function App() {
   const [volume, setVolume] = useState(0.66)
   const [lastNonZeroVolume, setLastNonZeroVolume] = useState(0.66)
   const [isInferenceActive, setIsInferenceActive] = useState(false)
+  const [isProcessingStarting, setIsProcessingStarting] = useState(false)
+  const [isFooterClosing, setIsFooterClosing] = useState(false)
 
   const episodesAll = podcast?.episodes ?? []
   const episodes = useMemo(() => {
@@ -610,7 +613,6 @@ export default function App() {
   const nowTitleRef = useRef<HTMLHeadingElement | null>(null)
 
   const progressPct = duration && duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
-  const timeLeft = duration && duration > 0 ? Math.max(0, duration - currentTime) : null
   const isEpisodeLoading = !!loadingEpisodeId && episode?.guid === loadingEpisodeId
 
   useEffect(() => {
@@ -654,6 +656,13 @@ export default function App() {
   }, [installPrompt, installing])
 
   const canInstall = !isInstalled
+
+  const cancelFooterCloseTimer = useCallback(() => {
+    if (footerCloseTimerRef.current !== null) {
+      window.clearTimeout(footerCloseTimerRef.current)
+      footerCloseTimerRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     if (!denoiseEnabled || !isPlaying || engineState !== 'ready') {
@@ -700,6 +709,7 @@ export default function App() {
     } catch {}
     void loadFeed(rssUrl)
     return () => {
+      cancelFooterCloseTimer()
       engineRef.current?.setInferenceActivityHandler(null)
       void engineRef.current?.dispose()
       if (objectUrlRef.current) {
@@ -845,6 +855,8 @@ export default function App() {
   }, [])
 
   const loadFeed = useCallback(async (url: string) => {
+    cancelFooterCloseTimer()
+    setIsFooterClosing(false)
     setLoadingFeedUrl(url)
     setRssLoading(true)
     setRssError(null)
@@ -854,6 +866,7 @@ export default function App() {
     setCanDenoise(null)
     setDenoiseEnabled(false)
     setIsInferenceActive(false)
+    setIsProcessingStarting(false)
     lastInferenceAtRef.current = 0
     setEpisodeQuery('')
     engineRef.current?.setEnabled(false)
@@ -917,7 +930,7 @@ export default function App() {
       setRssLoading(false)
       setLoadingFeedUrl(null)
     }
-  }, [])
+  }, [cancelFooterCloseTimer])
 
   async function ensureEngine() {
     if (!model) throw new Error('No model selected')
@@ -959,9 +972,48 @@ export default function App() {
     }
   }
 
+  const stopEpisodeAndHideFooter = useCallback(() => {
+    cancelFooterCloseTimer()
+
+    const audioEl = audioRef.current
+    if (audioEl) {
+      try {
+        audioEl.pause()
+      } catch {}
+      audioEl.removeAttribute('crossorigin')
+      audioEl.removeAttribute('src')
+      audioEl.load()
+    }
+
+    setLoadingEpisodeId(null)
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(null)
+    setCanDenoise(null)
+    setDenoiseEnabled(false)
+    setIsInferenceActive(false)
+    setIsProcessingStarting(false)
+    lastInferenceAtRef.current = 0
+    engineRef.current?.setEnabled(false)
+
+    setIsFooterClosing(true)
+    footerCloseTimerRef.current = window.setTimeout(() => {
+      setEpisode(null)
+      setIsFooterClosing(false)
+      footerCloseTimerRef.current = null
+    }, FOOTER_SLIDE_MS)
+  }, [cancelFooterCloseTimer])
+
   const startEpisode = useCallback(async (ep: PodcastEpisode) => {
     const audioEl = audioRef.current
     if (!audioEl) return
+    cancelFooterCloseTimer()
+
+    if (episode?.guid === ep.guid) {
+      stopEpisodeAndHideFooter()
+      return
+    }
+    setIsFooterClosing(false)
 
     setLoadingEpisodeId(ep.guid)
     setEpisode(ep)
@@ -969,6 +1021,7 @@ export default function App() {
     setCanDenoise(null)
     setDenoiseEnabled(false)
     setIsInferenceActive(false)
+    setIsProcessingStarting(false)
     lastInferenceAtRef.current = 0
     engineRef.current?.setEnabled(false)
 
@@ -1000,7 +1053,7 @@ export default function App() {
     }
 
     if (isMobile) setMobileTab('playing')
-  }, [getRemotePlaybackUrl, isMobile])
+  }, [cancelFooterCloseTimer, episode?.guid, getRemotePlaybackUrl, isMobile, stopEpisodeAndHideFooter])
 
   const handleSearchSelect = useCallback(
     (result: ApplePodcastResult) => {
@@ -1082,9 +1135,12 @@ export default function App() {
       return
     }
 
+    cancelFooterCloseTimer()
+    setIsFooterClosing(false)
     setCanDenoise(null)
     setDenoiseEnabled(false)
     setIsInferenceActive(false)
+    setIsProcessingStarting(false)
     lastInferenceAtRef.current = 0
     engineRef.current?.setEnabled(false)
 
@@ -1129,52 +1185,57 @@ export default function App() {
     if (!next) {
       setDenoiseEnabled(false)
       setIsInferenceActive(false)
+      setIsProcessingStarting(false)
       lastInferenceAtRef.current = 0
       engineRef.current?.setEnabled(false)
       audioEl.removeAttribute('crossorigin')
       return
     }
 
+    setIsProcessingStarting(true)
     setEngineDetail('')
     setEngineState(engineRef.current?.status.state ?? 'idle')
-
-    const ok = sourceKind === 'local' ? true : remoteNeedsCors ? await corsProbe(remotePlaybackUrl) : true
-    setCanDenoise(ok)
-    if (!ok) {
-      setDenoiseEnabled(false)
-      setIsInferenceActive(false)
-      lastInferenceAtRef.current = 0
-      setEngineDetail('CORS blocked. Download + import the file to denoise.')
-      return
-    }
-
-    if (sourceKind === 'remote') {
-      // Switch the media element into CORS mode and reload the source, otherwise WebAudio will be blocked
-      // even if the host supports CORS (because it was initially loaded without CORS).
-      const wasPaused = audioEl.paused
-      const t = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
-      if (remoteNeedsCors) audioEl.crossOrigin = 'anonymous'
-      else audioEl.removeAttribute('crossorigin')
-      audioEl.src = remotePlaybackUrl
-      audioEl.load()
-      await new Promise<void>((resolve) => {
-        const done = () => resolve()
-        audioEl.addEventListener('loadedmetadata', done, { once: true })
-      })
-      try {
-        if (t > 0) audioEl.currentTime = t
-      } catch {}
-      if (!wasPaused) {
-        try {
-          await audioEl.play()
-        } catch {}
+    try {
+      const ok = sourceKind === 'local' ? true : remoteNeedsCors ? await corsProbe(remotePlaybackUrl) : true
+      setCanDenoise(ok)
+      if (!ok) {
+        setDenoiseEnabled(false)
+        setIsInferenceActive(false)
+        lastInferenceAtRef.current = 0
+        setEngineDetail('CORS blocked. Download + import the file to denoise.')
+        return
       }
-    }
 
-    await ensureEngine()
-    await engineRef.current!.attach(audioEl)
-    engineRef.current!.setEnabled(true)
-    setDenoiseEnabled(true)
+      if (sourceKind === 'remote') {
+        // Switch the media element into CORS mode and reload the source, otherwise WebAudio will be blocked
+        // even if the host supports CORS (because it was initially loaded without CORS).
+        const wasPaused = audioEl.paused
+        const t = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
+        if (remoteNeedsCors) audioEl.crossOrigin = 'anonymous'
+        else audioEl.removeAttribute('crossorigin')
+        audioEl.src = remotePlaybackUrl
+        audioEl.load()
+        await new Promise<void>((resolve) => {
+          const done = () => resolve()
+          audioEl.addEventListener('loadedmetadata', done, { once: true })
+        })
+        try {
+          if (t > 0) audioEl.currentTime = t
+        } catch {}
+        if (!wasPaused) {
+          try {
+            await audioEl.play()
+          } catch {}
+        }
+      }
+
+      await ensureEngine()
+      await engineRef.current!.attach(audioEl)
+      engineRef.current!.setEnabled(true)
+      setDenoiseEnabled(true)
+    } finally {
+      setIsProcessingStarting(false)
+    }
   }
 
   async function togglePlayPause() {
@@ -1281,6 +1342,20 @@ export default function App() {
     setVolumeClamped(0)
   }, [lastNonZeroVolume, setVolumeClamped, volume])
 
+  function seekBySeconds(deltaSeconds: number) {
+    const audioEl = audioRef.current
+    if (!audioEl || !episode) return
+
+    const current = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
+    const max = Number.isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : null
+    const unclamped = current + deltaSeconds
+    const next = max === null ? Math.max(0, unclamped) : Math.max(0, Math.min(max, unclamped))
+
+    try {
+      audioEl.currentTime = next
+    } catch {}
+  }
+
   function playPrev() {
     if (!episode || sourceKind !== 'remote' || !episodesAll.length) return
     const idx = episodesAll.findIndex((e) => e.guid === episode.guid)
@@ -1344,10 +1419,14 @@ export default function App() {
   }, [activeSource?.category, podcast?.feed.genres, sourceKind])
   const footerCurrent = formatClock(currentTime)
   const footerDuration = formatClock(duration)
-  const footerRemaining = timeLeft !== null ? `-${formatClock(timeLeft)}` : '--:--'
-  const canDownloadCurrent = sourceKind === 'remote' && !!episode
-  const isDownloadingCurrent = !!episode && downloadingEpisodeId === episode.guid
-
+  const processingStatus = isProcessingStarting ? 'booting' : isInferenceActive ? 'active' : 'idle'
+  const footerProcessTooltip = !episode
+    ? 'Select an episode to enable audio processing'
+    : isProcessingStarting
+      ? 'Initializing audio processing (loading model)…'
+    : denoiseEnabled
+      ? 'Disable audio processing (AI denoise)'
+      : 'Enable audio processing (AI denoise)'
   useEffect(() => {
     const el = audioRef.current
     if (!el) return
@@ -1438,9 +1517,11 @@ export default function App() {
         </div>
 
         <div className="pcHeaderStatus">
-          <div className={`pcStatusIndicator ${isInferenceActive ? 'active' : ''}`}>
+          <div className={`pcStatusIndicator ${processingStatus}`}>
             <span className="pcStatusDot"></span>
-            <span className="pcStatusText">Processing: {isInferenceActive ? 'Active' : 'Idle'}</span>
+            <span className="pcStatusText">
+              Processing: {isProcessingStarting ? 'Initializing' : isInferenceActive ? 'Active' : 'Idle'}
+            </span>
           </div>
         </div>
 
@@ -1472,7 +1553,7 @@ export default function App() {
           ) : null}
           <button
             className={`pcMobileDenoise ${denoiseEnabled ? 'on' : ''}`}
-            disabled={!episode || !model?.supported}
+            disabled={!episode || !model?.supported || isProcessingStarting}
             onClick={() => void toggleDenoise(!denoiseEnabled)}
           >
             {denoiseEnabled ? 'ON' : 'OFF'}
@@ -1853,105 +1934,131 @@ export default function App() {
             </>
           )}
 
-      <footer className="pcFooter">
-        <div className="pcFooterProgress">
-          <div className="pcFooterProgressTrack" onClick={episode ? onProgressPointer : undefined}>
-            <div className="pcFooterProgressFill" style={{ width: `${footerProgressPct}%` }}></div>
-            <div
-              className="pcFooterProgressHandle"
-              style={{ left: `calc(${footerProgressPct}% - 6px)`, right: 'auto' }}
-            ></div>
-          </div>
-        </div>
-        <div className="pcFooterControls">
-          <div className="pcFooterLeft">
-            <div className="pcFooterEpisodeInfo">
-              <div className="pcFooterEpisodeArtwork">
-                <span className="material-symbols-outlined">history_edu</span>
-              </div>
-              <div className="pcFooterEpisodeDetails">
-                <h4 className={`pcFooterEpisodeTitle ${footerPanActive ? 'isPanning' : ''}`}>
-                  <span
-                    ref={footerTitlePan.ref}
-                    className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
-                    style={{ ...footerPanSharedStyle, ...footerTitlePan.style }}
-                  >
-                    {footerEpisodeTitle}
-                  </span>
-                </h4>
-                <p className={`pcFooterEpisodeShow ${footerPanActive ? 'isPanning' : ''}`}>
-                  <span
-                    ref={footerShowPan.ref}
-                    className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
-                    style={{ ...footerPanSharedStyle, ...footerShowPan.style }}
-                  >
-                    {footerEpisodeShow}
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="pcFooterCenter">
-            <div className="pcFooterPlayerControls">
-              <button type="button" className="pcFooterControlBtn" disabled={!canPrev} onClick={playPrev} title="Previous">
-                <IconPrev size={20} />
-              </button>
-              <button
-                type="button"
-                className="pcFooterPlayBtn"
-                disabled={!episode || isEpisodeLoading}
-                onClick={() => void togglePlayPause()}
-                title={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
-              </button>
-              <button type="button" className="pcFooterControlBtn" disabled={!canNext} onClick={playNext} title="Next">
-                <IconNext size={20} />
-              </button>
-            </div>
-            <div className="pcFooterTimeControls">
-              <span className="pcFooterTimeCurrent">{footerCurrent}</span>
-              <div className="pcFooterTimeTrack">
-                <div className="pcFooterTimeFill" style={{ width: `${footerProgressPct}%` }}></div>
-              </div>
-              <span className="pcFooterTimeTotal">{footerDuration !== '--:--' ? footerRemaining : footerDuration}</span>
-            </div>
-          </div>
-          <div className="pcFooterRight">
-            <button
-              type="button"
-              className="pcFooterControlBtn"
-              disabled={!canDownloadCurrent || isDownloadingCurrent}
-              title={canDownloadCurrent ? 'Download episode audio' : 'Select a remote episode to download'}
-              onClick={() => {
-                if (!episode || sourceKind !== 'remote') return
-                void handleEpisodeDownload(episode)
-              }}
-            >
-              <IconUpload size={18} />
-            </button>
-            <div className="pcFooterVolume" onWheel={onVolumeWheel}>
-              <button type="button" className="pcFooterControlBtn" onClick={toggleMute} title={volume === 0 ? 'Unmute' : 'Mute'}>
-                <span className="material-symbols-outlined">{footerVolumeIcon}</span>
-              </button>
+      {episode ? (
+        <footer className={`pcFooter ${isFooterClosing ? 'pcFooterSlideOut' : 'pcFooterSlideUp'}`}>
+          <div className="pcFooterProgress">
+            <div className="pcFooterProgressTrack" onClick={episode ? onProgressPointer : undefined}>
+              <div className="pcFooterProgressFill" style={{ width: `${footerProgressPct}%` }}></div>
               <div
-                className="pcFooterVolumeTrack"
-                role="slider"
-                tabIndex={0}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={footerVolumePct}
-                aria-label="Volume"
-                onPointerDown={onVolumePointerDown}
-                onKeyDown={onVolumeKeyDown}
-              >
-                <div className="pcFooterVolumeFill" style={{ width: `${footerVolumePct}%` }}></div>
-                <div className="pcFooterVolumeHandle" style={{ left: `calc(${footerVolumePct}% - 5px)` }}></div>
+                className="pcFooterProgressHandle"
+                style={{ left: `calc(${footerProgressPct}% - 6px)`, right: 'auto' }}
+              ></div>
+            </div>
+            <div
+              className="pcFooterProgressTooltip"
+              style={{ left: `clamp(56px, ${footerProgressPct}%, calc(100% - 56px))` }}
+              aria-hidden="true"
+            >
+              <span className="pcFooterProgressTime">{footerCurrent}</span>
+              <span className="pcFooterProgressSep">/</span>
+              <span className="pcFooterProgressTime pcFooterProgressDuration">{footerDuration}</span>
+            </div>
+          </div>
+          <div className="pcFooterControls">
+            <div className="pcFooterLeft">
+              <div className="pcFooterEpisodeInfo">
+                <div className="pcFooterEpisodeArtwork">
+                  <span className="material-symbols-outlined">history_edu</span>
+                </div>
+                <div className="pcFooterEpisodeDetails">
+                  <h4 className={`pcFooterEpisodeTitle ${footerPanActive ? 'isPanning' : ''}`}>
+                    <span
+                      ref={footerTitlePan.ref}
+                      className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
+                      style={{ ...footerPanSharedStyle, ...footerTitlePan.style }}
+                    >
+                      {footerEpisodeTitle}
+                    </span>
+                  </h4>
+                  <p className={`pcFooterEpisodeShow ${footerPanActive ? 'isPanning' : ''}`}>
+                    <span
+                      ref={footerShowPan.ref}
+                      className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
+                      style={{ ...footerPanSharedStyle, ...footerShowPan.style }}
+                    >
+                      {footerEpisodeShow}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="pcFooterCenter">
+              <div className="pcFooterPlayerControls">
+                <button type="button" className="pcFooterControlBtn" disabled={!canPrev} onClick={playPrev} title="Previous">
+                  <IconPrev size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="pcFooterControlBtn pcFooterSeekBtn"
+                  disabled={!episode}
+                  onClick={() => seekBySeconds(-10)}
+                  title="Seek backward 10 seconds"
+                  aria-label="Seek backward 10 seconds"
+                >
+                  <span className="material-symbols-outlined">replay_10</span>
+                </button>
+                <button
+                  type="button"
+                  className="pcFooterPlayBtn"
+                  disabled={!episode || isEpisodeLoading}
+                  onClick={() => void togglePlayPause()}
+                  title={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
+                </button>
+                <button
+                  type="button"
+                  className="pcFooterControlBtn pcFooterSeekBtn"
+                  disabled={!episode}
+                  onClick={() => seekBySeconds(10)}
+                  title="Seek forward 10 seconds"
+                  aria-label="Seek forward 10 seconds"
+                >
+                  <span className="material-symbols-outlined">forward_10</span>
+                </button>
+                <button type="button" className="pcFooterControlBtn" disabled={!canNext} onClick={playNext} title="Next">
+                  <IconNext size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="pcFooterRight">
+              <div className="pcFooterControlWithTooltip">
+                <button
+                  type="button"
+                  className={`pcFooterControlBtn pcFooterProcessBtn ${denoiseEnabled ? 'on' : ''}`}
+                  disabled={!episode || !model?.supported || isProcessingStarting}
+                  aria-label={denoiseEnabled ? 'Disable processing' : 'Enable processing'}
+                  onClick={() => void toggleDenoise(!denoiseEnabled)}
+                >
+                  <span className="material-symbols-outlined">auto_fix_high</span>
+                </button>
+                <span className="pcFooterControlTooltip" aria-hidden="true">
+                  {footerProcessTooltip}
+                </span>
+              </div>
+              <div className="pcFooterVolume" onWheel={onVolumeWheel}>
+                <button type="button" className="pcFooterControlBtn" onClick={toggleMute} title={volume === 0 ? 'Unmute' : 'Mute'}>
+                  <span className="material-symbols-outlined">{footerVolumeIcon}</span>
+                </button>
+                <div
+                  className="pcFooterVolumeTrack"
+                  role="slider"
+                  tabIndex={0}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={footerVolumePct}
+                  aria-label="Volume"
+                  onPointerDown={onVolumePointerDown}
+                  onKeyDown={onVolumeKeyDown}
+                >
+                  <div className="pcFooterVolumeFill" style={{ width: `${footerVolumePct}%` }}></div>
+                  <div className="pcFooterVolumeHandle" style={{ left: `calc(${footerVolumePct}% - 5px)` }}></div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      ) : null}
         </main>
       </div>
 
