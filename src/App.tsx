@@ -129,6 +129,11 @@ function normalizeIssueDetail(raw: string, maxLen = 260): string {
   return firstLine.length > maxLen ? `${firstLine.slice(0, maxLen - 1)}…` : firstLine
 }
 
+function normalizeIssueCardDetail(raw: string): string {
+  const compact = raw.replace(/\r\n/g, '\n').trim()
+  return compact || 'Unknown error'
+}
+
 function toAbsoluteUrl(url: string): string {
   try {
     return new URL(url, window.location.href).toString()
@@ -860,7 +865,7 @@ export default function App() {
   const reportIssue = useCallback(
     (source: SidebarIssueSource, summary: string, detail: unknown) => {
       const normalizedSummary = summary.trim() || 'System error'
-      const normalizedDetail = normalizeIssueDetail(coerceErrorMessage(detail))
+      const normalizedDetail = normalizeIssueCardDetail(coerceErrorMessage(detail))
       setSidebarIssues((prev) => {
         const latest = prev[0]
         if (latest && latest.source === source && latest.summary === normalizedSummary && latest.detail === normalizedDetail) {
