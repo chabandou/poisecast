@@ -219,6 +219,16 @@ body {
   color: #f4c58b;
 }
 
+.pcStatusIndicator.error .pcStatusDot {
+  background: #ff9f7a;
+  animation: none;
+  box-shadow: 0 0 10px rgba(255, 159, 122, 0.45);
+}
+
+.pcStatusIndicator.error .pcStatusText {
+  color: #ffb393;
+}
+
 .pcBandwidth {
   font-family: var(--pc-font-mono);
   font-size: 12px;
@@ -710,7 +720,7 @@ body {
   min-width: 0;
   overflow: hidden;
 }
-.pcSearchItem:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.35); background: rgba(20, 26, 34, 0.85); }
+.pcSearchItem:hover { border-color: rgba(255, 255, 255, 0.35); background: rgba(20, 26, 34, 0.85); }
 .pcSearchItem:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 .pcSearchItem.isLoading { border-color: rgba(46, 217, 195, 0.4); background: rgba(12, 18, 24, 0.85); }
 .pcSearchItemTitle { font-weight: 600; font-size: 14px; color: var(--pc-text); }
@@ -788,7 +798,6 @@ body {
 .pcNavigationItem:hover { 
   background: var(--pc-surface-hover); 
   border-left-color: var(--pc-border-active); 
-  transform: none; 
 }
 
 .pcNavigationItem.active { 
@@ -879,7 +888,6 @@ body {
 .pcSourceItem:hover { 
   background: var(--pc-surface-hover); 
   border-left-color: var(--pc-border-active); 
-  transform: none; 
 }
 .pcSourceItem.active { 
   background: var(--pc-primary-dim); 
@@ -949,7 +957,7 @@ body {
   cursor: pointer;
   transition: background 120ms ease, transform 120ms ease;
 }
-.pcBtn:hover { background: #dfe5ec; transform: translateY(-1px); }
+.pcBtn:hover { background: #dfe5ec; }
 .pcBtn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .pcError {
@@ -1213,7 +1221,7 @@ body {
   position: relative;
   overflow: hidden;
 }
-.pcSkip:hover { color: var(--pc-primary); transform: translateY(-1px); }
+.pcSkip:hover { color: var(--pc-primary); }
 .pcSkip:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
 .pcPlay {
@@ -1232,7 +1240,7 @@ body {
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
   overflow: hidden;
 }
-.pcPlay:hover { background: var(--pc-primary); color: #1a1410; transform: translateY(-1px); }
+.pcPlay:hover { background: var(--pc-primary); color: #1a1410; }
 .pcPlay.on { box-shadow: 0 0 24px rgba(46, 217, 195, 0.18); border-color: var(--pc-accent); color: var(--pc-accent); }
 .pcPlay.on:hover { color: #0b0e12; }
 .pcPlay.isLoading { opacity: 0.7; }
@@ -1629,10 +1637,6 @@ body {
   transition: transform 120ms ease;
 }
 
-.pcDiscoverHeroBtn:hover {
-  transform: scale(1.05);
-}
-
 .pcDiscoverHeroBtnSecondary {
   padding: 12px;
   background: transparent;
@@ -1728,7 +1732,6 @@ body {
 
 .pcDiscoverCard:hover {
   border-color: var(--pc-primary);
-  transform: translateY(-2px);
 }
 
 .pcDiscoverCardImageContainer {
@@ -1742,7 +1745,6 @@ body {
 
 .pcDiscoverCard:hover .pcDiscoverCardImageContainer {
   border-color: var(--pc-primary);
-  transform: translateY(-2px);
 }
 
 .pcDiscoverCardImage {
@@ -2348,7 +2350,6 @@ body {
 
 .pcFooterProgress:hover .pcFooterProgressTooltip {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 .pcFooterProgressTime {
@@ -2504,7 +2505,7 @@ body {
 .pcFooterPlayerControls {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .pcFooterControlBtn {
@@ -2513,12 +2514,11 @@ body {
   color: var(--pc-muted);
   cursor: pointer;
   transition: color 120ms ease, transform 120ms ease;
-  padding: 4px;
+  padding: 5px;
 }
 
 .pcFooterControlBtn:hover {
   color: var(--pc-text-main);
-  transform: translateY(-1px);
 }
 .pcFooterControlBtn:disabled {
   opacity: 0.35;
@@ -2557,7 +2557,6 @@ body {
 .pcFooterControlWithTooltip:hover .pcFooterControlTooltip,
 .pcFooterControlWithTooltip:focus-within .pcFooterControlTooltip {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 .pcFooterProcessBtn.on {
@@ -2566,12 +2565,12 @@ body {
 }
 
 .pcFooterSeekBtn .material-symbols-outlined {
-  font-size: 21px;
+  font-size: 23px;
 }
 
 .pcFooterPlayBtn {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: var(--pc-primary);
   border: none;
@@ -2584,9 +2583,6 @@ body {
   transition: transform 120ms ease;
 }
 
-.pcFooterPlayBtn:hover {
-  transform: scale(1.05);
-}
 .pcFooterPlayBtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -2595,7 +2591,7 @@ body {
 }
 
 .pcFooterPlayBtn .material-symbols-outlined {
-  font-size: 28px;
+  font-size: 30px;
 }
 
 .pcFooterDividerVertical {
@@ -2617,6 +2613,7 @@ body {
 .pcFooterRight {
   flex: 0 0 auto;
   min-width: 200px;
+  max-width: 30%;
   display: flex;
   align-items: center;
   gap: 24px;

@@ -15,6 +15,7 @@ import {
 
 import { DEFAULT_FEEDS, type DefaultFeed } from './podcasts/defaultFeeds'
 import { searchApplePodcasts, type ApplePodcastResult } from './podcasts/appleSearch'
+import { buildAppleLookupUrl } from './podcasts/appleApi'
 import { fetchAndParseRss } from './podcasts/rss'
 import type { ParsedPodcast, PodcastEpisode } from './podcasts/types'
 
@@ -133,9 +134,7 @@ function dedupeGenres(values: Array<string | undefined | null>, max = 6): string
 
 const fetchFeedLookupMeta = async (rssUrl: string): Promise<FeedLookupMeta | null> => {
   try {
-    const res = await fetch(
-      `https://itunes.apple.com/lookup?entity=podcast&feedUrl=${encodeURIComponent(rssUrl)}`,
-    )
+    const res = await fetch(buildAppleLookupUrl(rssUrl))
     if (!res.ok) return null
     const data = (await res.json()) as {
       results?: Array<{
@@ -1353,6 +1352,7 @@ export default function App() {
       setDenoiseEnabled(true)
     } catch (e) {
       const msg = coerceErrorMessage(e)
+      setEngineState('error')
       setDenoiseEnabled(false)
       setIsInferenceActive(false)
       lastInferenceAtRef.current = 0
@@ -1544,11 +1544,16 @@ export default function App() {
   }, [activeSource?.category, podcast?.feed.genres, sourceKind])
   const footerCurrent = formatClock(currentTime)
   const footerDuration = formatClock(duration)
-  const processingStatus = isProcessingStarting ? 'booting' : isInferenceActive ? 'active' : 'idle'
+  const processingErrorText =
+    engineState === 'error' ? normalizeIssueDetail(engineDetail || 'Unknown processing error') : null
+  const processingErrorInline = processingErrorText ? normalizeIssueDetail(processingErrorText, 72) : null
+  const processingStatus = isProcessingStarting ? 'booting' : processingErrorText ? 'error' : isInferenceActive ? 'active' : 'idle'
   const footerProcessTooltip = !episode
     ? 'Select an episode to enable audio processing'
     : isProcessingStarting
       ? 'Initializing audio processing (loading model)…'
+    : processingErrorText
+      ? `Processing error: ${processingErrorText}`
     : denoiseEnabled
       ? 'Disable audio processing (AI denoise)'
       : 'Enable audio processing (AI denoise)'
@@ -1642,10 +1647,10 @@ export default function App() {
         </div>
 
         <div className="pcHeaderStatus">
-          <div className={`pcStatusIndicator ${processingStatus}`}>
+          <div className={`pcStatusIndicator ${processingStatus}`} title={processingErrorText ?? undefined}>
             <span className="pcStatusDot"></span>
             <span className="pcStatusText">
-              Processing: {isProcessingStarting ? 'Initializing' : isInferenceActive ? 'Active' : 'Idle'}
+              Processing: {isProcessingStarting ? 'Initializing' : processingErrorInline ? `Error · ${processingErrorInline}` : isInferenceActive ? 'Active' : 'Idle'}
             </span>
           </div>
         </div>
@@ -2124,7 +2129,7 @@ export default function App() {
             <div className="pcFooterCenter">
               <div className="pcFooterPlayerControls">
                 <button type="button" className="pcFooterControlBtn" disabled={!canPrev} onClick={playPrev} title="Previous">
-                  <IconPrev size={20} />
+                  <IconPrev size={22} />
                 </button>
                 <button
                   type="button"
@@ -2143,7 +2148,7 @@ export default function App() {
                   onClick={() => void togglePlayPause()}
                   title={isPlaying ? 'Pause' : 'Play'}
                 >
-                  {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
+                  {isPlaying ? <IconPause size={26} /> : <IconPlay size={26} />}
                 </button>
                 <button
                   type="button"
@@ -2156,7 +2161,7 @@ export default function App() {
                   <span className="material-symbols-outlined">forward_10</span>
                 </button>
                 <button type="button" className="pcFooterControlBtn" disabled={!canNext} onClick={playNext} title="Next">
-                  <IconNext size={20} />
+                  <IconNext size={22} />
                 </button>
               </div>
             </div>

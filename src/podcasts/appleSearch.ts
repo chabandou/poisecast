@@ -1,3 +1,5 @@
+import { buildAppleSearchUrl } from './appleApi'
+
 export type ApplePodcastResult = {
   collectionId: number
   collectionName: string
@@ -20,11 +22,9 @@ export async function searchApplePodcasts(
   const q = term.trim()
   if (!q) return []
 
-  const url =
-    `https://itunes.apple.com/search?media=podcast&entity=podcast&limit=${limit}&term=` +
-    encodeURIComponent(q)
+  const url = buildAppleSearchUrl(q, limit)
 
-  const res = await fetch(url, { mode: 'cors', signal })
+  const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Apple search failed: ${res.status} ${res.statusText}`)
 
   const json = (await res.json()) as AppleSearchResponse
