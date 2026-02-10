@@ -9,7 +9,7 @@ export type ModelSpec = {
   supported: boolean
 }
 
-const DEFAULT_GITHUB_MODELS_BASE_URL = 'https://github.com/chabandou/poisecast/tree/master/public/models'
+const DEFAULT_GITHUB_MODELS_BASE_URL = 'https://raw.githubusercontent.com/chabandou/poisecast/master/models'
 
 function normalizeBaseUrl(value: string | undefined): string | null {
   const trimmed = value?.trim()
@@ -28,12 +28,8 @@ const githubModelsBaseUrl =
 
 export function getModelCandidateUrls(model: ModelSpec): string[] {
   const fileName = getModelFileName(model.url)
-  const urls: string[] = []
-
-  if (fileName) urls.push(`${githubModelsBaseUrl}/${fileName}`)
-  urls.push(model.url)
-
-  return Array.from(new Set(urls))
+  if (!fileName) return []
+  return [`${githubModelsBaseUrl}/${fileName}`]
 }
 
 export const MODELS: ModelSpec[] = [

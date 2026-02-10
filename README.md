@@ -24,11 +24,10 @@ Firefox install paths:
 
 ## Models
 
-- ONNX model loading is GitHub-first by default: `https://raw.githubusercontent.com/chabandou/poisecast/master/public/models/`.
-- If GitHub download fails, the app automatically falls back to local `public/models/` assets (`/models/...`).
+- ONNX model loading is GitHub-only by default: `https://raw.githubusercontent.com/chabandou/poisecast/master/models/`.
 - Override the GitHub base with `VITE_GITHUB_MODELS_BASE_URL` (for example, to pin a tag/commit or use another CDN).
 - ONNX Runtime WASM binaries are served from `public/ort/`.
-- PWA install precaches the default model. Other models are cached on demand when selected/used.
+- PWA install precaches core ORT runtime files. Models are downloaded on demand and cached when first used.
 
 ## Notes / Constraints
 
@@ -37,4 +36,3 @@ Firefox install paths:
 - In local static preview (`bun run preview`), `/api/stream` is not available and playback falls back to direct episode URLs.
 - Workaround (no server): use **Import file** in the player to process a locally-downloaded episode.
 - v1 supports the time-domain model (`denoiser_model.onnx`). The UMXHQ spectral models require an STFT pipeline (not implemented yet).
-

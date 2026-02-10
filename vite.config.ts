@@ -337,8 +337,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache only the default model + core ORT WASM needed for first-run offline use.
-        // Other models remain on-demand and will be cached when selected/used.
+        // Precache only core ORT WASM needed for bootstrapping.
+        // Models are downloaded on demand and cached opportunistically at runtime.
         globIgnores: ['**/*.wasm', '**/*.onnx'],
 
         // Workbox default is 2 MiB; our `.onnx` and `.wasm` exceed that by a lot.
@@ -349,7 +349,6 @@ export default defineConfig({
           const here = path.dirname(fileURLToPath(import.meta.url))
           const pub = path.join(here, 'public')
           const files = [
-            'models/denoiser_model.onnx',
             'ort/ort-wasm.wasm',
             'ort/ort-wasm-simd.wasm',
           ]
