@@ -49,6 +49,56 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
 }
 
+type SidebarIssueSource =
+  | 'rss'
+  | 'search'
+  | 'audio'
+  | 'download'
+  | 'processing'
+  | 'runtime'
+  | 'system'
+
+type SidebarIssue = {
+  id: string
+  source: SidebarIssueSource
+  summary: string
+  detail: string
+  createdAt: number
+}
+
+function formatIssueSource(source: SidebarIssueSource): string {
+  switch (source) {
+    case 'rss':
+      return 'RSS'
+    case 'search':
+      return 'Search'
+    case 'audio':
+      return 'Audio'
+    case 'download':
+      return 'Download'
+    case 'processing':
+      return 'Processing'
+    case 'runtime':
+      return 'Runtime'
+    default:
+      return 'System'
+  }
+}
+
+function coerceErrorMessage(value: unknown): string {
+  if (value instanceof Error) return value.message
+  if (typeof value === 'string') return value
+  if (value instanceof DOMException) return value.message
+  if (value === null || value === undefined) return 'Unknown error'
+  return String(value)
+}
+
+function normalizeIssueDetail(raw: string, maxLen = 260): string {
+  const compact = raw.replace(/\r\n/g, '\n').trim()
+  const firstLine = compact.split('\n').map((line) => line.trim()).find(Boolean) ?? 'Unknown error'
+  return firstLine.length > maxLen ? `${firstLine.slice(0, maxLen - 1)}…` : firstLine
+}
+
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
   const meta = await fetchFeedLookupMeta(rssUrl)
   return meta?.artworkUrl ?? null
@@ -535,7 +585,7 @@ export default function App() {
   const isMobile = useIsMobile(980)
   const [mobileTab, setMobileTab] = useState<MobileTab>('sources')
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('sources')
-  const [sidebarError] = useState(false)
+  const [sidebarIssues, setSidebarIssues] = useState<SidebarIssue[]>([])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -656,6 +706,64 @@ export default function App() {
   }, [installPrompt, installing])
 
   const canInstall = !isInstalled
+
+  const reportIssue = useCallback(
+    (source: SidebarIssueSource, summary: string, detail: unknown) => {
+      const normalizedSummary = summary.trim() || 'System error'
+      const normalizedDetail = normalizeIssueDetail(coerceErrorMessage(detail))
+      setSidebarIssues((prev) => {
+        const latest = prev[0]
+        if (latest && latest.source === source && latest.summary === normalizedSummary && latest.detail === normalizedDetail) {
+          return prev
+        }
+        const issue: SidebarIssue = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          source,
+          summary: normalizedSummary,
+          detail: normalizedDetail,
+          createdAt: Date.now(),
+        }
+        return [issue, ...prev].slice(0, 8)
+      })
+    },
+    [],
+  )
+
+  const clearSidebarIssues = useCallback(() => {
+    setSidebarIssues([])
+  }, [])
+
+  useEffect(() => {
+    if (!rssError) return
+    reportIssue('rss', 'Failed to load RSS feed', rssError)
+  }, [reportIssue, rssError])
+
+  useEffect(() => {
+    if (!searchError) return
+    reportIssue('search', 'Podcast search failed', searchError)
+  }, [reportIssue, searchError])
+
+  useEffect(() => {
+    if (engineState !== 'error') return
+    reportIssue('processing', 'Model/inference error', engineDetail || 'The denoise engine reported an unexpected error.')
+  }, [engineDetail, engineState, reportIssue])
+
+  useEffect(() => {
+    const onWindowError = (event: ErrorEvent) => {
+      const message = event.message || coerceErrorMessage(event.error)
+      reportIssue('runtime', 'Unhandled runtime error', message)
+    }
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      reportIssue('runtime', 'Unhandled async error', event.reason)
+    }
+
+    window.addEventListener('error', onWindowError)
+    window.addEventListener('unhandledrejection', onUnhandledRejection)
+    return () => {
+      window.removeEventListener('error', onWindowError)
+      window.removeEventListener('unhandledrejection', onUnhandledRejection)
+    }
+  }, [reportIssue])
 
   const cancelFooterCloseTimer = useCallback(() => {
     if (footerCloseTimerRef.current !== null) {
@@ -824,7 +932,14 @@ export default function App() {
     const onPause = () => setIsPlaying(false)
     const onEnded = () => setIsPlaying(false)
     const onReady = () => setLoadingEpisodeId(null)
-    const onError = () => setLoadingEpisodeId(null)
+    const onError = () => {
+      setLoadingEpisodeId(null)
+      const mediaError = el.error
+      const mediaMessage = mediaError
+        ? `code ${mediaError.code}: ${mediaError.message || 'Media playback error'}`
+        : 'Unknown audio playback error'
+      reportIssue('audio', 'Audio playback error', mediaMessage)
+    }
 
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('durationchange', onDur)
@@ -852,7 +967,7 @@ export default function App() {
       el.removeEventListener('ended', onEnded)
       el.removeEventListener('error', onError)
     }
-  }, [])
+  }, [reportIssue])
 
   const loadFeed = useCallback(async (url: string) => {
     cancelFooterCloseTimer()
@@ -1118,20 +1233,23 @@ export default function App() {
           setEngineDetail('Download canceled.')
           return
         }
+        reportIssue('download', 'Episode download failed', e)
         setEngineDetail('Direct file save blocked by the host. Opening source URL.')
         window.open(ep.enclosureUrl, '_blank', 'noopener,noreferrer')
       } finally {
         setDownloadingEpisodeId(null)
       }
     },
-    [downloadingEpisodeId, isMobile],
+    [downloadingEpisodeId, isMobile, reportIssue],
   )
 
   async function startLocalFile(file: File) {
     const audioEl = audioRef.current
     if (!audioEl) return
     if (!isLikelyAudioFile(file)) {
-      setEngineDetail('File is not recognized as audio. Try MP3, M4A, WAV, FLAC, or OGG.')
+      const msg = 'File is not recognized as audio. Try MP3, M4A, WAV, FLAC, or OGG.'
+      setEngineDetail(msg)
+      reportIssue('audio', 'Unsupported local audio file', msg)
       return
     }
 
@@ -1233,6 +1351,13 @@ export default function App() {
       await engineRef.current!.attach(audioEl)
       engineRef.current!.setEnabled(true)
       setDenoiseEnabled(true)
+    } catch (e) {
+      const msg = coerceErrorMessage(e)
+      setDenoiseEnabled(false)
+      setIsInferenceActive(false)
+      lastInferenceAtRef.current = 0
+      setEngineDetail(msg)
+      reportIssue('processing', 'Failed to enable audio processing', msg)
     } finally {
       setIsProcessingStarting(false)
     }
@@ -1620,17 +1745,31 @@ export default function App() {
                   showThumbs={isMobile && mobileTab === 'sources'}
                   onSelect={handleSourceSelect}
                 />
-                {sidebarError ? (
-                  <div className="pcSidebarFoot">
-                    <h4 className="pcFeedMetaTitle" style={{fontSize: '10px', marginBottom: '8px'}}>Host System</h4>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-surface-hover border border-border-active flex items-center justify-center overflow-hidden">
-                        <span className="material-symbols-outlined text-sm text-primary">account_circle</span>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold text-white uppercase font-mono">DR. VINCENZO</p>
-                        <p className="text-[9px] text-muted uppercase font-mono">ADMIN_AUTH_01</p>
-                      </div>
+                {sidebarIssues.length > 0 ? (
+                  <div className="pcSidebarFoot pcSidebarIssues" role="status" aria-live="polite">
+                    <div className="pcSidebarIssuesHeader">
+                      <h4 className="pcFeedMetaTitle">System Alerts ({sidebarIssues.length})</h4>
+                      <button type="button" className="pcSidebarIssuesClear" onClick={clearSidebarIssues}>
+                        Clear
+                      </button>
+                    </div>
+                    <div className="pcSidebarIssuesList">
+                      {sidebarIssues.map((issue) => (
+                        <article key={issue.id} className="pcSidebarIssueItem">
+                          <div className="pcSidebarIssueTop">
+                            <span className="pcSidebarIssueSource">{formatIssueSource(issue.source)}</span>
+                            <span className="pcSidebarIssueTime">
+                              {new Date(issue.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <p className="pcSidebarIssueSummary">{issue.summary}</p>
+                          <p className="pcSidebarIssueDetail">{issue.detail}</p>
+                        </article>
+                      ))}
                     </div>
                   </div>
                 ) : null}

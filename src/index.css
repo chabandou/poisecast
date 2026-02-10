@@ -469,6 +469,100 @@ body {
   background: #141417;
 }
 
+.pcSidebarIssues {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pcSidebarIssuesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pcSidebarIssuesHeader .pcFeedMetaTitle {
+  margin: 0;
+}
+
+.pcSidebarIssuesClear {
+  border: 1px solid var(--pc-border-active);
+  background: transparent;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.pcSidebarIssuesClear:hover {
+  color: var(--pc-text-main);
+  border-color: rgba(244, 197, 139, 0.6);
+  background: rgba(244, 197, 139, 0.1);
+}
+
+.pcSidebarIssuesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.pcSidebarIssueItem {
+  border: 1px solid rgba(244, 197, 139, 0.25);
+  background: rgba(20, 20, 23, 0.72);
+  padding: 8px 10px;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pcSidebarIssueTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pcSidebarIssueSource {
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  color: #f4c58b;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pcSidebarIssueTime {
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  color: var(--pc-muted);
+  opacity: 0.8;
+}
+
+.pcSidebarIssueSummary {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--pc-text-main);
+  font-weight: 600;
+}
+
+.pcSidebarIssueDetail {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--pc-muted);
+  word-break: break-word;
+}
+
 .pcFeedMeta {
   color: var(--pc-text);
 }
