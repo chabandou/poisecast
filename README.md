@@ -24,7 +24,9 @@ Firefox install paths:
 
 ## Models
 
-- ONNX models are served from `public/models/`.
+- ONNX model loading is GitHub-first by default: `https://raw.githubusercontent.com/chabandou/poisecast/master/public/models/`.
+- If GitHub download fails, the app automatically falls back to local `public/models/` assets (`/models/...`).
+- Override the GitHub base with `VITE_GITHUB_MODELS_BASE_URL` (for example, to pin a tag/commit or use another CDN).
 - ONNX Runtime WASM binaries are served from `public/ort/`.
 - PWA install precaches the default model. Other models are cached on demand when selected/used.
 
@@ -36,16 +38,3 @@ Firefox install paths:
 - Workaround (no server): use **Import file** in the player to process a locally-downloaded episode.
 - v1 supports the time-domain model (`denoiser_model.onnx`). The UMXHQ spectral models require an STFT pipeline (not implemented yet).
 
-## Stream Proxy Hardening
-
-- `STREAM_PROXY_ALLOWLIST`: optional comma-separated host patterns allowed by the proxy. Example: `cdn.example.com,*.podtrac.com`
-- `STREAM_PROXY_BLOCKLIST`: optional comma-separated host patterns blocked by the proxy.
-- `STREAM_PROXY_RATE_MAX_REQUESTS`: max requests per IP per window (default `120`)
-- `STREAM_PROXY_RATE_WINDOW_MS`: window length in ms (default `60000`)
-- `STREAM_PROXY_RATE_MAX_INFLIGHT`: max concurrent in-flight proxy requests per IP (default `8`)
-- `STREAM_PROXY_RATE_BLOCK_MS`: temporary block duration in ms after rate overrun (default `120000`)
-- `STREAM_PROXY_RATE_MAX_ENTRIES`: in-memory limiter table size cap (default `5000`)
-
-## Podcast Search
-
-There is a basic podcast search UI powered by Apple iTunes Search API (no API key).

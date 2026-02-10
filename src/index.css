@@ -2263,6 +2263,162 @@ body {
 .pcCyan { color: var(--pc-primary); }
 .pcMuted { color: rgba(242, 233, 215, 0.45); }
 
+/* Model download modal */
+.pcModelDlOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 96px 24px 24px;
+}
+
+.pcModelDlBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 14, 0.65);
+  backdrop-filter: blur(3px);
+}
+
+.pcModelDlCard {
+  position: relative;
+  width: min(640px, 100%);
+  background: rgba(12, 14, 18, 0.96);
+  border: 1px solid var(--pc-border-active);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  padding: 18px;
+  z-index: 1;
+}
+
+.pcModelDlHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.pcModelDlKicker {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.55);
+  margin-bottom: 4px;
+}
+
+.pcModelDlTitle {
+  margin: 0;
+  font-family: var(--pc-font-mono);
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pc-text-main);
+}
+
+.pcModelDlAttempt {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pc-primary);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.1);
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.pcModelDlMetaGrid {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.pcModelDlLabel {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.5);
+}
+
+.pcModelDlValue {
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--pc-text-main);
+}
+
+.pcModelDlUrl {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 10, 14, 0.55);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--pc-muted);
+  overflow-wrap: anywhere;
+}
+
+.pcModelDlProgressWrap {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 10, 14, 0.55);
+  padding: 10px;
+}
+
+.pcModelDlProgress {
+  position: relative;
+  height: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(12, 16, 22, 0.85);
+  overflow: hidden;
+}
+
+.pcModelDlProgress > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.55) 0%, rgba(0, 229, 255, 1) 100%);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.45);
+  transition: width 120ms linear;
+}
+
+.pcModelDlProgress.isIndeterminate > span {
+  width: 45%;
+  animation: pcModelDlSweep 1s ease-in-out infinite;
+}
+
+@keyframes pcModelDlSweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(240%); }
+}
+
+.pcModelDlProgressMeta {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.62);
+}
+
+.pcModelDlRetryMsg {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 176, 124, 0.35);
+  background: rgba(255, 176, 124, 0.08);
+  color: #ffc9a4;
+  padding: 8px 10px;
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 /* Footer */
 .pcFooter {
   height: 96px;
@@ -2756,6 +2912,12 @@ body {
 .pcApp.isMobile .pcMetaCard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pcApp.isMobile .pcEpisodes { flex: 1 1 auto; border-left: none; border-right: none; }
 .pcApp.isMobile .pcProcessingInline { display: none; }
+.pcApp.isMobile .pcModelDlOverlay { align-items: flex-start; padding: 74px 14px 16px; }
+.pcApp.isMobile .pcModelDlCard { width: 100%; padding: 14px; }
+.pcApp.isMobile .pcModelDlHead { flex-direction: column; align-items: stretch; }
+.pcApp.isMobile .pcModelDlAttempt { align-self: flex-start; }
+.pcApp.isMobile .pcModelDlMetaGrid { grid-template-columns: 72px minmax(0, 1fr); gap: 7px 10px; }
+.pcApp.isMobile .pcModelDlProgressMeta { flex-direction: column; align-items: flex-start; gap: 4px; }
 
 .pcApp.isMobile .pcSidebar { display: none; }
 .pcApp.isMobile .pcMain { display: none; }
@@ -2774,7 +2936,8 @@ body {
   .pcSidebar,
   .pcMain,
   .pcNow,
-  .pcEpisodes {
+  .pcEpisodes,
+  .pcModelDlProgress.isIndeterminate > span {
     animation: none !important;
   }
 }

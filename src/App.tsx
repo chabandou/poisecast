@@ -19,7 +19,7 @@ import { buildAppleLookupUrl } from './podcasts/appleApi'
 import { fetchAndParseRss } from './podcasts/rss'
 import type { ParsedPodcast, PodcastEpisode } from './podcasts/types'
 
-import { MODELS } from './models/models'
+import { MODELS, getModelCandidateUrls, type ModelSpec } from './models/models'
 import { DenoiseEngine } from './audio/engine'
 
 import {
@@ -67,6 +67,35 @@ type SidebarIssue = {
   createdAt: number
 }
 
+type ModelDownloadUiState = {
+  modelLabel: string
+  sourceUrl: string
+  sourceLabel: string
+  attempt: number
+  totalAttempts: number
+  loadedBytes: number
+  totalBytes: number | null
+  phase: 'downloading' | 'retrying'
+  errorDetail: string | null
+}
+
+type CacheModelHooks = {
+  onDownloadStart?: (info: { absoluteUrl: string }) => void
+  onProgress?: (info: { absoluteUrl: string; loadedBytes: number; totalBytes: number | null }) => void
+}
+
+type ResolveModelHooks = {
+  onDownloadStart?: (info: { url: string; attempt: number; totalAttempts: number }) => void
+  onProgress?: (info: {
+    url: string
+    attempt: number
+    totalAttempts: number
+    loadedBytes: number
+    totalBytes: number | null
+  }) => void
+  onSourceFailed?: (info: { url: string; attempt: number; totalAttempts: number; message: string }) => void
+}
+
 function formatIssueSource(source: SidebarIssueSource): string {
   switch (source) {
     case 'rss':
@@ -98,6 +127,38 @@ function normalizeIssueDetail(raw: string, maxLen = 260): string {
   const compact = raw.replace(/\r\n/g, '\n').trim()
   const firstLine = compact.split('\n').map((line) => line.trim()).find(Boolean) ?? 'Unknown error'
   return firstLine.length > maxLen ? `${firstLine.slice(0, maxLen - 1)}…` : firstLine
+}
+
+function toAbsoluteUrl(url: string): string {
+  try {
+    return new URL(url, window.location.href).toString()
+  } catch {
+    return url
+  }
+}
+
+function parseContentLength(headers: Headers): number | null {
+  const raw = headers.get('content-length')
+  if (!raw) return null
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function describeModelSource(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.href)
+    if (parsed.hostname === 'raw.githubusercontent.com') return 'GitHub Raw'
+    if (parsed.origin === window.location.origin) return 'Local /models'
+    return parsed.hostname
+  } catch {
+    return 'Unknown source'
+  }
+}
+
+function formatByteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
@@ -501,19 +562,108 @@ const MIME_TO_EXT: Record<string, string> = {
   'audio/webm': '.webm',
 }
 
-async function cacheModelOnDemand(modelUrl: string): Promise<void> {
-  if (!('caches' in window)) return
+async function probeModelDownload(modelUrl: string): Promise<void> {
+  try {
+    const head = await fetch(modelUrl, { method: 'HEAD', cache: 'no-store' })
+    if (head.ok) return
+  } catch {}
 
-  const absoluteUrl = new URL(modelUrl, window.location.href).toString()
+  const res = await fetch(modelUrl, {
+    method: 'GET',
+    headers: { Range: 'bytes=0-0' },
+    cache: 'no-store',
+  })
+  if (res.body) {
+    void res.body.cancel().catch(() => {})
+  }
+  if (!res.ok) {
+    throw new Error(`Model download failed (${res.status})`)
+  }
+}
+
+async function cacheModelOnDemand(modelUrl: string, hooks: CacheModelHooks = {}): Promise<{ fromCache: boolean; absoluteUrl: string }> {
+  const absoluteUrl = toAbsoluteUrl(modelUrl)
+  if (!('caches' in window)) {
+    hooks.onDownloadStart?.({ absoluteUrl })
+    await probeModelDownload(absoluteUrl)
+    return { fromCache: false, absoluteUrl }
+  }
+
   const cache = await caches.open(MODEL_CACHE_NAME)
   const hit = await cache.match(absoluteUrl, { ignoreSearch: true })
-  if (hit) return
+  if (hit) return { fromCache: true, absoluteUrl }
 
+  hooks.onDownloadStart?.({ absoluteUrl })
   const res = await fetch(absoluteUrl, { cache: 'no-store' })
   if (!res.ok) {
     throw new Error(`Model download failed (${res.status})`)
   }
-  await cache.put(absoluteUrl, res.clone())
+
+  const totalBytes = parseContentLength(res.headers)
+  const onProgress = hooks.onProgress
+  if (res.body && onProgress) {
+    const [cacheStream, progressStream] = res.body.tee()
+    const cachePutPromise = cache.put(
+      absoluteUrl,
+      new Response(cacheStream, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: new Headers(res.headers),
+      }),
+    )
+
+    const progressPromise = (async () => {
+      let loadedBytes = 0
+      onProgress({ absoluteUrl, loadedBytes, totalBytes })
+      const reader = progressStream.getReader()
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          loadedBytes += value?.byteLength ?? 0
+          onProgress({ absoluteUrl, loadedBytes, totalBytes })
+        }
+      } finally {
+        reader.releaseLock()
+      }
+    })()
+
+    await Promise.all([cachePutPromise, progressPromise])
+  } else {
+    await cache.put(absoluteUrl, res.clone())
+  }
+
+  return { fromCache: false, absoluteUrl }
+}
+
+async function resolveModelInitUrl(model: ModelSpec, hooks: ResolveModelHooks = {}): Promise<string> {
+  const attempts: string[] = []
+  const candidateUrls = getModelCandidateUrls(model)
+  for (let index = 0; index < candidateUrls.length; index += 1) {
+    const url = candidateUrls[index]
+    const attempt = index + 1
+    const totalAttempts = candidateUrls.length
+    const absoluteAttemptUrl = toAbsoluteUrl(url)
+
+    try {
+      const result = await cacheModelOnDemand(url, {
+        onDownloadStart: ({ absoluteUrl }) => {
+          hooks.onDownloadStart?.({ url: absoluteUrl, attempt, totalAttempts })
+        },
+        onProgress: ({ absoluteUrl, loadedBytes, totalBytes }) => {
+          hooks.onProgress?.({ url: absoluteUrl, attempt, totalAttempts, loadedBytes, totalBytes })
+        },
+      })
+      return result.absoluteUrl
+    } catch (e) {
+      const detail = normalizeIssueDetail(coerceErrorMessage(e), 140)
+      hooks.onSourceFailed?.({ url: absoluteAttemptUrl, attempt, totalAttempts, message: detail })
+      attempts.push(`${absoluteAttemptUrl} (${detail})`)
+    }
+  }
+
+  const summary = attempts.join(' | ')
+  throw new Error(`Model download failed from all configured sources: ${summary || 'unknown error'}`)
 }
 
 function isLikelyAudioFile(file: File): boolean {
@@ -649,6 +799,7 @@ export default function App() {
   const [isInferenceActive, setIsInferenceActive] = useState(false)
   const [isProcessingStarting, setIsProcessingStarting] = useState(false)
   const [isFooterClosing, setIsFooterClosing] = useState(false)
+  const [modelDownloadUi, setModelDownloadUi] = useState<ModelDownloadUiState | null>(null)
 
   const episodesAll = podcast?.episodes ?? []
   const episodes = useMemo(() => {
@@ -1059,8 +1210,55 @@ export default function App() {
       setEngineState('loading-model')
       setEngineDetail('Loading ONNX session…')
       initPromiseRef.current = (async () => {
-        await cacheModelOnDemand(model.url)
-        await engineRef.current!.init({ modelUrl: model.url, sampleRateHz: model.sampleRateHz })
+        const modelUrl = await resolveModelInitUrl(model, {
+          onDownloadStart: ({ url, attempt, totalAttempts }) => {
+            const sourceLabel = describeModelSource(url)
+            setModelDownloadUi({
+              modelLabel: model.label,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              loadedBytes: 0,
+              totalBytes: null,
+              phase: 'downloading',
+              errorDetail: null,
+            })
+            setEngineDetail(`Downloading model from ${sourceLabel}…`)
+          },
+          onProgress: ({ url, attempt, totalAttempts, loadedBytes, totalBytes }) => {
+            const sourceLabel = describeModelSource(url)
+            setModelDownloadUi((prev) => ({
+              modelLabel: prev?.modelLabel ?? model.label,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              loadedBytes,
+              totalBytes,
+              phase: 'downloading',
+              errorDetail: prev?.phase === 'retrying' ? prev.errorDetail : null,
+            }))
+          },
+          onSourceFailed: ({ url, attempt, totalAttempts, message }) => {
+            const sourceLabel = describeModelSource(url)
+            setModelDownloadUi((prev) => ({
+              modelLabel: prev?.modelLabel ?? model.label,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              loadedBytes: prev?.loadedBytes ?? 0,
+              totalBytes: prev?.totalBytes ?? null,
+              phase: 'retrying',
+              errorDetail: message,
+            }))
+            if (attempt < totalAttempts) {
+              setEngineDetail('Primary model source failed. Trying fallback source…')
+            }
+          },
+        })
+        await engineRef.current!.init({ modelUrl, sampleRateHz: model.sampleRateHz })
         engineRef.current!.setWarmupMs(250)
       })()
     }
@@ -1083,6 +1281,8 @@ export default function App() {
       setEngineDetail(e instanceof Error ? e.message : String(e))
       initPromiseRef.current = null
       throw e
+    } finally {
+      setModelDownloadUi(null)
     }
   }
 
@@ -1548,6 +1748,16 @@ export default function App() {
     engineState === 'error' ? normalizeIssueDetail(engineDetail || 'Unknown processing error') : null
   const processingErrorInline = processingErrorText ? normalizeIssueDetail(processingErrorText, 72) : null
   const processingStatus = isProcessingStarting ? 'booting' : processingErrorText ? 'error' : isInferenceActive ? 'active' : 'idle'
+  const modelDownloadPercent =
+    modelDownloadUi?.totalBytes && modelDownloadUi.totalBytes > 0
+      ? Math.max(0, Math.min(100, (modelDownloadUi.loadedBytes / modelDownloadUi.totalBytes) * 100))
+      : null
+  const modelDownloadBytes =
+    modelDownloadUi?.totalBytes && modelDownloadUi.totalBytes > 0
+      ? `${formatByteSize(modelDownloadUi.loadedBytes)} / ${formatByteSize(modelDownloadUi.totalBytes)}`
+      : modelDownloadUi
+        ? `${formatByteSize(modelDownloadUi.loadedBytes)} downloaded`
+        : ''
   const footerProcessTooltip = !episode
     ? 'Select an episode to enable audio processing'
     : isProcessingStarting
@@ -1633,6 +1843,50 @@ export default function App() {
   return (
     <div className={`pcApp ${isMobile ? 'isMobile' : ''}`} data-tab={mobileTab} data-playstate={nowState}>
       <div className="pcBackdrop" aria-hidden="true" />
+      {modelDownloadUi ? (
+        <div className="pcModelDlOverlay" role="dialog" aria-modal="true" aria-labelledby="pcModelDlTitle">
+          <div className="pcModelDlBackdrop" aria-hidden="true" />
+          <section className="pcModelDlCard pcChamfer">
+            <header className="pcModelDlHead">
+              <div>
+                <div className="pcModelDlKicker">Processing Bootstrap</div>
+                <h2 className="pcModelDlTitle" id="pcModelDlTitle">
+                  Downloading AI model
+                </h2>
+              </div>
+              <span className="pcModelDlAttempt">
+                Source {modelDownloadUi.attempt}/{modelDownloadUi.totalAttempts}
+              </span>
+            </header>
+            <div className="pcModelDlMetaGrid">
+              <div className="pcModelDlLabel">Model</div>
+              <div className="pcModelDlValue">{modelDownloadUi.modelLabel}</div>
+              <div className="pcModelDlLabel">Source</div>
+              <div className="pcModelDlValue">{modelDownloadUi.sourceLabel}</div>
+            </div>
+            <div className="pcModelDlUrl">{modelDownloadUi.sourceUrl}</div>
+            <div className="pcModelDlProgressWrap">
+              <div className={`pcModelDlProgress ${modelDownloadPercent === null ? 'isIndeterminate' : ''}`}>
+                <span
+                  style={modelDownloadPercent === null ? undefined : { width: `${modelDownloadPercent}%` }}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="pcModelDlProgressMeta">
+                <span>
+                  {modelDownloadUi.phase === 'retrying' ? 'Switching source…' : 'Downloading…'}
+                </span>
+                <span>{modelDownloadBytes}</span>
+              </div>
+            </div>
+            {modelDownloadUi.phase === 'retrying' ? (
+              <div className="pcModelDlRetryMsg" aria-live="polite">
+                Previous source failed: {modelDownloadUi.errorDetail ?? 'Unknown error'}
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
 
       <header className="pcHeader">
         <div className="pcBrand">
