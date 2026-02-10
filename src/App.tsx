@@ -306,13 +306,23 @@ function splitTitle(title: string): { head: string; accent?: string } {
   return { head: t }
 }
 
-function useScrambleText(text: string, durationMs = 700): string {
+function useScrambleText(text: string, durationMs = 700, delayMs = 0): string {
   const [display, setDisplay] = useState(text)
   const rafRef = useRef<number | null>(null)
+  const delayRef = useRef<number | null>(null)
   const scrambleRef = useRef<number[]>([])
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&'
 
   useEffect(() => {
+    if (rafRef.current) {
+      window.cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    if (delayRef.current) {
+      window.clearTimeout(delayRef.current)
+      delayRef.current = null
+    }
+
     if (!text) {
       setDisplay(text)
       return
@@ -326,29 +336,48 @@ function useScrambleText(text: string, durationMs = 700): string {
     })
     scrambleRef.current = reveals
 
-    const start = performance.now()
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / durationMs)
-      const next = chars
-        .map((ch, i) => {
-          if (!/[A-Za-z0-9]/.test(ch)) return ch
-          if (p >= (scrambleRef.current[i] ?? 0)) return ch
-          return charset[Math.floor(Math.random() * charset.length)]
-        })
-        .join('')
-      setDisplay(next)
-      if (p < 1) {
-        rafRef.current = window.requestAnimationFrame(tick)
-      } else {
-        setDisplay(text)
+    const begin = () => {
+      const start = performance.now()
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - start) / durationMs)
+        const next = chars
+          .map((ch, i) => {
+            if (!/[A-Za-z0-9]/.test(ch)) return ch
+            if (p >= (scrambleRef.current[i] ?? 0)) return ch
+            return charset[Math.floor(Math.random() * charset.length)]
+          })
+          .join('')
+        setDisplay(next)
+        if (p < 1) {
+          rafRef.current = window.requestAnimationFrame(tick)
+        } else {
+          setDisplay(text)
+          rafRef.current = null
+        }
       }
+      rafRef.current = window.requestAnimationFrame(tick)
     }
 
-    rafRef.current = window.requestAnimationFrame(tick)
-    return () => {
-      if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
+    if (delayMs > 0) {
+      delayRef.current = window.setTimeout(() => {
+        delayRef.current = null
+        begin()
+      }, delayMs)
+    } else {
+      begin()
     }
-  }, [text, durationMs])
+
+    return () => {
+      if (delayRef.current) {
+        window.clearTimeout(delayRef.current)
+        delayRef.current = null
+      }
+      if (rafRef.current) {
+        window.cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [text, durationMs, delayMs])
 
   return display
 }
@@ -595,27 +624,13 @@ export default function App() {
 
   // Keep the status in the mobile top bar; desktop has the floating widget.
   const nowTitle = episode?.title ?? 'Select an episode'
-  const split = useMemo(() => splitTitle(nowTitle), [nowTitle])
   const nowTitleRef = useRef<HTMLHeadingElement | null>(null)
-  const headScramble = useScrambleText(split.head, 1000)
-  const accentScramble = useScrambleText(split.accent ?? '', 1000)
 
   const playBtnRef = useRef<HTMLButtonElement | null>(null)
   const prevBtnRef = useRef<HTMLButtonElement | null>(null)
   const nextBtnRef = useRef<HTMLButtonElement | null>(null)
   const importBtnRef = useRef<HTMLButtonElement | null>(null)
   const denoiseBtnRef = useRef<HTMLButtonElement | null>(null)
-
-  const releaseDate = useMemo(
-    () => episode?.dateStamp ?? (sourceKind === 'local' ? 'LOCAL' : null),
-    [episode?.dateStamp, sourceKind],
-  )
-  const releaseLabel = releaseDate ?? '—'
-  const releaseScramble = useScrambleText(releaseLabel, 1000)
-  const sourceLabel = sourceKind === 'local' ? 'LOCAL_FILE' : podcast?.feed.title ?? 'NO_SOURCE'
-  const sourceScramble = useScrambleText(sourceLabel, 1000)
-  const nowTagLabel = !episode ? 'READY' : isPlaying ? 'NOW PLAYING' : 'PAUSED'
-  const nowTagScramble = useScrambleText(nowTagLabel, 1000)
 
   const progressPct = duration && duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
   const timeLeft = duration && duration > 0 ? Math.max(0, duration - currentTime) : null
@@ -1372,6 +1387,12 @@ export default function App() {
   const showHost = useMemo(() => feedHostFromUrl(rssUrl), [rssUrl])
   const showTitleRaw = podcast?.feed.title || activeSource?.title || 'SELECT A SOURCE'
   const showTitleParts = useMemo(() => splitTitle(showTitleRaw), [showTitleRaw])
+  const showNetworkLabel = `/// Source: ${showHost} · ${episodesAll.length} entries`
+  const sectionTagLabel = `/// ${episodes.length} ENTRIES`
+  const showTitleHeadScramble = useScrambleText(showTitleParts.head, 950, 0)
+  const showTitleAccentScramble = useScrambleText(showTitleParts.accent ?? '', 900, 90)
+  const showMetaScramble = useScrambleText(showNetworkLabel, 850, 180)
+  const sectionTagScramble = useScrambleText(sectionTagLabel, 850, 260)
   const showArtwork = podcast?.feed.imageUrl || feedImages[rssUrl] || null
   const showDescription = useMemo(() => {
     if (rssLoading) return 'Loading selected feed…'
@@ -1843,14 +1864,14 @@ export default function App() {
                           </span>
                         ))}
                       </div>
-                      <span className="pcShowNetwork">/// Source: {showHost} · {episodesAll.length} entries</span>
+                      <span className="pcShowNetwork">{showMetaScramble}</span>
                     </div>
-                    <h2 className="pcShowTitle">
-                      {showTitleParts.head}
+                    <h2 ref={nowTitleRef} className="pcShowTitle">
+                      {showTitleHeadScramble}
                       {showTitleParts.accent ? (
                         <>
                           {' '}
-                          <span className="pcShowTitleAccent">{showTitleParts.accent}</span>
+                          <span className="pcShowTitleAccent">{showTitleAccentScramble}</span>
                         </>
                       ) : null}
                     </h2>
@@ -1865,7 +1886,7 @@ export default function App() {
                 <div className="pcSectionHead">
                   <div className="pcSectionTitle">
                     Archive Records
-                    <span className="pcSectionTag">/// {episodes.length} ENTRIES</span>
+                    <span className="pcSectionTag">{sectionTagScramble}</span>
                   </div>
                   <div className="pcSectionTools">
                     <div className="pcFilter">
