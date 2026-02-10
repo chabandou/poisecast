@@ -2,6 +2,7 @@ export type PodcastFeedInfo = {
   title: string
   description?: string
   imageUrl?: string
+  genres?: string[]
 }
 
 export type PodcastEpisode = {

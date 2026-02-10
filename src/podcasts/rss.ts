@@ -32,6 +32,60 @@ function safeGuid(item: Element, fallback: string): string {
   )
 }
 
+function normalizeGenre(value?: string): string | undefined {
+  const v = value?.replace(/\s+/g, ' ').trim()
+  if (!v) return undefined
+  if (/^(podcast|podcasts|rss|feed)$/i.test(v)) return undefined
+  return v
+}
+
+function collectCategoryValues(root: Element): string[] {
+  const values: string[] = []
+  const seen = new Set<string>()
+  const add = (value?: string) => {
+    const genre = normalizeGenre(value)
+    if (!genre) return
+    const key = genre.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    values.push(genre)
+  }
+
+  const categories = Array.from(root.children).filter((el) => el.localName?.toLowerCase() === 'category')
+  for (const categoryNode of categories) {
+    add(text(categoryNode))
+    add(attr(categoryNode, 'text'))
+    const nested = Array.from(categoryNode.querySelectorAll('*')).filter((el) => el.localName?.toLowerCase() === 'category')
+    for (const nestedNode of nested) {
+      add(attr(nestedNode, 'text') || text(nestedNode))
+    }
+  }
+
+  return values
+}
+
+function collectFeedGenres(channel: Element): string[] {
+  const channelGenres = collectCategoryValues(channel)
+  if (channelGenres.length) return channelGenres.slice(0, 6)
+
+  // Fallback: infer top genres from item-level categories for feeds that omit channel categories.
+  const counts = new Map<string, { label: string; count: number }>()
+  const items = Array.from(channel.querySelectorAll('item')).slice(0, 80)
+  for (const item of items) {
+    for (const genre of collectCategoryValues(item)) {
+      const key = genre.toLowerCase()
+      const prev = counts.get(key)
+      if (prev) prev.count += 1
+      else counts.set(key, { label: genre, count: 1 })
+    }
+  }
+
+  return Array.from(counts.values())
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 6)
+    .map((entry) => entry.label)
+}
+
 export async function fetchAndParseRss(rssUrl: string): Promise<ParsedPodcast> {
   const res = await fetch(rssUrl, { mode: 'cors' })
   if (!res.ok) {
@@ -50,6 +104,7 @@ export async function fetchAndParseRss(rssUrl: string): Promise<ParsedPodcast> {
   // RSS <image><url> OR iTunes <itunes:image href="...">
   const imageUrl =
     text(channel.querySelector('image > url')) || attr(channel.querySelector('itunes\\:image'), 'href')
+  const genres = collectFeedGenres(channel)
 
   const items = Array.from(channel.querySelectorAll('item'))
   const episodes = items
@@ -79,7 +134,7 @@ export async function fetchAndParseRss(rssUrl: string): Promise<ParsedPodcast> {
     .filter((x): x is PodcastEpisode => x !== null)
 
   return {
-    feed: { title, description, imageUrl },
+    feed: { title, description, imageUrl, genres },
     episodes,
   }
 }

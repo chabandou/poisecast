@@ -6,8 +6,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  type WheelEvent,
 } from 'react'
 
 import { DEFAULT_FEEDS, type DefaultFeed } from './podcasts/defaultFeeds'
@@ -51,14 +54,56 @@ type BeforeInstallPromptEvent = Event & {
 }
 
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
+  const meta = await fetchFeedLookupMeta(rssUrl)
+  return meta?.artworkUrl ?? null
+}
+
+type FeedLookupMeta = {
+  artworkUrl: string | null
+  genres: string[]
+}
+
+function normalizeLookupGenre(value?: string): string | null {
+  const v = value?.replace(/\s+/g, ' ').trim()
+  if (!v) return null
+  if (/^(podcast|podcasts|rss|feed)$/i.test(v)) return null
+  return v
+}
+
+function dedupeGenres(values: Array<string | undefined | null>, max = 6): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const genre = normalizeLookupGenre(value ?? undefined)
+    if (!genre) continue
+    const key = genre.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(genre)
+    if (out.length >= max) break
+  }
+  return out
+}
+
+const fetchFeedLookupMeta = async (rssUrl: string): Promise<FeedLookupMeta | null> => {
   try {
     const res = await fetch(
       `https://itunes.apple.com/lookup?entity=podcast&feedUrl=${encodeURIComponent(rssUrl)}`,
     )
     if (!res.ok) return null
-    const data = (await res.json()) as { results?: Array<{ artworkUrl600?: string; artworkUrl512?: string; artworkUrl100?: string }> }
+    const data = (await res.json()) as {
+      results?: Array<{
+        artworkUrl600?: string
+        artworkUrl512?: string
+        artworkUrl100?: string
+        primaryGenreName?: string
+        genres?: string[]
+      }>
+    }
     const item = data?.results?.[0]
-    return item?.artworkUrl600 || item?.artworkUrl512 || item?.artworkUrl100 || null
+    const artworkUrl = item?.artworkUrl600 || item?.artworkUrl512 || item?.artworkUrl100 || null
+    const genres = dedupeGenres([item?.primaryGenreName, ...(item?.genres ?? [])])
+    return { artworkUrl, genres }
   } catch {
     return null
   }
@@ -121,35 +166,24 @@ const SourceList = memo(function SourceList({
   activeUrl,
   rssLoading,
   loadingFeedUrl,
-  imageByUrl,
-  showThumbs = false,
   onSelect,
 }: SourceListProps) {
   return (
     <div className="pcSourceList">
       {feeds.map((f) => {
         const isLoading = !!loadingFeedUrl && f.rssUrl === loadingFeedUrl
-        const thumbUrl = showThumbs ? imageByUrl?.[f.rssUrl] ?? '' : ''
         return (
           <button
             key={f.rssUrl}
-            className={`pcSourceItem pcChamfer ${activeUrl === f.rssUrl ? 'active' : ''} ${isLoading ? 'isLoading' : ''}`}
+            className={`pcSourceItem ${activeUrl === f.rssUrl ? 'active' : ''} ${isLoading ? 'isLoading' : ''}`}
             disabled={rssLoading || isLoading}
             onClick={() => onSelect(f)}
           >
-            {showThumbs ? (
-              <div className="pcSourceThumb" aria-hidden="true">
-                {thumbUrl ? <img src={thumbUrl} alt="" loading="lazy" /> : <IconRss size={20} />}
-              </div>
-            ) : null}
             <div className="pcSourceItemTitle">{f.title}</div>
-            {f.category ? (
-              <div className="pcSourceItemMeta">
-                <span className="pcPill">{f.category}</span>
-              </div>
-            ) : null}
-            <div className="pcMonoUrl">{f.rssUrl}</div>
-            {isLoading ? <div className="pcItemStatus">LOADING…</div> : null}
+            <div className="pcSourceItemMeta">
+              <span className="pcSourceUrl">{f.rssUrl}</span>
+              {activeUrl === f.rssUrl ? <span className="pcActiveIndicator"></span> : null}
+            </div>
           </button>
         )
       })}
@@ -165,7 +199,11 @@ type EpisodeListProps = {
 const EpisodeList = memo(function EpisodeList({ items, hasEpisodes }: EpisodeListProps) {
   return (
     <div className="pcEpisodeList">
-      {items}
+      <table>
+        <tbody>
+          {items}
+        </tbody>
+      </table>
       {!hasEpisodes ? <div className="pcEmpty">No episodes. Load a feed.</div> : null}
     </div>
   )
@@ -183,6 +221,53 @@ function useIsMobile(maxWidthPx = 980): boolean {
   return isMobile
 }
 
+function useOverflowPanText<T extends HTMLElement>(
+  text: string,
+): { ref: React.MutableRefObject<T | null>; overflow: boolean; distance: number; style: CSSProperties } {
+  const ref = useRef<T | null>(null)
+  const [state, setState] = useState({ overflow: false, distance: 0 })
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const container = el.parentElement
+    if (!container) return
+
+    const measure = () => {
+      const overflowPx = Math.ceil(el.scrollWidth - container.clientWidth)
+      if (overflowPx > 4) {
+        setState((prev) => {
+          if (prev.overflow && prev.distance === overflowPx) return prev
+          return { overflow: true, distance: overflowPx }
+        })
+        return
+      }
+      setState((prev) => (prev.overflow || prev.distance !== 0 ? { overflow: false, distance: 0 } : prev))
+    }
+
+    measure()
+
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure)
+      ro.observe(el)
+      ro.observe(container)
+    }
+    window.addEventListener('resize', measure)
+
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [text])
+
+  const style = {
+    ['--pc-pan-distance' as const]: `${state.distance}px`,
+  } as CSSProperties
+
+  return { ref, overflow: state.overflow, distance: state.distance, style }
+}
+
 function formatClock(seconds: number | null | undefined): string {
   if (!Number.isFinite(seconds as number)) return '--:--'
   const s = Math.max(0, Math.floor(seconds as number))
@@ -191,6 +276,21 @@ function formatClock(seconds: number | null | undefined): string {
   const ss = s % 60
   const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`)
   return h > 0 ? `${h}:${pad2(m)}:${pad2(ss)}` : `${m}:${pad2(ss)}`
+}
+
+function normalizeFeedDescription(value?: string, maxLen = 420): string | null {
+  if (!value) return null
+  const plain = new DOMParser().parseFromString(value, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+  if (!plain) return null
+  return plain.length > maxLen ? `${plain.slice(0, maxLen - 1)}…` : plain
+}
+
+function feedHostFromUrl(value: string): string {
+  try {
+    return new URL(value).hostname.replace(/^www\./, '').toUpperCase()
+  } catch {
+    return 'UNKNOWN_HOST'
+  }
 }
 
 function splitTitle(title: string): { head: string; accent?: string } {
@@ -408,13 +508,15 @@ async function probeStreamProxy(proxyUrl: string): Promise<boolean> {
 export default function App() {
   const isMobile = useIsMobile(980)
   const [mobileTab, setMobileTab] = useState<MobileTab>('sources')
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('sources')
+  const [sidebarTab, setSidebarTab] = useState<'sources' | 'search'>('sources')
+  const [sidebarError, setSidebarError] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const proxyBypassRef = useRef<Set<string>>(new Set())
   const proxyVerifiedRef = useRef<Set<string>>(new Set())
+  const lastInferenceAtRef = useRef(0)
 
   const engineRef = useRef<DenoiseEngine | null>(null)
   const initPromiseRef = useRef<Promise<void> | null>(null)
@@ -466,6 +568,7 @@ export default function App() {
   const feedImageFetchRef = useRef<Set<string>>(new Set())
 
   const [episodeQuery, setEpisodeQuery] = useState('')
+  const [episodeReverse, setEpisodeReverse] = useState(false)
   const deferredEpisodeQuery = useDeferredValue(episodeQuery)
 
   const [engineState, setEngineState] = useState<string>('idle')
@@ -479,13 +582,16 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState<number | null>(null)
+  const [volume, setVolume] = useState(0.66)
+  const [lastNonZeroVolume, setLastNonZeroVolume] = useState(0.66)
+  const [isInferenceActive, setIsInferenceActive] = useState(false)
 
   const episodesAll = podcast?.episodes ?? []
   const episodes = useMemo(() => {
     const q = deferredEpisodeQuery.trim().toLowerCase()
-    if (!q) return episodesAll
-    return episodesAll.filter((e) => e.title.toLowerCase().includes(q))
-  }, [deferredEpisodeQuery, episodesAll])
+    const filtered = !q ? episodesAll : episodesAll.filter((e) => e.title.toLowerCase().includes(q))
+    return episodeReverse ? [...filtered].reverse() : filtered
+  }, [deferredEpisodeQuery, episodeReverse, episodesAll])
 
   // Keep the status in the mobile top bar; desktop has the floating widget.
   const nowTitle = episode?.title ?? 'Select an episode'
@@ -601,6 +707,24 @@ export default function App() {
   const canInstall = !isInstalled
 
   useEffect(() => {
+    if (!denoiseEnabled || !isPlaying || engineState !== 'ready') {
+      setIsInferenceActive(false)
+      return
+    }
+
+    const thresholdMs = 700
+    const intervalMs = 180
+    const updateInferenceState = () => {
+      const isActive = performance.now() - lastInferenceAtRef.current <= thresholdMs
+      setIsInferenceActive((prev) => (prev === isActive ? prev : isActive))
+    }
+
+    updateInferenceState()
+    const timer = window.setInterval(updateInferenceState, intervalMs)
+    return () => window.clearInterval(timer)
+  }, [denoiseEnabled, isPlaying, engineState])
+
+  useEffect(() => {
     // Default load.
     try {
       const searchRaw = localStorage.getItem(searchCacheKey)
@@ -627,6 +751,7 @@ export default function App() {
     } catch {}
     void loadFeed(rssUrl)
     return () => {
+      engineRef.current?.setInferenceActivityHandler(null)
       void engineRef.current?.dispose()
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current)
@@ -779,13 +904,33 @@ export default function App() {
     setSourceKind('remote')
     setCanDenoise(null)
     setDenoiseEnabled(false)
+    setIsInferenceActive(false)
+    lastInferenceAtRef.current = 0
     setEpisodeQuery('')
     engineRef.current?.setEnabled(false)
 
     try {
       const cached = feedCacheRef.current.get(url)
-      const parsed = cached ?? (await fetchAndParseRss(url))
-      if (!cached) {
+      let parsed = cached ?? (await fetchAndParseRss(url))
+      let cacheDirty = !cached
+
+      let lookup: FeedLookupMeta | null = null
+      if (!parsed.feed?.imageUrl || !parsed.feed?.genres?.length) {
+        lookup = await fetchFeedLookupMeta(url)
+      }
+
+      if ((!parsed.feed?.genres || parsed.feed.genres.length === 0) && lookup?.genres?.length) {
+        parsed = {
+          ...parsed,
+          feed: {
+            ...parsed.feed,
+            genres: lookup.genres,
+          },
+        }
+        cacheDirty = true
+      }
+
+      if (cacheDirty) {
         feedCacheRef.current.set(url, parsed)
         if (feedCacheRef.current.size > maxFeedCache) {
           const firstKey = feedCacheRef.current.keys().next().value as string | undefined
@@ -795,10 +940,12 @@ export default function App() {
           localStorage.setItem(feedCacheKey, JSON.stringify({ entries: Array.from(feedCacheRef.current.entries()) }))
         } catch {}
       }
-      if (parsed.feed?.imageUrl) {
+
+      const bestImage = parsed.feed?.imageUrl || lookup?.artworkUrl || null
+      if (bestImage) {
         setFeedImages((prev) => {
-          if (prev[url] === parsed.feed!.imageUrl) return prev
-          const next = { ...prev, [url]: parsed.feed!.imageUrl! }
+          if (prev[url] === bestImage) return prev
+          const next = { ...prev, [url]: bestImage }
           try {
             localStorage.setItem(feedImageCacheKey, JSON.stringify(next))
           } catch {}
@@ -828,6 +975,9 @@ export default function App() {
     if (!model.supported) throw new Error('Selected model is not supported yet')
 
     if (!engineRef.current) engineRef.current = new DenoiseEngine()
+    engineRef.current.setInferenceActivityHandler(() => {
+      lastInferenceAtRef.current = performance.now()
+    })
 
     if (!initPromiseRef.current) {
       setEngineState('loading-model')
@@ -869,6 +1019,8 @@ export default function App() {
     setSourceKind('remote')
     setCanDenoise(null)
     setDenoiseEnabled(false)
+    setIsInferenceActive(false)
+    lastInferenceAtRef.current = 0
     engineRef.current?.setEnabled(false)
 
     if (objectUrlRef.current) {
@@ -983,6 +1135,8 @@ export default function App() {
 
     setCanDenoise(null)
     setDenoiseEnabled(false)
+    setIsInferenceActive(false)
+    lastInferenceAtRef.current = 0
     engineRef.current?.setEnabled(false)
 
     if (objectUrlRef.current) {
@@ -1025,6 +1179,8 @@ export default function App() {
 
     if (!next) {
       setDenoiseEnabled(false)
+      setIsInferenceActive(false)
+      lastInferenceAtRef.current = 0
       engineRef.current?.setEnabled(false)
       audioEl.removeAttribute('crossorigin')
       return
@@ -1037,6 +1193,8 @@ export default function App() {
     setCanDenoise(ok)
     if (!ok) {
       setDenoiseEnabled(false)
+      setIsInferenceActive(false)
+      lastInferenceAtRef.current = 0
       setEngineDetail('CORS blocked. Download + import the file to denoise.')
       return
     }
@@ -1098,6 +1256,82 @@ export default function App() {
     seekToPct(pct)
   }
 
+  const setVolumeClamped = useCallback((next: number) => {
+    const clamped = Math.max(0, Math.min(1, next))
+    setVolume(clamped)
+    if (clamped > 0) setLastNonZeroVolume(clamped)
+  }, [])
+
+  const setVolumeFromClientX = useCallback((clientX: number, el: HTMLDivElement) => {
+    const rect = el.getBoundingClientRect()
+    const x = clientX - rect.left
+    const pct = rect.width > 0 ? x / rect.width : 0
+    setVolumeClamped(pct)
+  }, [setVolumeClamped])
+
+  function onVolumePointerDown(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const target = e.currentTarget
+    const pointerId = e.pointerId
+    setVolumeFromClientX(e.clientX, target)
+    target.setPointerCapture(pointerId)
+
+    const onMove = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== pointerId) return
+      setVolumeFromClientX(event.clientX, target)
+    }
+    const onStop = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== pointerId) return
+      target.removeEventListener('pointermove', onMove)
+      target.removeEventListener('pointerup', onStop)
+      target.removeEventListener('pointercancel', onStop)
+      if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
+    }
+
+    target.addEventListener('pointermove', onMove)
+    target.addEventListener('pointerup', onStop)
+    target.addEventListener('pointercancel', onStop)
+  }
+
+  function onVolumeKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const step = 0.05
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setVolumeClamped(volume + step)
+      return
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      setVolumeClamped(volume - step)
+      return
+    }
+    if (e.key === 'Home') {
+      e.preventDefault()
+      setVolumeClamped(0)
+      return
+    }
+    if (e.key === 'End') {
+      e.preventDefault()
+      setVolumeClamped(1)
+    }
+  }
+
+  function onVolumeWheel(e: WheelEvent<HTMLDivElement>) {
+    e.preventDefault()
+    if (e.deltaY === 0) return
+    const direction = e.deltaY < 0 ? 1 : -1
+    const step = e.shiftKey ? 0.1 : 0.04
+    setVolumeClamped(volume + direction * step)
+  }
+
+  const toggleMute = useCallback(() => {
+    if (volume === 0) {
+      setVolumeClamped(lastNonZeroVolume > 0 ? lastNonZeroVolume : 0.66)
+      return
+    }
+    setVolumeClamped(0)
+  }, [lastNonZeroVolume, setVolumeClamped, volume])
+
   function playPrev() {
     if (!episode || sourceKind !== 'remote' || !episodesAll.length) return
     const idx = episodesAll.findIndex((e) => e.guid === episode.guid)
@@ -1117,6 +1351,54 @@ export default function App() {
     sourceKind === 'remote' && episode ? episodesAll.findIndex((e) => e.guid === episode.guid) < episodesAll.length - 1 : false
 
   const nowState: NowState = !episode ? 'idle' : isPlaying ? 'active' : 'paused'
+  const isDiscoverView = isMobile ? mobileTab === 'search' : sidebarTab === 'search'
+  const searchQuery = searchTerm.trim()
+  const hasSearchQuery = searchQuery.length > 0
+  const footerProgressPct = Math.round(progressPct * 1000) / 10
+  const footerVolumePct = Math.round(volume * 100)
+  const footerVolumeIcon = volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up'
+  const footerEpisodeTitle = episode?.title ?? 'Select an episode'
+  const footerEpisodeShow = sourceKind === 'local' ? 'LOCAL FILE' : podcast?.feed.title ?? 'NO SOURCE SELECTED'
+  const footerTitlePan = useOverflowPanText<HTMLSpanElement>(footerEpisodeTitle)
+  const footerShowPan = useOverflowPanText<HTMLSpanElement>(footerEpisodeShow)
+  const footerPanActive = footerTitlePan.overflow || footerShowPan.overflow
+  const footerPanDistanceMax = Math.max(footerTitlePan.distance, footerShowPan.distance)
+  const footerPanDuration = Math.max(8, 8 + footerPanDistanceMax / 18)
+  const footerPanSharedStyle = {
+    ['--pc-pan-duration' as const]: `${footerPanDuration}s`,
+    ['--pc-pan-delay' as const]: '0.8s',
+  } as CSSProperties
+  const activeSource = useMemo(() => DEFAULT_FEEDS.find((f) => f.rssUrl === rssUrl), [rssUrl])
+  const showHost = useMemo(() => feedHostFromUrl(rssUrl), [rssUrl])
+  const showTitleRaw = podcast?.feed.title || activeSource?.title || 'SELECT A SOURCE'
+  const showTitleParts = useMemo(() => splitTitle(showTitleRaw), [showTitleRaw])
+  const showArtwork = podcast?.feed.imageUrl || feedImages[rssUrl] || null
+  const showDescription = useMemo(() => {
+    if (rssLoading) return 'Loading selected feed…'
+    const parsed = normalizeFeedDescription(podcast?.feed.description)
+    if (parsed) return parsed
+    if (activeSource) return `Feed URL: ${activeSource.rssUrl}`
+    return 'Select a source from the sidebar to load show details.'
+  }, [activeSource, podcast?.feed.description, rssLoading])
+  const showGenres = useMemo(() => {
+    if (sourceKind === 'local') return ['LOCAL FILE']
+    const parsed = (podcast?.feed.genres ?? []).filter((g) => typeof g === 'string' && g.trim().length > 0)
+    if (parsed.length) return parsed.slice(0, 3)
+    if (activeSource?.category?.trim()) return [activeSource.category.trim()]
+    return ['Podcast']
+  }, [activeSource?.category, podcast?.feed.genres, sourceKind])
+  const footerCurrent = formatClock(currentTime)
+  const footerDuration = formatClock(duration)
+  const footerRemaining = timeLeft !== null ? `-${formatClock(timeLeft)}` : '--:--'
+  const canDownloadCurrent = sourceKind === 'remote' && !!episode
+  const isDownloadingCurrent = !!episode && downloadingEpisodeId === episode.guid
+
+  useEffect(() => {
+    const el = audioRef.current
+    if (!el) return
+    el.volume = volume
+    el.muted = volume === 0
+  }, [volume])
 
   useEffect(() => {
     const el = nowTitleRef.current
@@ -1147,9 +1429,9 @@ export default function App() {
 
   const episodeItems = useMemo(() => {
     return episodes.map((ep) => (
-      <div
+      <tr
         key={ep.guid}
-        className={`pcEpisodeItem pcChamfer ${episode?.guid === ep.guid ? 'active' : ''}`}
+        className={`pcEpisodeItem ${episode?.guid === ep.guid ? 'active' : ''}`}
         role="button"
         tabIndex={0}
         onClick={() => void startEpisode(ep)}
@@ -1161,29 +1443,26 @@ export default function App() {
           }
         }}
       >
-        <div className="pcEpisodeIcon">
-          <IconPlay size={18} />
-        </div>
-        <div className="pcEpisodeBody">
-          <div className="pcEpisodeTitle">{ep.title}</div>
-          <div className="pcEpisodeMeta">
-            {ep.dateStamp ? <span>{ep.dateStamp}</span> : null}
-            {ep.duration ? <span>{ep.duration}</span> : null}
-            {loadingEpisodeId === ep.guid ? <span className="pcLoadingText">LOADING…</span> : null}
+        <td>
+          <div className="pcEpisodeIcon">
+            <span className="material-symbols-outlined">{episode?.guid === ep.guid ? 'graphic_eq' : 'play_circle'}</span>
           </div>
-        </div>
-        <button
-          type="button"
-          className="pcMiniBtn pcEpisodeDownload pcChamfer"
-          onClick={(e) => {
-            e.stopPropagation()
-            void handleEpisodeDownload(ep)
-          }}
-          disabled={downloadingEpisodeId === ep.guid}
-        >
-          {downloadingEpisodeId === ep.guid ? 'SAVING…' : 'DOWNLOAD'}
-        </button>
-      </div>
+        </td>
+        <td>
+          <div className="pcEpisodeBody">
+            <div className="pcEpisodeTitle">Ep. {episodes.indexOf(ep) + 1}: {ep.title}</div>
+            <div className="pcEpisodeMeta">
+              {ep.dateStamp ? <span>{ep.dateStamp}</span> : null}
+              {ep.dateStamp && ep.duration ? <span className="pcMetaSeparator">|</span> : null}
+              {ep.duration ? <span>{ep.duration}</span> : null}
+              {loadingEpisodeId === ep.guid ? <span className="pcLoadingTag">LOADED</span> : null}
+            </div>
+          </div>
+        </td>
+        <td style={{ textAlign: 'right' }}>
+          <span className="pcEpisodeSize">128kbps / FLAC</span>
+        </td>
+      </tr>
     ))
   }, [episodes, episode?.guid, loadingEpisodeId, downloadingEpisodeId, startEpisode, handleEpisodeDownload])
 
@@ -1198,38 +1477,32 @@ export default function App() {
           </div>
           <div className="pcBrandText">
             <div className="pcBrandTitle">
-              Poise<span>Cast</span>
-              <span className="pcBrandVer">VER. 0.1</span>
+              PoiseCast <span className="pcBrandVer">v0.1-BETA</span>
             </div>
           </div>
         </div>
 
-        <div className="pcHeaderStatus">{topStatus}</div>
+        <div className="pcHeaderStatus">
+          <div className={`pcStatusIndicator ${isInferenceActive ? 'active' : ''}`}>
+            <span className="pcStatusDot"></span>
+            <span className="pcStatusText">Processing: {isInferenceActive ? 'Active' : 'Idle'}</span>
+          </div>
+        </div>
 
         <div className="pcHeaderRight">
-          {canInstall ? (
-            <button className="pcMiniBtn pcInstallBtn pcChamfer" onClick={() => void triggerInstall()} disabled={installing}>
-              {installing ? 'INSTALLING…' : 'INSTALL APP'}
-            </button>
-          ) : null}
-          <div className="pcSelectWrap pcChamfer">
-            <div className="pcSelectMeta">
-              <div className="pcSelectMetaLabel">SYSTEM</div>
-              <div className="pcSelectMetaValue">MODEL</div>
+          <button
+            className="pcAddSourceBtn"
+            onClick={() => void triggerInstall()}
+            disabled={!canInstall || installing}
+          >
+            {!canInstall ? 'Installed' : installing ? 'Installing…' : 'Install App'}
+          </button>
+          <div className="pcDspMode">
+            <div className="pcDspLabel">Isolation Mode</div>
+            <div className="pcDspValue">
+              <span>Vocal Isolation</span>
+              <span className="material-symbols-outlined">expand_more</span>
             </div>
-            <select
-              className="pcSelect"
-              value={modelId}
-              onChange={(e) => {
-                onModelChange(e.target.value)
-              }}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id} disabled={!m.supported}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </header>
@@ -1254,213 +1527,476 @@ export default function App() {
 
       <div className="pcShell">
         <aside className="pcSidebar pcChamfer">
-            <div className="pcSidebarHead">
-              <div className="pcSidebarTitle">
-                <IconRss size={18} /> INPUT SOURCES
-                {rssLoading ? <span className="pcLoadingTag">LOADING…</span> : null}
-              </div>
-            </div>
-
           <div className="pcSidebarBody">
-            {!isMobile ? (
-              <div className="pcSidebarTabs">
-                <button
-                  className={`pcTabBtn ${sidebarTab === 'sources' ? 'active' : ''}`}
-                  onClick={() => setSidebarTab('sources')}
-                >
-                  SOURCES
-                </button>
-                <button
-                  className={`pcTabBtn ${sidebarTab === 'search' ? 'active' : ''}`}
-                  onClick={() => setSidebarTab('search')}
-                >
-                  SEARCH
-                </button>
-              </div>
-            ) : null}
-
-            {(isMobile ? mobileTab === 'search' : sidebarTab === 'search') ? (
-              <div className="pcSearchBox pcChamfer">
-                <div className="pcSearchTop">
-                  <div className="pcMiniLabel">
-                    <IconSearch size={14} /> SEARCH (APPLE)
+            <>
+                <div className="pcSourceList">
+		                  <button
+                    type="button"
+                    className={`pcNavigationItem ${(isMobile ? mobileTab === 'sources' : sidebarTab === 'sources') ? 'active' : ''}`}
+                    onClick={() => {
+                      if (isMobile) setMobileTab('sources')
+                      else setSidebarTab('sources')
+                    }}
+                  >
+                    <div className="pcNavigationContent">
+                      <div className="pcNavigationTitle">Library</div>
+                      <div className="pcNavigationMeta">
+                        <span className="pcNavigationUrl">Personal Archive</span>
+                      </div>
+                    </div>
+                    <div className="pcNavigationIcon">
+                      <span className="material-symbols-outlined">library_books</span>
+                    </div>
+                  </button>
+	                  <button
+                    type="button"
+                    className={`pcNavigationItem ${(isMobile ? mobileTab === 'search' : sidebarTab === 'search') ? 'active' : ''}`}
+                    onClick={() => {
+                      if (isMobile) setMobileTab('search')
+                      else setSidebarTab('search')
+                    }}
+                  >
+                    <div className="pcNavigationContent">
+                      <div className="pcNavigationTitle">Discover</div>
+                      <div className="pcNavigationMeta">
+                        <span className="pcNavigationUrl">Global Network</span>
+                      </div>
+                    </div>
+                    <div className="pcNavigationIcon">
+                      <span className="material-symbols-outlined">explore</span>
+                    </div>
+                  </button>
+	                </div>
+                
+                <div className="pcSidebarHead" style={{paddingTop: '24px', paddingBottom: '8px'}}>
+                  <div className="pcSidebarTitle" style={{fontSize: '9px', letterSpacing: '0.2em', opacity: 0.4}}>
+                    <span className="material-symbols-outlined" style={{fontSize: '12px'}}>rss_feed</span>
+                    Recent Feeds
                   </div>
-                  <div className="pcMiniHint">{searchLoading ? 'SEARCHING…' : ' '}</div>
                 </div>
-                <input
-                  className="pcInput"
-                  value={searchTerm}
-                  placeholder="Search podcasts"
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchError ? <div className="pcInlineError">{searchError}</div> : null}
-                <SearchResults
-                  results={searchResults}
+                
+                <SourceList
+                  feeds={DEFAULT_FEEDS}
+                  activeUrl={rssUrl}
                   rssLoading={rssLoading}
                   loadingFeedUrl={loadingFeedUrl}
-                  onSelect={handleSearchSelect}
+                  imageByUrl={feedImages}
+                  showThumbs={isMobile && mobileTab === 'sources'}
+                  onSelect={handleSourceSelect}
                 />
-              </div>
-            ) : null}
-
-            {(isMobile ? mobileTab === 'sources' : sidebarTab === 'sources') ? (
-              <SourceList
-                feeds={DEFAULT_FEEDS}
-                activeUrl={rssUrl}
-                rssLoading={rssLoading}
-                loadingFeedUrl={loadingFeedUrl}
-                imageByUrl={feedImages}
-                showThumbs={isMobile && mobileTab === 'sources'}
-                onSelect={handleSourceSelect}
-              />
-            ) : null}
-          </div>
-
-          <div className="pcSidebarFoot">
-            {isMobile ? (
-              <div className="pcFootBlock">
-                <div className="pcMiniLabel">MODEL</div>
-                <select
-                  className="pcInlineSelect"
-                  value={modelId}
-                  onChange={(e) => {
-                    onModelChange(e.target.value)
-                  }}
-                >
-                  {MODELS.map((m) => (
-                    <option key={m.id} value={m.id} disabled={!m.supported}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-
-            {rssError ? <pre className="pcError">{rssError}</pre> : null}
-            {podcast ? (
-              <div className="pcFeedMeta">
-                <div className="pcFeedMetaTitle">{podcast.feed.title}</div>
-                {podcast.feed.description ? <div className="pcFeedMetaDesc">{podcast.feed.description}</div> : null}
-              </div>
-            ) : null}
-          </div>
+                {sidebarError ? (
+                  <div className="pcSidebarFoot">
+                    <h4 className="pcFeedMetaTitle" style={{fontSize: '10px', marginBottom: '8px'}}>Host System</h4>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-surface-hover border border-border-active flex items-center justify-center overflow-hidden">
+                        <span className="material-symbols-outlined text-sm text-primary">account_circle</span>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold text-white uppercase font-mono">DR. VINCENZO</p>
+                        <p className="text-[9px] text-muted uppercase font-mono">ADMIN_AUTH_01</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+            </>
+          </div> 
         </aside>
 
         <main className="pcMain">
-          <section
-            className="pcNow pcChamfer"
-            data-state={nowState}
-          >
-            <div className="pcNowInner">
-              <div className="pcNowTop">
-                <div className="pcTag">{nowTagScramble}</div>
-                <div className="pcNowLine">
-                  /// {sourceScramble} /// {releaseScramble}
-                </div>
-              </div>
-
-              <h2 className="pcNowTitle" ref={nowTitleRef}>
-                <span className="pcNowTitleHead">{headScramble}</span>
-                {split.accent ? <span className="pcNowTitleAccent">{accentScramble}</span> : null}
-              </h2>
-
-              <div className="pcPlayerStack">
-                <div className="pcProgress">
-                  <div className="pcProgressTrack pcChamfer" onPointerDown={onProgressPointer}>
-                    <div className="pcProgressFill" style={{ width: `${progressPct * 100}%` }} />
-                    <div className="pcProgressMark" style={{ left: `${progressPct * 100}%` }} />
-                  </div>
-                  <div className="pcProgressTimes">
-                    <span className="pcCyan">{formatClock(currentTime)}</span>
-                    <span className="pcMuted">{timeLeft !== null ? `-${formatClock(timeLeft)}` : '--:--'}</span>
-                  </div>
-                </div>
-
-                <div className="pcControls">
-                  <button
-                    ref={importBtnRef}
-                    className="pcMiniBtn pcControlImport pcControlsSide"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <span className="pcLottie pcLottieHover" ref={importHoverLottie.containerRef} />
-                    <IconUpload size={14} /> IMPORT
-                  </button>
-
-                  <div className="pcControlsRow pcControlsRowPrimary">
-                    <button
-                      ref={prevBtnRef}
-                      className="pcSkip"
-                      onClick={playPrev}
-                      disabled={!canPrev}
-                      title="Previous"
-                    >
-                      <span className="pcLottie pcLottieHover" ref={prevHoverLottie.containerRef} />
-                      <IconPrev size={26} />
-                    </button>
-                    <button
-                      ref={playBtnRef}
-                      className={`pcPlay ${isPlaying ? 'on' : ''} ${isEpisodeLoading ? 'isLoading' : ''}`}
-                      onClick={() => void togglePlayPause()}
-                      title={isEpisodeLoading ? 'Loading…' : 'Play / Pause'}
-                      disabled={!episode || isEpisodeLoading}
-                    >
-                      <span className="pcLottie pcLottieHover pcLottiePlay" ref={playHoverLottie.containerRef} />
-                      {isEpisodeLoading ? (
-                        <span className="pcLottie pcLottieLoading pcLottiePlay" ref={playLoadingLottie.containerRef} />
-                      ) : null}
-                      {isPlaying ? <IconPause size={44} /> : <IconPlay size={44} />}
-                    </button>
-                    <button
-                      ref={nextBtnRef}
-                      className="pcSkip"
-                      onClick={playNext}
-                      disabled={!canNext}
-                      title="Next"
-                    >
-                      <span className="pcLottie pcLottieHover" ref={nextHoverLottie.containerRef} />
-                      <IconNext size={26} />
-                    </button>
-                  </div>
-
-                  <button
-                    ref={denoiseBtnRef}
-                    className={`pcDenoiseControl pcControlsSide ${denoiseEnabled ? 'on' : ''}`}
-                    disabled={!episode || !model?.supported || isDenoiseLoading}
-                    onClick={() => void toggleDenoise(!denoiseEnabled)}
-                    title={isDenoiseLoading ? 'Loading…' : `Denoise ${denoiseEnabled ? 'On' : 'Off'}`}
-                  >
-                    <span className="pcLottie pcLottieHover" ref={denoiseHoverLottie.containerRef} />
-                    <div className="pcMiniLabel">DENOISE</div>
-                    <div className={`pcProcState ${denoiseEnabled ? 'on' : ''}`}>{denoiseEnabled ? 'ON' : 'OFF'}</div>
-                    {isDenoiseLoading ? <span className="pcSpinner pcSpinnerSm" aria-hidden="true" /> : null}
-                  </button>
-                </div>
-              </div>
-
-              <audio ref={audioRef} className="pcAudio" preload="none" />
-            </div>
-          </section>
-
-          <section className="pcEpisodes pcChamfer">
-            <div className="pcSectionHead">
-              <div className="pcSectionTitle">
-                EPISODES <span className="pcSectionTag">/// DATA STORAGE</span>
-              </div>
-              <div className="pcSectionTools">
-                <div className="pcFilter">
-                  <IconSearch size={14} />
-                  <input
-                    className="pcFilterInput"
-                    value={episodeQuery}
-                    placeholder="Filter…"
-                    onChange={(e) => setEpisodeQuery(e.target.value)}
+          {isDiscoverView ? (
+            <div className="pcDiscoverScreen">
+              <div className="pcDiscoverSearch">
+                <div className="pcDiscoverSearchInner">
+                  <span className="material-symbols-outlined pcDiscoverSearchIcon">search</span>
+                  <input 
+                    className="pcDiscoverSearchInput" 
+                    placeholder="SEARCH ARCHIVE..." 
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
-            </div>
 
-            <EpisodeList items={episodeItems} hasEpisodes={episodes.length > 0} />
-          </section>
+              {hasSearchQuery ? (
+                <div className="pcDiscoverContent">
+                  {searchLoading ? <div className="pcItemStatus pcLoadingText">SEARCHING PODCASTS…</div> : null}
+                  {searchError ? <div className="pcInlineError">{searchError}</div> : null}
+                  {!searchError ? (
+                    <SearchResults
+                      results={searchResults}
+                      rssLoading={rssLoading}
+                      loadingFeedUrl={loadingFeedUrl}
+                      onSelect={handleSearchSelect}
+                    />
+                  ) : null}
+                  {!searchLoading && !searchError && searchResults.length === 0 ? (
+                    <div className="pcEmpty">No shows found for "{searchQuery}".</div>
+                  ) : null}
+                </div>
+              ) : null}
+              
+              <div className="pcDiscoverHero">
+                <img className="pcDiscoverHeroImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzeTSV-6dtbtX3Z3gEnqx1ny2MdjhrnEdQ5DYGWbbUdO6M8oL3FeItZiyC8XbRKZ_aPzrp3qK4gpNljWbCEG9OLc-A6L7RpIJeI8hKnow1_8Dbe3EeREKpy-VObVYI47YVsun6ApHvX173U3CrqNlbZCBU3lFzXEanuVr5oF9grbWVZGb9fHnVXHG7ArOFqAAdbtvlE1c1I7TObE5Z12oOp07yoFFBMCvhSfQuObLStUBRxUzQm4q2iXMLPVrsgKj6N8fGmWdHICc" alt="Hero Banner" />
+                <div className="pcDiscoverHeroOverlay">
+                  <div className="pcDiscoverHeroContent">
+                    <div className="pcDiscoverHeroHeader">
+                      <span className="pcDiscoverHeroBadge">Featured Intel</span>
+                      <span className="pcDiscoverHeroPriority">/// PRIORITY_STREAM: 098</span>
+                    </div>
+                    <h2 className="pcDiscoverHeroTitle">NEURAL <span className="pcDiscoverHeroTitleAccent">OVERRIDE</span></h2>
+                    <p className="pcDiscoverHeroDesc">Exploring the ethics of cognitive enhancement and the impending singularity. A deep dive into the industrial-scale deployment of wetware interfaces.</p>
+                    <div className="pcDiscoverHeroActions">
+                      <button className="pcDiscoverHeroBtn">
+                        <span className="material-symbols-outlined FILL-1">play_arrow</span>
+                        <span>LISTEN NOW</span>
+                      </button>
+                      <button className="pcDiscoverHeroBtnSecondary">
+                        <span className="material-symbols-outlined">add</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pcDiscoverContent">
+                <div className="pcDiscoverSection">
+                  <div className="pcDiscoverSectionHeader">
+                    <div className="pcDiscoverSectionTitle">
+                      <span>Trending Data</span>
+                      <span className="pcDiscoverSectionLive">LIVE_TRAFFIC</span>
+                    </div>
+                    <button className="pcDiscoverSectionBtn">View All ///</button>
+                  </div>
+                  <div className="pcDiscoverGrid">
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtzK1iqz5noL89la9IeFHfnFxxvlD3O4zDlwXFTNGS4XpFPJJBCIdNHocLSVUjijuVwPhxZi3W3g1n9ASgnnBvlKwVDN4QixR7DOE07PIOMjQFAJB6RO29gdjOh6TQb9OwepomkGTRyM58I65RzbFWCjs5-NcgaRz8EBt3N8bwPPndkPuaWZjQRZLtZyIQ0Bj1qenBwIj0fHdAbp1iDlLCWARd0ZfXjAePcIVhIZ9AFA-Hj-9IEnt4NBhRjuIjFbTBThKDV1zfmO8" alt="Cover" />
+                        <div className="pcDiscoverCardOverlay">
+                          <span className="material-symbols-outlined">play_circle</span>
+                        </div>
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Silicon Shadows</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// SECURE_FEED_01</span>
+                          <span className="pcDiscoverCardStats">
+                            <span className="pcDiscoverCardStat">8.4k Listeners</span>
+                            <span className="pcDiscoverCardSeparator">|</span>
+                            <span className="pcDiscoverCardTime">42m</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9MmU9rF06s7UoRz6GYPQg8sB6osarAIGvhGB_kKiHKS6w7SYWpW6D43cK7s7RWyCTJJvGWc696VYkXoqnIOpc9LCOGEfYXnP1n93KcwMOAGzFi0UymL80UJKBbyWYJrUDyYtfME2ACMGyNHa0S3cyt0XIQtOXuMDUeRxQeQTF7QsmyqoAE6JDoSxOfk3BXmUKuq7RaqYTdyBIq7y_qV4b_4DXPrSHQhd1HEbPt1_2hQvO497scg2_tgOjUvgmEm9P9-9n1PXisT0" alt="Cover" />
+                        <div className="pcDiscoverCardOverlay">
+                          <span className="material-symbols-outlined">play_circle</span>
+                        </div>
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Signal Loss</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// BAND_77-ALPHA</span>
+                          <span className="pcDiscoverCardStats">
+                            <span className="pcDiscoverCardStat">3.2k Listeners</span>
+                            <span className="pcDiscoverCardSeparator">|</span>
+                            <span className="pcDiscoverCardTime">1h 05m</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsZvyo4Znm9_Zf6sBmSL-JM5q8iNgKeiBGmd2JIrRdVVm8YnNm3TE2A40SHbp4tXarOZkawNiJDDxvCPDs8VXk1sCpSdxXv8AmOJMGUiz1ToyKV0BpPJD1cHsRyzwd-agPUQiyxTWNHW5bwVFhpS19_aYYE2-wGlW3aqMgiDe-YNCxPwWLzuUOqWLfYemSLpmUTaehRBg3NEgmn1UCVBDcVW1W-58nS-karXJzefpt7eZK_pyUTJ9kBIQphPQiKfc1XKT9ajvqaWg" alt="Cover" />
+                        <div className="pcDiscoverCardOverlay">
+                          <span className="material-symbols-outlined">play_circle</span>
+                        </div>
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Cybernetic Echo</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// RECURSIVE_DYNAMICS</span>
+                          <span className="pcDiscoverCardStats">
+                            <span className="pcDiscoverCardStat">12k Listeners</span>
+                            <span className="pcDiscoverCardSeparator">|</span>
+                            <span className="pcDiscoverCardTime">38m</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzDIVsR1QW9UcG-2LSKPS05pNQ9KDbhy06hjgLOnDz-tRsInoh4OvHaWoRpgvb4axqbIzHx0Jurrx9T8XT66FAAzE2BNBBN41Fd49WgPitMLcWiW61H7oKy9QyEeAZkJKVfNOdS_JvlyFP0yfFTAu0JuqbuNE5ee4xEC-UPq3qvfxj-XL7-2FWMQcNR_bcmUBBZ9WWdIlTG6t2EBKeYjRO8k-VDlmbe_R3rva4RP_AWsjA-nsDjS_7bGKJLQ1a6zzD_CoKW-FXVVo" alt="Cover" />
+                        <div className="pcDiscoverCardOverlay">
+                          <span className="material-symbols-outlined">play_circle</span>
+                        </div>
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Black Box Logic</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// OPAQUE_ANALYSIS</span>
+                          <span className="pcDiscoverCardStats">
+                            <span className="pcDiscoverCardStat">1.1k Listeners</span>
+                            <span className="pcDiscoverCardSeparator">|</span>
+                            <span className="pcDiscoverCardTime">55m</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAixwBoGqTYegjsHEcErjMm2FwUPiygGKcp2xDRqtRLmdqkbbee9X1RAougWqdI4f7OZsWzXuNqhl_TlgcvVH1qSQcJd_exGMLeWDrCnUT57aL5J-oLdKfxWWyd_12IGh_62FtLz1SUgVhIL2XMCI9z8jFNqrGLHrXrLthAH86eDJ_rU97uMHTzCLU4oNb56tA-gsuZm1ZKFNmyDGFhxdxt-PVXgPY2-WLB9NsNkAtRF5QDf-IRNnHB5Pevu45z0XO2iNIpK8xMV-0" alt="Cover" />
+                        <div className="pcDiscoverCardOverlay">
+                          <span className="material-symbols-outlined">play_circle</span>
+                        </div>
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">The Void State</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// NULL_POINTER</span>
+                          <span className="pcDiscoverCardStats">
+                            <span className="pcDiscoverCardStat">6.7k Listeners</span>
+                            <span className="pcDiscoverCardSeparator">|</span>
+                            <span className="pcDiscoverCardTime">29m</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="pcDiscoverSection">
+                  <div className="pcDiscoverSectionHeader">
+                    <div className="pcDiscoverSectionTitle">
+                      <span>New Signals</span>
+                      <span className="pcDiscoverSectionTag">RECENT_UPLINK</span>
+                    </div>
+                    <button className="pcDiscoverSectionBtn">Incoming ///</button>
+                  </div>
+                  <div className="pcDiscoverGrid">
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQ3sDWhcCWQGb0eVMWJlmK9ijOLa2MdeshHnMRTZv9DVVGhTfsL_NhxeOvBEkfa7GJddmc_94NPrT0ZuTw4CUj2ghtMGsNbfjiKd5VEU972MpUZvjZlokGEqvO_SvRr1h9SJiXOZmljs6nO26TOapswvXFHsp67DkzqFHm61JBJGOILhjRlO4THW3rEiTEC1N7Cn9vHvnpWSGQzWuyH9gbxM1OKq5E9Yftq0Eo9xoK4iOXZvO5F-Df7VQfcvOF0bWQOO4byL6l9yM" alt="Cover" />
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Proxy War</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// NODE_LATENCY_24</span>
+                          <span className="pcDiscoverCardStat">New Today</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa4iugeL8djUHWo-wL-yd0IDgeTkC7ZsKP3-N_OrOGQojYCCDGK1MifY6dLEZwJePbpbGCpnC7rzo4ikiZzpOZEwTVho0u2Hq4Q7-qVY6VrpQ_bf53GDsVyy54ZU4o6GN7yOrKeDkEjadyoEGjGYkSeTVZhZ4yMSu6EjlrpISgPudbZMFHsNHkdEjH9Ap3I2xpzJqleDYo1nRJUWec9WnQSdGS6bHB1CWP3n3LKtrAvdTuA6zV4XCqrHy5Ongr4ka39SZi4qSk-r4" alt="Cover" />
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Gridlock Theory</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// TRAFFIC_REDACTED</span>
+                          <span className="pcDiscoverCardStat">New Today</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pcDiscoverCard">
+                      <div className="pcDiscoverCardImageContainer">
+                        <img className="pcDiscoverCardImage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdR42crqA2ZUK0rzvsRKIeGKdU4eOdVt9UltmZaQsz0UfqzMrqIeaDbUyNX2CvQ09mKD-dtcraA3I7lt6oLerJOGTSw8dlRkzTK9OpncSfStF_dQGK8e61BiVnKQDDOXOmmmnnU2h7aZ-j0zg78Fjz_2SECFeKreRvtM5N3XPtABYG7CvxPO3ni_6FOXbFoII6sOs2K7laHf9toEMQfwomMmnzR-YDLth8m-aQQvnhoiLoEjRElqaU7IsHaJAnPLrb13vf5uwTts4" alt="Cover" />
+                      </div>
+                      <div className="pcDiscoverCardContent">
+                        <h4 className="pcDiscoverCardTitle">Mainframe Memoirs</h4>
+                        <div className="pcDiscoverCardMeta">
+                          <span>/// COBOL_HERITAGE</span>
+                          <span className="pcDiscoverCardStat">2h ago</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <section className="pcShowDetails">
+                <div className="pcShowDetailsInner">
+                  <div className="pcShowArtwork">
+                    <div className="pcShowArtworkCard">
+                      {showArtwork ? (
+                        <img
+                          className="pcShowArtworkCover"
+                          src={showArtwork}
+                          alt={`${showTitleRaw} cover art`}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="material-symbols-outlined pcShowArtworkIcon">history_edu</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pcShowInfo">
+                    <div className="pcShowMeta">
+                      <div className="pcShowGenres">
+                        {showGenres.map((genre, idx) => (
+                          <span key={`${genre}-${idx}`} className={`pcGenreBox ${idx === 0 ? 'pcGenrePrimary' : ''}`}>
+                            {genre}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="pcShowNetwork">/// Source: {showHost} · {episodesAll.length} entries</span>
+                    </div>
+                    <h2 className="pcShowTitle">
+                      {showTitleParts.head}
+                      {showTitleParts.accent ? (
+                        <>
+                          {' '}
+                          <span className="pcShowTitleAccent">{showTitleParts.accent}</span>
+                        </>
+                      ) : null}
+                    </h2>
+                    <div className="pcShowDescription">
+                      <p>{showDescription}</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="pcEpisodes pcChamfer">
+                <div className="pcSectionHead">
+                  <div className="pcSectionTitle">
+                    Archive Records
+                    <span className="pcSectionTag">/// {episodes.length} ENTRIES</span>
+                  </div>
+                  <div className="pcSectionTools">
+                    <div className="pcFilter">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pcFilterIcon">
+                        <circle cx="11" cy="11" r="6"></circle>
+                        <path d="M20 20l-3.2-3.2"></path>
+                      </svg>
+                      <input
+                        className="pcFilterInput"
+                        value={episodeQuery}
+                        placeholder="FILTER ARCHIVE..."
+                        onChange={(e) => setEpisodeQuery(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={`pcSortBtn ${episodeReverse ? 'active' : ''}`}
+                      onClick={() => setEpisodeReverse((prev) => !prev)}
+                      aria-pressed={episodeReverse}
+                      title="Reverse episode order"
+                    >
+                      {episodeReverse ? 'ORDER: REVERSED' : 'ORDER: DEFAULT'}
+                    </button>
+                  </div>
+                </div>
+
+                <EpisodeList items={episodeItems} hasEpisodes={episodes.length > 0} />
+                {rssError ? <div className="pcError">{rssError}</div> : null}
+              </section>
+            </>
+          )}
+
+      <footer className="pcFooter">
+        <div className="pcFooterProgress">
+          <div className="pcFooterProgressTrack" onClick={episode ? onProgressPointer : undefined}>
+            <div className="pcFooterProgressFill" style={{ width: `${footerProgressPct}%` }}></div>
+            <div
+              className="pcFooterProgressHandle"
+              style={{ left: `calc(${footerProgressPct}% - 6px)`, right: 'auto' }}
+            ></div>
+          </div>
+        </div>
+        <div className="pcFooterControls">
+          <div className="pcFooterLeft">
+            <div className="pcFooterEpisodeInfo">
+              <div className="pcFooterEpisodeArtwork">
+                <span className="material-symbols-outlined">history_edu</span>
+              </div>
+              <div className="pcFooterEpisodeDetails">
+                <h4 className={`pcFooterEpisodeTitle ${footerPanActive ? 'isPanning' : ''}`}>
+                  <span
+                    ref={footerTitlePan.ref}
+                    className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
+                    style={{ ...footerPanSharedStyle, ...footerTitlePan.style }}
+                  >
+                    {footerEpisodeTitle}
+                  </span>
+                </h4>
+                <p className={`pcFooterEpisodeShow ${footerPanActive ? 'isPanning' : ''}`}>
+                  <span
+                    ref={footerShowPan.ref}
+                    className={`pcFooterMarquee ${footerPanActive ? 'isPanning' : ''}`}
+                    style={{ ...footerPanSharedStyle, ...footerShowPan.style }}
+                  >
+                    {footerEpisodeShow}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="pcFooterCenter">
+            <div className="pcFooterPlayerControls">
+              <button type="button" className="pcFooterControlBtn" disabled={!canPrev} onClick={playPrev} title="Previous">
+                <IconPrev size={20} />
+              </button>
+              <button
+                type="button"
+                className="pcFooterPlayBtn"
+                disabled={!episode || isEpisodeLoading}
+                onClick={() => void togglePlayPause()}
+                title={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
+              </button>
+              <button type="button" className="pcFooterControlBtn" disabled={!canNext} onClick={playNext} title="Next">
+                <IconNext size={20} />
+              </button>
+            </div>
+            <div className="pcFooterTimeControls">
+              <span className="pcFooterTimeCurrent">{footerCurrent}</span>
+              <div className="pcFooterTimeTrack">
+                <div className="pcFooterTimeFill" style={{ width: `${footerProgressPct}%` }}></div>
+              </div>
+              <span className="pcFooterTimeTotal">{footerDuration !== '--:--' ? footerRemaining : footerDuration}</span>
+            </div>
+          </div>
+          <div className="pcFooterRight">
+            <button
+              type="button"
+              className="pcFooterControlBtn"
+              disabled={!canDownloadCurrent || isDownloadingCurrent}
+              title={canDownloadCurrent ? 'Download episode audio' : 'Select a remote episode to download'}
+              onClick={() => {
+                if (!episode || sourceKind !== 'remote') return
+                void handleEpisodeDownload(episode)
+              }}
+            >
+              <IconUpload size={18} />
+            </button>
+            <div className="pcFooterVolume" onWheel={onVolumeWheel}>
+              <button type="button" className="pcFooterControlBtn" onClick={toggleMute} title={volume === 0 ? 'Unmute' : 'Mute'}>
+                <span className="material-symbols-outlined">{footerVolumeIcon}</span>
+              </button>
+              <div
+                className="pcFooterVolumeTrack"
+                role="slider"
+                tabIndex={0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={footerVolumePct}
+                aria-label="Volume"
+                onPointerDown={onVolumePointerDown}
+                onKeyDown={onVolumeKeyDown}
+              >
+                <div className="pcFooterVolumeFill" style={{ width: `${footerVolumePct}%` }}></div>
+                <div className="pcFooterVolumeHandle" style={{ left: `calc(${footerVolumePct}% - 5px)` }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
         </main>
       </div>
 
@@ -1482,6 +2018,8 @@ export default function App() {
           <span>PLAYING</span>
         </button>
       </nav>
+
+      <audio ref={audioRef} className="pcAudio" preload="metadata" />
 
       <input
         ref={fileInputRef}

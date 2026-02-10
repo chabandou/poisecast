@@ -18,6 +18,11 @@ export class DenoiseEngine {
   }
 
   private frameSize: number | null = null
+  private inferenceActivityHandler: (() => void) | null = null
+
+  setInferenceActivityHandler(handler: (() => void) | null) {
+    this.inferenceActivityHandler = handler
+  }
 
   async init(opts: { modelUrl: string; sampleRateHz: number }) {
     this._status = { state: 'loading-model' }
@@ -84,6 +89,7 @@ export class DenoiseEngine {
       if (msg.type === 'result') {
         const toWorklet: MainToWorkletMsg = msg
         this.worklet?.port.postMessage(toWorklet, [msg.audio])
+        this.inferenceActivityHandler?.()
       } else if (msg.type === 'error') {
         this._status = { state: 'error', message: msg.message }
       }
@@ -136,6 +142,7 @@ export class DenoiseEngine {
 
     this.worker?.terminate()
     this.worker = null
+    this.inferenceActivityHandler = null
     this._status = { state: 'idle' }
   }
 }
