@@ -32,9 +32,6 @@ import {
   IconUpload,
   IconWave,
 } from './ui/icons'
-import { useLottie } from './ui/useLottie'
-import playLoadingAnim from './assets/lottie/play-loading.json'
-import controlHoverAnim from './assets/lottie/control-hover.json'
 
 type MobileTab = 'search' | 'sources' | 'playing' | 'episodes'
 type SidebarTab = 'sources' | 'search'
@@ -537,8 +534,8 @@ async function probeStreamProxy(proxyUrl: string): Promise<boolean> {
 export default function App() {
   const isMobile = useIsMobile(980)
   const [mobileTab, setMobileTab] = useState<MobileTab>('sources')
-  const [sidebarTab, setSidebarTab] = useState<'sources' | 'search'>('sources')
-  const [sidebarError, setSidebarError] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('sources')
+  const [sidebarError] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -558,26 +555,12 @@ export default function App() {
   const maxSearchCache = 50
   const maxFeedCache = 20
 
-  const [modelId, setModelId] = useState(MODELS[0]?.id ?? 'denoiser_model')
+  const [modelId] = useState(MODELS[0]?.id ?? 'denoiser_model')
   const model = useMemo(() => MODELS.find((m) => m.id === modelId) ?? MODELS[0], [modelId])
   const getRemotePlaybackUrl = useCallback((ep: PodcastEpisode): string => {
     if (proxyBypassRef.current.has(ep.guid)) return ep.enclosureUrl
     return buildStreamProxyUrl(ep.enclosureUrl)
   }, [])
-  const warmModelCache = useCallback(async (nextModelId: string) => {
-    const next = MODELS.find((m) => m.id === nextModelId)
-    if (!next) return
-    try {
-      await cacheModelOnDemand(next.url)
-    } catch {
-      // Best effort: model can still be fetched normally when denoise is enabled.
-    }
-  }, [])
-  const onModelChange = useCallback((nextModelId: string) => {
-    setModelId(nextModelId)
-    setEngineDetail('Switching models requires refresh (v1).')
-    void warmModelCache(nextModelId)
-  }, [warmModelCache])
 
   const [rssUrl, setRssUrl] = useState(DEFAULT_FEEDS[0]?.rssUrl ?? '')
   const [rssLoading, setRssLoading] = useState(false)
@@ -626,58 +609,9 @@ export default function App() {
   const nowTitle = episode?.title ?? 'Select an episode'
   const nowTitleRef = useRef<HTMLHeadingElement | null>(null)
 
-  const playBtnRef = useRef<HTMLButtonElement | null>(null)
-  const prevBtnRef = useRef<HTMLButtonElement | null>(null)
-  const nextBtnRef = useRef<HTMLButtonElement | null>(null)
-  const importBtnRef = useRef<HTMLButtonElement | null>(null)
-  const denoiseBtnRef = useRef<HTMLButtonElement | null>(null)
-
   const progressPct = duration && duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
   const timeLeft = duration && duration > 0 ? Math.max(0, duration - currentTime) : null
   const isEpisodeLoading = !!loadingEpisodeId && episode?.guid === loadingEpisodeId
-  const isDenoiseLoading = engineState === 'loading-model'
-
-  const playHoverLottie = useLottie({
-    animationData: controlHoverAnim,
-    loop: false,
-    autoplay: false,
-    playOnHover: true,
-    hoverRef: playBtnRef,
-  })
-  const playLoadingLottie = useLottie({
-    animationData: playLoadingAnim,
-    loop: true,
-    autoplay: true,
-    enabled: isEpisodeLoading,
-  })
-  const prevHoverLottie = useLottie({
-    animationData: controlHoverAnim,
-    loop: false,
-    autoplay: false,
-    playOnHover: true,
-    hoverRef: prevBtnRef,
-  })
-  const nextHoverLottie = useLottie({
-    animationData: controlHoverAnim,
-    loop: false,
-    autoplay: false,
-    playOnHover: true,
-    hoverRef: nextBtnRef,
-  })
-  const importHoverLottie = useLottie({
-    animationData: controlHoverAnim,
-    loop: false,
-    autoplay: false,
-    playOnHover: true,
-    hoverRef: importBtnRef,
-  })
-  const denoiseHoverLottie = useLottie({
-    animationData: controlHoverAnim,
-    loop: false,
-    autoplay: false,
-    playOnHover: true,
-    hoverRef: denoiseBtnRef,
-  })
 
   useEffect(() => {
     const mode = window.matchMedia('(display-mode: standalone)')
