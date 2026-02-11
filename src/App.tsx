@@ -208,6 +208,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer = 0
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(label)), ms)
+      }),
+    ])
+  } finally {
+    if (timer) window.clearTimeout(timer)
+  }
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number, label: string): Promise<Response> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
   const meta = await fetchFeedLookupMeta(rssUrl)
   return meta?.artworkUrl ?? null
@@ -608,6 +640,8 @@ const ORT_WASM_EXTENDED_FILES = [
 
 const AUDIO_FILE_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
 const FOOTER_SLIDE_MS = 260
+const ASSET_FETCH_TIMEOUT_MS = 120_000
+const ENGINE_INIT_TIMEOUT_MS = 90_000
 const MIME_TO_EXT: Record<string, string> = {
   'audio/mpeg': '.mp3',
   'audio/mp3': '.mp3',
@@ -625,15 +659,25 @@ const MIME_TO_EXT: Record<string, string> = {
 
 async function probeAssetDownload(assetUrl: string): Promise<void> {
   try {
-    const head = await fetch(assetUrl, { method: 'HEAD', cache: 'no-store' })
+    const head = await fetchWithTimeout(
+      assetUrl,
+      { method: 'HEAD', cache: 'no-store' },
+      ASSET_FETCH_TIMEOUT_MS,
+      `Asset probe failed for ${assetUrl}`,
+    )
     if (head.ok) return
   } catch {}
 
-  const res = await fetch(assetUrl, {
-    method: 'GET',
-    headers: { Range: 'bytes=0-0' },
-    cache: 'no-store',
-  })
+  const res = await fetchWithTimeout(
+    assetUrl,
+    {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      cache: 'no-store',
+    },
+    ASSET_FETCH_TIMEOUT_MS,
+    `Asset probe failed for ${assetUrl}`,
+  )
   if (res.body) {
     void res.body.cancel().catch(() => {})
   }
@@ -655,7 +699,12 @@ async function cacheAssetOnDemand(assetUrl: string, hooks: CacheAssetHooks = {})
   if (hit) return { fromCache: true, absoluteUrl }
 
   hooks.onDownloadStart?.({ absoluteUrl })
-  const res = await fetch(absoluteUrl, { cache: 'no-store' })
+  const res = await fetchWithTimeout(
+    absoluteUrl,
+    { cache: 'no-store' },
+    ASSET_FETCH_TIMEOUT_MS,
+    `Asset download failed for ${absoluteUrl}`,
+  )
   if (!res.ok) {
     throw new Error(`Asset download failed (${res.status})`)
   }
@@ -894,6 +943,36 @@ async function probeStreamProxy(proxyUrl: string): Promise<boolean> {
   } finally {
     window.clearTimeout(timer)
   }
+}
+
+async function waitForAudioMetadata(audioEl: HTMLAudioElement, timeoutMs = 12_000): Promise<void> {
+  if (audioEl.readyState >= 1) return
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    let timer = 0
+
+    const finish = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      audioEl.removeEventListener('loadedmetadata', onLoaded)
+      audioEl.removeEventListener('error', onError)
+      if (timer) window.clearTimeout(timer)
+      fn()
+    }
+
+    const onLoaded = () => finish(resolve)
+    const onError = () => {
+      const code = audioEl.error?.code
+      finish(() => reject(new Error(`Audio metadata load failed${code ? ` (media error ${code})` : ''}`)))
+    }
+
+    audioEl.addEventListener('loadedmetadata', onLoaded, { once: true })
+    audioEl.addEventListener('error', onError, { once: true })
+    timer = window.setTimeout(() => {
+      finish(() => reject(new Error('Timed out waiting for episode metadata')))
+    }, timeoutMs)
+  })
 }
 
 export default function App() {
@@ -1498,6 +1577,21 @@ export default function App() {
     if (!initPromiseRef.current) {
       setEngineState('loading-model')
       setEngineDetail('Preparing ONNX runtime…')
+      setDownloadModalKind('ort')
+      setOrtDownloadUi((prev) => {
+        if (prev) return prev
+        return {
+          assetLabel: 'ONNX Runtime WASM Core',
+          sourceUrl: ortBaseUrl,
+          sourceLabel: describeModelSource(ortBaseUrl),
+          attempt: 1,
+          totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+          loadedBytes: 0,
+          totalBytes: null,
+          phase: 'downloading',
+          errorDetail: null,
+        }
+      })
       initPromiseRef.current = (async () => {
         const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'core' })
         setEngineDetail('Loading ONNX session…')
@@ -1552,12 +1646,17 @@ export default function App() {
         })
 
         const initSession = async () => {
-          await engineRef.current!.init({
-            modelUrl,
-            sampleRateHz: model.sampleRateHz,
-            ortWasmBaseUrl,
-            assetCacheName: MODEL_CACHE_NAME,
-          })
+          setEngineDetail('Initializing ONNX runtime session…')
+          await withTimeout(
+            engineRef.current!.init({
+              modelUrl,
+              sampleRateHz: model.sampleRateHz,
+              ortWasmBaseUrl,
+              assetCacheName: MODEL_CACHE_NAME,
+            }),
+            ENGINE_INIT_TIMEOUT_MS,
+            'Timed out while initializing ONNX runtime/session',
+          )
           engineRef.current!.setWarmupMs(250)
         }
 
@@ -1847,6 +1946,8 @@ export default function App() {
         return
       }
 
+      const ensureEnginePromise = ensureEngine()
+
       if (sourceKind === 'remote') {
         // Switch the media element into CORS mode and reload the source, otherwise WebAudio will be blocked
         // even if the host supports CORS (because it was initially loaded without CORS).
@@ -1856,10 +1957,7 @@ export default function App() {
         else audioEl.removeAttribute('crossorigin')
         audioEl.src = remotePlaybackUrl
         audioEl.load()
-        await new Promise<void>((resolve) => {
-          const done = () => resolve()
-          audioEl.addEventListener('loadedmetadata', done, { once: true })
-        })
+        await waitForAudioMetadata(audioEl)
         try {
           if (t > 0) audioEl.currentTime = t
         } catch {}
@@ -1870,7 +1968,7 @@ export default function App() {
         }
       }
 
-      await ensureEngine()
+      await ensureEnginePromise
       await engineRef.current!.attach(audioEl)
       engineRef.current!.setEnabled(true)
       setDenoiseEnabled(true)
