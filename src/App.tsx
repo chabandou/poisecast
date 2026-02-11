@@ -594,11 +594,13 @@ function getInstallHelpMessage(): string {
 const MODEL_CACHE_NAME = 'poisecast-assets'
 const ORT_DOWNLOAD_RETRY_MAX = 3
 const DEFAULT_GITHUB_ORT_BASE_URL = 'https://raw.githubusercontent.com/chabandou/poisecast/master/ort'
-const ORT_WASM_FILES = [
+const ORT_WASM_CORE_FILES = [
   'ort-wasm.wasm',
-  'ort-wasm-threaded.wasm',
   'ort-wasm-simd.wasm',
   'ort-wasm-simd.jsep.wasm',
+] as const
+const ORT_WASM_EXTENDED_FILES = [
+  'ort-wasm-threaded.wasm',
   'ort-wasm-simd-threaded.wasm',
   'ort-wasm-simd-threaded.jsep.wasm',
   'ort-wasm-simd-threaded.asyncify.wasm',
@@ -725,9 +727,9 @@ async function resolveModelInitUrl(model: ModelSpec, hooks: ResolveModelHooks = 
   throw new Error(`Model download failed from all configured sources: ${summary || 'unknown error'}`)
 }
 
-async function resolveOrtAssetsReady(baseUrl: string, hooks: ResolveOrtHooks = {}): Promise<string> {
+async function resolveOrtAssetsReady(baseUrl: string, files: readonly string[], hooks: ResolveOrtHooks = {}): Promise<string> {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl, DEFAULT_GITHUB_ORT_BASE_URL)
-  const totalFiles = ORT_WASM_FILES.length
+  const totalFiles = files.length
   const fileLoaded = new Map<string, number>()
   const fileTotals = new Map<string, number | null>()
 
@@ -753,7 +755,7 @@ async function resolveOrtAssetsReady(baseUrl: string, hooks: ResolveOrtHooks = {
   }
 
   for (let i = 0; i < totalFiles; i += 1) {
-    const fileName = ORT_WASM_FILES[i]
+    const fileName = files[i]
     const fileIndex = i + 1
     const url = `${normalizedBaseUrl}/${fileName}`
 
@@ -971,8 +973,10 @@ export default function App() {
     () => normalizeBaseUrl(import.meta.env.VITE_GITHUB_ORT_BASE_URL, DEFAULT_GITHUB_ORT_BASE_URL),
     [],
   )
-  const ortReadyRef = useRef(false)
-  const ortInitPromiseRef = useRef<Promise<string> | null>(null)
+  const ortCoreReadyRef = useRef(false)
+  const ortExtendedReadyRef = useRef(false)
+  const ortCoreInitPromiseRef = useRef<Promise<string> | null>(null)
+  const ortExtendedInitPromiseRef = useRef<Promise<string> | null>(null)
 
   const episodesAll = podcast?.episodes ?? []
   const episodes = useMemo(() => {
@@ -1057,19 +1061,24 @@ export default function App() {
   }, [])
 
   const ensureOrtAssetsReady = useCallback(
-    async (opts: { showModal: boolean }) => {
-      if (ortReadyRef.current) return ortBaseUrl
+    async (opts: { showModal: boolean; mode: 'core' | 'extended' }) => {
+      const isExtended = opts.mode === 'extended'
+      if (isExtended ? ortExtendedReadyRef.current : ortCoreReadyRef.current) return ortBaseUrl
 
       if (opts.showModal) {
         setDownloadModalKind('ort')
       }
 
-      if (!ortInitPromiseRef.current) {
-        ortInitPromiseRef.current = resolveOrtAssetsReady(ortBaseUrl, {
+      const files = isExtended ? ORT_WASM_EXTENDED_FILES : ORT_WASM_CORE_FILES
+      const labelPrefix = isExtended ? 'ONNX Runtime WASM Extended' : 'ONNX Runtime WASM Core'
+      const targetPromiseRef = isExtended ? ortExtendedInitPromiseRef : ortCoreInitPromiseRef
+
+      if (!targetPromiseRef.current) {
+        targetPromiseRef.current = resolveOrtAssetsReady(ortBaseUrl, files, {
           onDownloadStart: ({ url, fileName, fileIndex, totalFiles, attempt, totalAttempts }) => {
             const sourceLabel = describeModelSource(url)
             setOrtDownloadUi((prev) => ({
-              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1088,7 +1097,7 @@ export default function App() {
           onProgress: ({ url, fileIndex, totalFiles, attempt, totalAttempts, loadedBytes, totalBytes }) => {
             const sourceLabel = describeModelSource(url)
             setOrtDownloadUi({
-              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1104,7 +1113,7 @@ export default function App() {
           onRetry: ({ url, fileIndex, totalFiles, attempt, totalAttempts, message }) => {
             const sourceLabel = describeModelSource(url)
             setOrtDownloadUi((prev) => ({
-              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1122,17 +1131,23 @@ export default function App() {
           },
         })
           .then((readyBaseUrl) => {
-            ortReadyRef.current = true
+            if (isExtended) ortExtendedReadyRef.current = true
+            else ortCoreReadyRef.current = true
             return readyBaseUrl
           })
           .catch((e) => {
-            ortReadyRef.current = false
-            ortInitPromiseRef.current = null
+            if (isExtended) {
+              ortExtendedReadyRef.current = false
+              ortExtendedInitPromiseRef.current = null
+            } else {
+              ortCoreReadyRef.current = false
+              ortCoreInitPromiseRef.current = null
+            }
             throw e
           })
       }
 
-      return ortInitPromiseRef.current
+      return targetPromiseRef.current
     },
     [ortBaseUrl],
   )
@@ -1153,7 +1168,7 @@ export default function App() {
   }, [engineDetail, engineState, reportIssue])
 
   useEffect(() => {
-    void ensureOrtAssetsReady({ showModal: false }).catch(() => {
+    void ensureOrtAssetsReady({ showModal: false, mode: 'core' }).catch(() => {
       // Ignore background bootstrap failures; processing flow will retry on demand.
     })
   }, [ensureOrtAssetsReady])
@@ -1470,7 +1485,7 @@ export default function App() {
       setEngineState('loading-model')
       setEngineDetail('Preparing ONNX runtime…')
       initPromiseRef.current = (async () => {
-        const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true })
+        const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'core' })
         setDownloadModalKind(null)
         setEngineDetail('Loading ONNX session…')
         const modelUrl = await resolveModelInitUrl(model, {
@@ -1522,13 +1537,39 @@ export default function App() {
             }
           },
         })
-        await engineRef.current!.init({
-          modelUrl,
-          sampleRateHz: model.sampleRateHz,
-          ortWasmBaseUrl,
-          assetCacheName: MODEL_CACHE_NAME,
-        })
-        engineRef.current!.setWarmupMs(250)
+
+        const initSession = async () => {
+          await engineRef.current!.init({
+            modelUrl,
+            sampleRateHz: model.sampleRateHz,
+            ortWasmBaseUrl,
+            assetCacheName: MODEL_CACHE_NAME,
+          })
+          engineRef.current!.setWarmupMs(250)
+        }
+
+        try {
+          await initSession()
+        } catch (firstInitError) {
+          if (!ortExtendedReadyRef.current) {
+            setEngineDetail('Loading additional runtime variants…')
+            await ensureOrtAssetsReady({ showModal: true, mode: 'extended' })
+            setEngineDetail('Retrying ONNX session init…')
+
+            try {
+              await engineRef.current?.dispose()
+            } catch {}
+
+            engineRef.current = new DenoiseEngine()
+            engineRef.current.setInferenceActivityHandler(() => {
+              lastInferenceAtRef.current = performance.now()
+            })
+
+            await initSession()
+          } else {
+            throw firstInitError
+          }
+        }
       })()
     }
 

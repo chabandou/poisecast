@@ -28,6 +28,7 @@ Firefox install paths:
 - Override the GitHub base with `VITE_GITHUB_MODELS_BASE_URL` (for example, to pin a tag/commit or use another CDN).
 - ONNX Runtime WASM binaries are downloaded from GitHub in the background: `https://raw.githubusercontent.com/chabandou/poisecast/master/ort/`.
 - Override the ORT base with `VITE_GITHUB_ORT_BASE_URL`.
+- The app downloads a minimal ORT core set first, then fetches extended ORT variants only if runtime init fails and needs them.
 - ORT and model binaries are cached on demand in the browser cache.
 
 ## Notes / Constraints
