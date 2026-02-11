@@ -24,7 +24,7 @@ export class DenoiseEngine {
     this.inferenceActivityHandler = handler
   }
 
-  async init(opts: { modelUrl: string; sampleRateHz: number }) {
+  async init(opts: { modelUrl: string; sampleRateHz: number; ortWasmBaseUrl?: string; assetCacheName?: string }) {
     this._status = { state: 'loading-model' }
 
     const worker = new Worker(new URL('./worker/denoise.worker.ts', import.meta.url), { type: 'module' })
@@ -59,6 +59,8 @@ export class DenoiseEngine {
       type: 'init',
       modelUrl: opts.modelUrl,
       preferredBackends: ['webgpu', 'webgl', 'wasm'],
+      ortWasmBaseUrl: opts.ortWasmBaseUrl,
+      assetCacheName: opts.assetCacheName,
     })
 
     const ready = await readyPromise

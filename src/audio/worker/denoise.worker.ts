@@ -25,18 +25,49 @@ let session: ort.InferenceSession | null = null
 let backend: InferenceBackend | null = null
 let ioSpec: IoSpec | null = null
 let state: Float32Array | null = null
+let fetchPatched = false
 
 function post(msg: WorkerReply, transfer?: Transferable[]) {
   // eslint-disable-next-line no-restricted-globals
   ;(self as unknown as DedicatedWorkerGlobalScope).postMessage(msg, transfer ?? [])
 }
 
-function configureOrtWasm() {
+function installCachedAssetFetch(baseUrl: string, cacheName: string) {
+  if (fetchPatched) return
+  fetchPatched = true
+
+  const scope = self as unknown as DedicatedWorkerGlobalScope
+  const originalFetch = scope.fetch.bind(scope)
+  scope.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+
+    if (requestUrl.startsWith(baseUrl) && requestUrl.endsWith('.wasm')) {
+      try {
+        const cache = await caches.open(cacheName)
+        const cached = await cache.match(requestUrl, { ignoreSearch: true })
+        if (cached) return cached
+      } catch {
+        // Ignore cache lookup failures and continue to network.
+      }
+    }
+
+    return originalFetch(input, init)
+  }
+}
+
+function configureOrtWasm(baseUrl?: string, cacheName?: string) {
   // Avoid cross-origin isolation requirements in v1; stay single-threaded.
   ort.env.wasm.numThreads = 1
-  // Vite blocks importing .wasm from package exports in some builds.
-  // We ship the needed runtime WASM files in `public/ort/`.
-  ort.env.wasm.wasmPaths = '/ort/' as any
+
+  if (baseUrl) {
+    if (cacheName) installCachedAssetFetch(baseUrl, cacheName)
+    ort.env.wasm.wasmPaths = `${baseUrl.replace(/\/+$/, '')}/` as any
+  }
 }
 
 function pickIoSpec(sess: ort.InferenceSession): IoSpec {
@@ -115,7 +146,7 @@ function pickIoSpec(sess: ort.InferenceSession): IoSpec {
 
 async function init(msg: WorkerInitMsg) {
   try {
-    configureOrtWasm()
+    configureOrtWasm(msg.ortWasmBaseUrl, msg.assetCacheName)
 
     const tryProviders: Array<{ backend: InferenceBackend; providers: string[] }> = []
     for (const b of msg.preferredBackends) {

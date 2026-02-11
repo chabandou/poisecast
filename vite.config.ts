@@ -1,18 +1,8 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import path from 'node:path'
 import { Readable } from 'node:stream'
-import { fileURLToPath } from 'node:url'
-
-function fileRevision(absPath: string): string {
-  const h = createHash('sha256')
-  h.update(readFileSync(absPath))
-  return h.digest('hex').slice(0, 16)
-}
 
 const STREAM_PROXY_HEADERS = [
   'content-type',
@@ -337,27 +327,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache only core ORT WASM needed for bootstrapping.
-        // Models are downloaded on demand and cached opportunistically at runtime.
+        // ORT and model binaries are downloaded on demand and cached opportunistically at runtime.
         globIgnores: ['**/*.wasm', '**/*.onnx'],
 
         // Workbox default is 2 MiB; our `.onnx` and `.wasm` exceed that by a lot.
         // This must be high enough for the largest ORT wasm (~25.5 MiB).
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
 
-        additionalManifestEntries: (() => {
-          const here = path.dirname(fileURLToPath(import.meta.url))
-          const pub = path.join(here, 'public')
-          const files = [
-            'ort/ort-wasm.wasm',
-            'ort/ort-wasm-simd.wasm',
-          ]
-
-          return files.map((rel) => ({
-            url: `/${rel.replace(/\\\\/g, '/')}`,
-            revision: fileRevision(path.join(pub, rel)),
-          }))
-        })(),
+        additionalManifestEntries: [],
 
         // Cache model files and RSS responses opportunistically.
         runtimeCaching: [

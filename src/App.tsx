@@ -67,19 +67,21 @@ type SidebarIssue = {
   createdAt: number
 }
 
-type ModelDownloadUiState = {
-  modelLabel: string
+type AssetDownloadUiState = {
+  assetLabel: string
   sourceUrl: string
   sourceLabel: string
   attempt: number
   totalAttempts: number
+  fileIndex?: number
+  totalFiles?: number
   loadedBytes: number
   totalBytes: number | null
   phase: 'downloading' | 'retrying'
   errorDetail: string | null
 }
 
-type CacheModelHooks = {
+type CacheAssetHooks = {
   onDownloadStart?: (info: { absoluteUrl: string }) => void
   onProgress?: (info: { absoluteUrl: string; loadedBytes: number; totalBytes: number | null }) => void
 }
@@ -94,6 +96,36 @@ type ResolveModelHooks = {
     totalBytes: number | null
   }) => void
   onSourceFailed?: (info: { url: string; attempt: number; totalAttempts: number; message: string }) => void
+}
+
+type ResolveOrtHooks = {
+  onDownloadStart?: (info: {
+    url: string
+    fileName: string
+    fileIndex: number
+    totalFiles: number
+    attempt: number
+    totalAttempts: number
+  }) => void
+  onProgress?: (info: {
+    url: string
+    fileName: string
+    fileIndex: number
+    totalFiles: number
+    attempt: number
+    totalAttempts: number
+    loadedBytes: number
+    totalBytes: number | null
+  }) => void
+  onRetry?: (info: {
+    url: string
+    fileName: string
+    fileIndex: number
+    totalFiles: number
+    attempt: number
+    totalAttempts: number
+    message: string
+  }) => void
 }
 
 function formatIssueSource(source: SidebarIssueSource): string {
@@ -164,6 +196,16 @@ function formatByteSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function normalizeBaseUrl(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  if (!trimmed) return fallback
+  return trimmed.replace(/\/+$/, '')
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 const fetchFeedArtwork = async (rssUrl: string): Promise<string | null> => {
@@ -550,6 +592,18 @@ function getInstallHelpMessage(): string {
 }
 
 const MODEL_CACHE_NAME = 'poisecast-assets'
+const ORT_DOWNLOAD_RETRY_MAX = 3
+const DEFAULT_GITHUB_ORT_BASE_URL = 'https://raw.githubusercontent.com/chabandou/poisecast/master/ort'
+const ORT_WASM_FILES = [
+  'ort-wasm.wasm',
+  'ort-wasm-threaded.wasm',
+  'ort-wasm-simd.wasm',
+  'ort-wasm-simd.jsep.wasm',
+  'ort-wasm-simd-threaded.wasm',
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.asyncify.wasm',
+] as const
+
 const AUDIO_FILE_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
 const FOOTER_SLIDE_MS = 260
 const MIME_TO_EXT: Record<string, string> = {
@@ -567,13 +621,13 @@ const MIME_TO_EXT: Record<string, string> = {
   'audio/webm': '.webm',
 }
 
-async function probeModelDownload(modelUrl: string): Promise<void> {
+async function probeAssetDownload(assetUrl: string): Promise<void> {
   try {
-    const head = await fetch(modelUrl, { method: 'HEAD', cache: 'no-store' })
+    const head = await fetch(assetUrl, { method: 'HEAD', cache: 'no-store' })
     if (head.ok) return
   } catch {}
 
-  const res = await fetch(modelUrl, {
+  const res = await fetch(assetUrl, {
     method: 'GET',
     headers: { Range: 'bytes=0-0' },
     cache: 'no-store',
@@ -582,15 +636,15 @@ async function probeModelDownload(modelUrl: string): Promise<void> {
     void res.body.cancel().catch(() => {})
   }
   if (!res.ok) {
-    throw new Error(`Model download failed (${res.status})`)
+    throw new Error(`Asset download failed (${res.status})`)
   }
 }
 
-async function cacheModelOnDemand(modelUrl: string, hooks: CacheModelHooks = {}): Promise<{ fromCache: boolean; absoluteUrl: string }> {
-  const absoluteUrl = toAbsoluteUrl(modelUrl)
+async function cacheAssetOnDemand(assetUrl: string, hooks: CacheAssetHooks = {}): Promise<{ fromCache: boolean; absoluteUrl: string }> {
+  const absoluteUrl = toAbsoluteUrl(assetUrl)
   if (!('caches' in window)) {
     hooks.onDownloadStart?.({ absoluteUrl })
-    await probeModelDownload(absoluteUrl)
+    await probeAssetDownload(absoluteUrl)
     return { fromCache: false, absoluteUrl }
   }
 
@@ -601,7 +655,7 @@ async function cacheModelOnDemand(modelUrl: string, hooks: CacheModelHooks = {})
   hooks.onDownloadStart?.({ absoluteUrl })
   const res = await fetch(absoluteUrl, { cache: 'no-store' })
   if (!res.ok) {
-    throw new Error(`Model download failed (${res.status})`)
+    throw new Error(`Asset download failed (${res.status})`)
   }
 
   const totalBytes = parseContentLength(res.headers)
@@ -651,7 +705,7 @@ async function resolveModelInitUrl(model: ModelSpec, hooks: ResolveModelHooks = 
     const absoluteAttemptUrl = toAbsoluteUrl(url)
 
     try {
-      const result = await cacheModelOnDemand(url, {
+      const result = await cacheAssetOnDemand(url, {
         onDownloadStart: ({ absoluteUrl }) => {
           hooks.onDownloadStart?.({ url: absoluteUrl, attempt, totalAttempts })
         },
@@ -669,6 +723,111 @@ async function resolveModelInitUrl(model: ModelSpec, hooks: ResolveModelHooks = 
 
   const summary = attempts.join(' | ')
   throw new Error(`Model download failed from all configured sources: ${summary || 'unknown error'}`)
+}
+
+async function resolveOrtAssetsReady(baseUrl: string, hooks: ResolveOrtHooks = {}): Promise<string> {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl, DEFAULT_GITHUB_ORT_BASE_URL)
+  const totalFiles = ORT_WASM_FILES.length
+  const fileLoaded = new Map<string, number>()
+  const fileTotals = new Map<string, number | null>()
+
+  const emitProgress = (fileName: string, info: {
+    url: string
+    fileIndex: number
+    attempt: number
+    totalAttempts: number
+    loadedBytes: number
+    totalBytes: number | null
+  }) => {
+    fileLoaded.set(fileName, info.loadedBytes)
+    fileTotals.set(fileName, info.totalBytes)
+    hooks.onProgress?.({
+      ...info,
+      fileName,
+      totalFiles,
+      loadedBytes: Array.from(fileLoaded.values()).reduce((sum, next) => sum + next, 0),
+      totalBytes: Array.from(fileTotals.values()).every((v) => typeof v === 'number' && v > 0)
+        ? (Array.from(fileTotals.values()) as number[]).reduce((sum, next) => sum + next, 0)
+        : null,
+    })
+  }
+
+  for (let i = 0; i < totalFiles; i += 1) {
+    const fileName = ORT_WASM_FILES[i]
+    const fileIndex = i + 1
+    const url = `${normalizedBaseUrl}/${fileName}`
+
+    let completed = false
+    for (let attempt = 1; attempt <= ORT_DOWNLOAD_RETRY_MAX; attempt += 1) {
+      hooks.onDownloadStart?.({
+        url,
+        fileName,
+        fileIndex,
+        totalFiles,
+        attempt,
+        totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+      })
+
+      try {
+        const result = await cacheAssetOnDemand(url, {
+          onDownloadStart: ({ absoluteUrl }) => {
+            emitProgress(fileName, {
+              url: absoluteUrl,
+              fileIndex,
+              attempt,
+              totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+              loadedBytes: fileLoaded.get(fileName) ?? 0,
+              totalBytes: fileTotals.get(fileName) ?? null,
+            })
+          },
+          onProgress: ({ absoluteUrl, loadedBytes, totalBytes }) => {
+            emitProgress(fileName, {
+              url: absoluteUrl,
+              fileIndex,
+              attempt,
+              totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+              loadedBytes,
+              totalBytes,
+            })
+          },
+        })
+
+        if (result.fromCache) {
+          emitProgress(fileName, {
+            url: result.absoluteUrl,
+            fileIndex,
+            attempt,
+            totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+            loadedBytes: fileLoaded.get(fileName) ?? 0,
+            totalBytes: fileTotals.get(fileName) ?? null,
+          })
+        }
+
+        completed = true
+        break
+      } catch (e) {
+        const message = normalizeIssueDetail(coerceErrorMessage(e), 180)
+        hooks.onRetry?.({
+          url,
+          fileName,
+          fileIndex,
+          totalFiles,
+          attempt,
+          totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+          message,
+        })
+        if (attempt < ORT_DOWNLOAD_RETRY_MAX) {
+          await sleep(300 * attempt)
+        }
+      }
+    }
+
+    if (!completed) {
+      throw new Error(`ORT runtime download failed for ${fileName} after ${ORT_DOWNLOAD_RETRY_MAX} attempts`)
+    }
+  }
+
+  return normalizedBaseUrl
 }
 
 function isLikelyAudioFile(file: File): boolean {
@@ -804,7 +963,16 @@ export default function App() {
   const [isInferenceActive, setIsInferenceActive] = useState(false)
   const [isProcessingStarting, setIsProcessingStarting] = useState(false)
   const [isFooterClosing, setIsFooterClosing] = useState(false)
-  const [modelDownloadUi, setModelDownloadUi] = useState<ModelDownloadUiState | null>(null)
+  const [modelDownloadUi, setModelDownloadUi] = useState<AssetDownloadUiState | null>(null)
+  const [ortDownloadUi, setOrtDownloadUi] = useState<AssetDownloadUiState | null>(null)
+  const [downloadModalKind, setDownloadModalKind] = useState<'ort' | 'model' | null>(null)
+
+  const ortBaseUrl = useMemo(
+    () => normalizeBaseUrl(import.meta.env.VITE_GITHUB_ORT_BASE_URL, DEFAULT_GITHUB_ORT_BASE_URL),
+    [],
+  )
+  const ortReadyRef = useRef(false)
+  const ortInitPromiseRef = useRef<Promise<string> | null>(null)
 
   const episodesAll = podcast?.episodes ?? []
   const episodes = useMemo(() => {
@@ -888,6 +1056,87 @@ export default function App() {
     setSidebarIssues([])
   }, [])
 
+  const ensureOrtAssetsReady = useCallback(
+    async (opts: { showModal: boolean }) => {
+      if (ortReadyRef.current) return ortBaseUrl
+
+      if (opts.showModal) {
+        setDownloadModalKind('ort')
+      }
+
+      if (!ortInitPromiseRef.current) {
+        ortInitPromiseRef.current = resolveOrtAssetsReady(ortBaseUrl, {
+          onDownloadStart: ({ url, fileName, fileIndex, totalFiles, attempt, totalAttempts }) => {
+            const sourceLabel = describeModelSource(url)
+            setOrtDownloadUi((prev) => ({
+              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              fileIndex,
+              totalFiles,
+              loadedBytes: prev?.loadedBytes ?? 0,
+              totalBytes: prev?.totalBytes ?? null,
+              phase: 'downloading',
+              errorDetail: null,
+            }))
+            if (opts.showModal) {
+              setEngineDetail(`Downloading runtime asset ${fileName} from ${sourceLabel}…`)
+            }
+          },
+          onProgress: ({ url, fileIndex, totalFiles, attempt, totalAttempts, loadedBytes, totalBytes }) => {
+            const sourceLabel = describeModelSource(url)
+            setOrtDownloadUi({
+              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              fileIndex,
+              totalFiles,
+              loadedBytes,
+              totalBytes,
+              phase: 'downloading',
+              errorDetail: null,
+            })
+          },
+          onRetry: ({ url, fileIndex, totalFiles, attempt, totalAttempts, message }) => {
+            const sourceLabel = describeModelSource(url)
+            setOrtDownloadUi((prev) => ({
+              assetLabel: `ONNX Runtime WASM (${fileIndex}/${totalFiles})`,
+              sourceUrl: url,
+              sourceLabel,
+              attempt,
+              totalAttempts,
+              fileIndex,
+              totalFiles,
+              loadedBytes: prev?.loadedBytes ?? 0,
+              totalBytes: prev?.totalBytes ?? null,
+              phase: 'retrying',
+              errorDetail: message,
+            }))
+            if (opts.showModal) {
+              setEngineDetail(`Runtime download failed (attempt ${attempt}/${totalAttempts}). Retrying…`)
+            }
+          },
+        })
+          .then((readyBaseUrl) => {
+            ortReadyRef.current = true
+            return readyBaseUrl
+          })
+          .catch((e) => {
+            ortReadyRef.current = false
+            ortInitPromiseRef.current = null
+            throw e
+          })
+      }
+
+      return ortInitPromiseRef.current
+    },
+    [ortBaseUrl],
+  )
+
   useEffect(() => {
     if (!rssError) return
     reportIssue('rss', 'Failed to load RSS feed', rssError)
@@ -902,6 +1151,12 @@ export default function App() {
     if (engineState !== 'error') return
     reportIssue('processing', 'Model/inference error', engineDetail || 'The denoise engine reported an unexpected error.')
   }, [engineDetail, engineState, reportIssue])
+
+  useEffect(() => {
+    void ensureOrtAssetsReady({ showModal: false }).catch(() => {
+      // Ignore background bootstrap failures; processing flow will retry on demand.
+    })
+  }, [ensureOrtAssetsReady])
 
   useEffect(() => {
     const onWindowError = (event: ErrorEvent) => {
@@ -1213,13 +1468,17 @@ export default function App() {
 
     if (!initPromiseRef.current) {
       setEngineState('loading-model')
-      setEngineDetail('Loading ONNX session…')
+      setEngineDetail('Preparing ONNX runtime…')
       initPromiseRef.current = (async () => {
+        const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true })
+        setDownloadModalKind(null)
+        setEngineDetail('Loading ONNX session…')
         const modelUrl = await resolveModelInitUrl(model, {
           onDownloadStart: ({ url, attempt, totalAttempts }) => {
             const sourceLabel = describeModelSource(url)
+            setDownloadModalKind('model')
             setModelDownloadUi({
-              modelLabel: model.label,
+              assetLabel: model.label,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1234,7 +1493,7 @@ export default function App() {
           onProgress: ({ url, attempt, totalAttempts, loadedBytes, totalBytes }) => {
             const sourceLabel = describeModelSource(url)
             setModelDownloadUi((prev) => ({
-              modelLabel: prev?.modelLabel ?? model.label,
+              assetLabel: prev?.assetLabel ?? model.label,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1248,7 +1507,7 @@ export default function App() {
           onSourceFailed: ({ url, attempt, totalAttempts, message }) => {
             const sourceLabel = describeModelSource(url)
             setModelDownloadUi((prev) => ({
-              modelLabel: prev?.modelLabel ?? model.label,
+              assetLabel: prev?.assetLabel ?? model.label,
               sourceUrl: url,
               sourceLabel,
               attempt,
@@ -1263,7 +1522,12 @@ export default function App() {
             }
           },
         })
-        await engineRef.current!.init({ modelUrl, sampleRateHz: model.sampleRateHz })
+        await engineRef.current!.init({
+          modelUrl,
+          sampleRateHz: model.sampleRateHz,
+          ortWasmBaseUrl,
+          assetCacheName: MODEL_CACHE_NAME,
+        })
         engineRef.current!.setWarmupMs(250)
       })()
     }
@@ -1288,6 +1552,7 @@ export default function App() {
       throw e
     } finally {
       setModelDownloadUi(null)
+      setDownloadModalKind(null)
     }
   }
 
@@ -1753,20 +2018,29 @@ export default function App() {
     engineState === 'error' ? normalizeIssueDetail(engineDetail || 'Unknown processing error') : null
   const processingErrorInline = processingErrorText ? normalizeIssueDetail(processingErrorText, 72) : null
   const processingStatus = isProcessingStarting ? 'booting' : processingErrorText ? 'error' : isInferenceActive ? 'active' : 'idle'
-  const modelDownloadPercent =
-    modelDownloadUi?.totalBytes && modelDownloadUi.totalBytes > 0
-      ? Math.max(0, Math.min(100, (modelDownloadUi.loadedBytes / modelDownloadUi.totalBytes) * 100))
+  const activeDownloadUi =
+    downloadModalKind === 'ort'
+      ? ortDownloadUi
+      : downloadModalKind === 'model'
+        ? modelDownloadUi
+        : null
+  const activeDownloadPercent =
+    activeDownloadUi?.totalBytes && activeDownloadUi.totalBytes > 0
+      ? Math.max(0, Math.min(100, (activeDownloadUi.loadedBytes / activeDownloadUi.totalBytes) * 100))
       : null
-  const modelDownloadBytes =
-    modelDownloadUi?.totalBytes && modelDownloadUi.totalBytes > 0
-      ? `${formatByteSize(modelDownloadUi.loadedBytes)} / ${formatByteSize(modelDownloadUi.totalBytes)}`
-      : modelDownloadUi
-        ? `${formatByteSize(modelDownloadUi.loadedBytes)} downloaded`
+  const activeDownloadBytes =
+    activeDownloadUi?.totalBytes && activeDownloadUi.totalBytes > 0
+      ? `${formatByteSize(activeDownloadUi.loadedBytes)} / ${formatByteSize(activeDownloadUi.totalBytes)}`
+      : activeDownloadUi
+        ? `${formatByteSize(activeDownloadUi.loadedBytes)} downloaded`
         : ''
+  const activeDownloadTitle = downloadModalKind === 'ort' ? 'Downloading Runtime Assets' : 'Downloading AI model'
+  const activeDownloadAssetLabel = downloadModalKind === 'ort' ? 'Runtime' : 'Model'
+  const activeDownloadAttemptLabel = downloadModalKind === 'ort' ? 'Attempt' : 'Source'
   const footerProcessTooltip = !episode
     ? 'Select an episode to enable audio processing'
     : isProcessingStarting
-      ? 'Initializing audio processing (loading model)…'
+      ? 'Initializing audio processing (loading runtime/model)…'
     : processingErrorText
       ? `Processing error: ${processingErrorText}`
     : denoiseEnabled
@@ -1848,7 +2122,7 @@ export default function App() {
   return (
     <div className={`pcApp ${isMobile ? 'isMobile' : ''}`} data-tab={mobileTab} data-playstate={nowState}>
       <div className="pcBackdrop" aria-hidden="true" />
-      {modelDownloadUi ? (
+      {downloadModalKind && activeDownloadUi ? (
         <div className="pcModelDlOverlay" role="dialog" aria-modal="true" aria-labelledby="pcModelDlTitle">
           <div className="pcModelDlBackdrop" aria-hidden="true" />
           <section className="pcModelDlCard pcChamfer">
@@ -1856,37 +2130,37 @@ export default function App() {
               <div>
                 <div className="pcModelDlKicker">Processing Bootstrap</div>
                 <h2 className="pcModelDlTitle" id="pcModelDlTitle">
-                  Downloading AI model
+                  {activeDownloadTitle}
                 </h2>
               </div>
               <span className="pcModelDlAttempt">
-                Source {modelDownloadUi.attempt}/{modelDownloadUi.totalAttempts}
+                {activeDownloadAttemptLabel} {activeDownloadUi.attempt}/{activeDownloadUi.totalAttempts}
               </span>
             </header>
             <div className="pcModelDlMetaGrid">
-              <div className="pcModelDlLabel">Model</div>
-              <div className="pcModelDlValue">{modelDownloadUi.modelLabel}</div>
+              <div className="pcModelDlLabel">{activeDownloadAssetLabel}</div>
+              <div className="pcModelDlValue">{activeDownloadUi.assetLabel}</div>
               <div className="pcModelDlLabel">Source</div>
-              <div className="pcModelDlValue">{modelDownloadUi.sourceLabel}</div>
+              <div className="pcModelDlValue">{activeDownloadUi.sourceLabel}</div>
             </div>
-            <div className="pcModelDlUrl">{modelDownloadUi.sourceUrl}</div>
+            <div className="pcModelDlUrl">{activeDownloadUi.sourceUrl}</div>
             <div className="pcModelDlProgressWrap">
-              <div className={`pcModelDlProgress ${modelDownloadPercent === null ? 'isIndeterminate' : ''}`}>
+              <div className={`pcModelDlProgress ${activeDownloadPercent === null ? 'isIndeterminate' : ''}`}>
                 <span
-                  style={modelDownloadPercent === null ? undefined : { width: `${modelDownloadPercent}%` }}
+                  style={activeDownloadPercent === null ? undefined : { width: `${activeDownloadPercent}%` }}
                   aria-hidden="true"
                 />
               </div>
               <div className="pcModelDlProgressMeta">
                 <span>
-                  {modelDownloadUi.phase === 'retrying' ? 'Switching source…' : 'Downloading…'}
+                  {activeDownloadUi.phase === 'retrying' ? 'Switching source…' : 'Downloading…'}
                 </span>
-                <span>{modelDownloadBytes}</span>
+                <span>{activeDownloadBytes}</span>
               </div>
             </div>
-            {modelDownloadUi.phase === 'retrying' ? (
+            {activeDownloadUi.phase === 'retrying' ? (
               <div className="pcModelDlRetryMsg" aria-live="polite">
-                Previous source failed: {modelDownloadUi.errorDetail ?? 'Unknown error'}
+                Previous source failed: {activeDownloadUi.errorDetail ?? 'Unknown error'}
               </div>
             ) : null}
           </section>

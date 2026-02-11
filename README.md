@@ -26,8 +26,9 @@ Firefox install paths:
 
 - ONNX model loading is GitHub-only by default: `https://raw.githubusercontent.com/chabandou/poisecast/master/models/`.
 - Override the GitHub base with `VITE_GITHUB_MODELS_BASE_URL` (for example, to pin a tag/commit or use another CDN).
-- ONNX Runtime WASM binaries are served from `public/ort/`.
-- PWA install precaches core ORT runtime files. Models are downloaded on demand and cached when first used.
+- ONNX Runtime WASM binaries are downloaded from GitHub in the background: `https://raw.githubusercontent.com/chabandou/poisecast/master/ort/`.
+- Override the ORT base with `VITE_GITHUB_ORT_BASE_URL`.
+- ORT and model binaries are cached on demand in the browser cache.
 
 ## Notes / Constraints
 

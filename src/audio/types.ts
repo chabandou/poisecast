@@ -4,6 +4,8 @@ export type WorkerInitMsg = {
   type: 'init'
   modelUrl: string
   preferredBackends: InferenceBackend[]
+  ortWasmBaseUrl?: string
+  assetCacheName?: string
 }
 
 export type WorkerReadyMsg = {
