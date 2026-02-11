@@ -2,29 +2,12 @@
 // Keep it minimal: buffer input into model-sized frames, hand off inference to the main thread,
 // and output processed samples when available.
 
-// TS doesn't type-check AudioWorkletProcessor globals when compiling under the default DOM lib.
-// Declare the minimal subset we use.
-declare const sampleRate: number
-declare function registerProcessor(name: string, ctor: any): void
-declare class AudioWorkletProcessor {
-  readonly port: MessagePort
-  constructor()
-}
-
-type FrameMsg = { type: 'frame'; id: number; audio: ArrayBuffer }
-type ResultMsg = { type: 'result'; id: number; audio: ArrayBuffer }
-type SetEnabledMsg = { type: 'setEnabled'; enabled: boolean }
-type SetWarmupMsg = { type: 'setWarmupMs'; warmupMs: number }
-type MainMsg = ResultMsg | SetEnabledMsg | SetWarmupMsg
-
 class FloatRingBuffer {
-  private buf: Float32Array
-  private r = 0
-  private w = 0
-  private len = 0
-
-  constructor(capacity: number) {
+  constructor(capacity) {
     this.buf = new Float32Array(capacity)
+    this.r = 0
+    this.w = 0
+    this.len = 0
   }
 
   get size() {
@@ -37,7 +20,7 @@ class FloatRingBuffer {
     this.len = 0
   }
 
-  push(src: Float32Array) {
+  push(src) {
     if (src.length > this.buf.length - this.len) {
       // Drop oldest data to make room (better than exploding memory).
       const drop = src.length - (this.buf.length - this.len)
@@ -51,7 +34,7 @@ class FloatRingBuffer {
     this.len += src.length
   }
 
-  read(out: Float32Array) {
+  read(out) {
     const n = Math.min(out.length, this.len)
     for (let i = 0; i < n; i++) {
       out[i] = this.buf[this.r]
@@ -62,40 +45,31 @@ class FloatRingBuffer {
     for (let i = n; i < out.length; i++) out[i] = 0
   }
 
-  consume(n: number) {
+  consume(n) {
     const k = Math.min(n, this.len)
     this.r = (this.r + k) % this.buf.length
     this.len -= k
   }
 }
 
-type ProcessorOptions = {
-  frameSize: number
-  maxInFlight?: number
-}
-
 class DenoiseProcessor extends AudioWorkletProcessor {
-  private enabled = false
-  private frameSize: number
-  private warmupMs: number
-  private warmupSamplesRemaining = 0
-
-  private inRing = new FloatRingBuffer(48000) // ~1s @ 48k
-  private outRing = new FloatRingBuffer(48000) // ~1s @ 48k
-
-  private nextId = 1
-  private maxInFlight: number
-  private inFlight = 0
-
-  constructor(options: AudioWorkletNodeOptions) {
+  constructor(options) {
     super()
-    const opts = (options.processorOptions ?? {}) as Partial<ProcessorOptions>
+    const opts = options?.processorOptions ?? {}
+    this.enabled = false
     this.frameSize = Math.max(32, Math.floor(opts.frameSize ?? 480))
     this.maxInFlight = Math.max(1, Math.floor(opts.maxInFlight ?? 4))
     this.warmupMs = 250
+    this.warmupSamplesRemaining = 0
 
-    this.port.onmessage = (evt: MessageEvent<MainMsg>) => {
-      const msg = evt.data as MainMsg
+    this.inRing = new FloatRingBuffer(48000) // ~1s @ 48k
+    this.outRing = new FloatRingBuffer(48000) // ~1s @ 48k
+
+    this.nextId = 1
+    this.inFlight = 0
+
+    this.port.onmessage = (evt) => {
+      const msg = evt.data
       if (msg.type === 'setEnabled') {
         this.enabled = msg.enabled
         if (this.enabled) {
@@ -114,23 +88,21 @@ class DenoiseProcessor extends AudioWorkletProcessor {
         if (this.inFlight > 0) this.inFlight--
         const out = new Float32Array(msg.audio)
         this.outRing.push(out)
-        return
       }
     }
   }
 
-  private sendFramesIfPossible() {
+  sendFramesIfPossible() {
     // Keep the pipeline small and bounded. If we can't keep up, it will degrade (warmup + drop policy).
     while (this.enabled && this.inRing.size >= this.frameSize && this.inFlight < this.maxInFlight) {
       const frame = new Float32Array(this.frameSize)
       this.inRing.read(frame)
-      const msg: FrameMsg = { type: 'frame', id: this.nextId++, audio: frame.buffer }
       this.inFlight++
-      this.port.postMessage(msg, [frame.buffer])
+      this.port.postMessage({ type: 'frame', id: this.nextId++, audio: frame.buffer }, [frame.buffer])
     }
   }
 
-  process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+  process(inputs, outputs) {
     const input = inputs[0]
     const output = outputs[0]
     const outL = output?.[0]
@@ -194,5 +166,4 @@ class DenoiseProcessor extends AudioWorkletProcessor {
   }
 }
 
-// eslint-disable-next-line no-restricted-globals
 registerProcessor('poisecast-denoise', DenoiseProcessor)

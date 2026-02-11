@@ -70,7 +70,7 @@ export class DenoiseEngine {
 
     // Prepare audio graph lazily; AudioContext creation can be blocked until user gesture in some browsers.
     this.ctx = new AudioContext({ sampleRate: opts.sampleRateHz })
-    await this.ctx.audioWorklet.addModule(new URL('./worklet/denoise-processor.ts', import.meta.url))
+    await this.ctx.audioWorklet.addModule(new URL('./worklet/denoise-processor.js', import.meta.url))
 
     this.worklet = new AudioWorkletNode(this.ctx, 'poisecast-denoise', {
       numberOfInputs: 1,
