@@ -199,6 +199,17 @@ body {
   transition: color 160ms ease;
 }
 
+.pcStatusBootGlyph {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  min-width: 1.1em;
+}
+
+.pcStatusBootGlyphInner::before {
+  content: '⣿';
+}
+
 .pcStatusIndicator.active .pcStatusDot {
   background: var(--pc-primary);
   animation: pulse 2s infinite;
@@ -217,6 +228,22 @@ body {
 
 .pcStatusIndicator.booting .pcStatusText {
   color: #f4c58b;
+}
+
+.pcStatusIndicator.booting .pcStatusBootGlyphInner::before {
+  animation: pcStatusBrailleBoot 1s steps(1, end) infinite;
+}
+
+@keyframes pcStatusBrailleBoot {
+  0% { content: '⣿'; }
+  14% { content: '⣷'; }
+  28% { content: '⣯'; }
+  42% { content: '⣟'; }
+  56% { content: '⡿'; }
+  70% { content: '⢿'; }
+  84% { content: '⣻'; }
+  92% { content: '⣾'; }
+  100% { content: '⣿'; }
 }
 
 .pcStatusIndicator.error .pcStatusDot {
@@ -2411,6 +2438,40 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(242, 233, 215, 0.62);
+}
+
+.pcModelDlPhase {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcModelDlBraille {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(0, 229, 255, 0.92);
+  letter-spacing: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.35));
+}
+
+.pcModelDlBrailleGlyph::before {
+  content: '⣿⣿';
+  display: inline-block;
+  min-width: 2.15em;
+  text-align: center;
+  animation: pcBrailleDownload 1.1s steps(1, end) infinite;
+}
+
+@keyframes pcBrailleDownload {
+  0%, 10%, 100% { content: '⣿⣿'; }
+  20% { content: '⣷⣾'; }
+  30% { content: '⣧⣼'; }
+  40% { content: '⣇⣸'; }
+  50% { content: '⡇⢸'; }
+  60% { content: '⡏⢹'; }
+  70% { content: '⡟⢻'; }
+  80% { content: '⡿⢿'; }
+  90% { content: '⣿⣿'; }
 }
 
 .pcModelDlRetryMsg {

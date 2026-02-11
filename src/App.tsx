@@ -1595,6 +1595,23 @@ export default function App() {
       initPromiseRef.current = (async () => {
         const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'core' })
         setEngineDetail('Loading ONNX session…')
+        const modelCandidateUrls = getModelCandidateUrls(model)
+        const initialModelSourceUrl = toAbsoluteUrl(modelCandidateUrls[0] ?? model.url)
+        setDownloadModalKind('model')
+        setModelDownloadUi((prev) => {
+          if (prev) return prev
+          return {
+            assetLabel: model.label,
+            sourceUrl: initialModelSourceUrl,
+            sourceLabel: describeModelSource(initialModelSourceUrl),
+            attempt: 1,
+            totalAttempts: Math.max(1, modelCandidateUrls.length),
+            loadedBytes: 0,
+            totalBytes: null,
+            phase: 'downloading',
+            errorDetail: null,
+          }
+        })
         const modelUrl = await resolveModelInitUrl(model, {
           onDownloadStart: ({ url, attempt, totalAttempts }) => {
             const sourceLabel = describeModelSource(url)
@@ -2170,22 +2187,44 @@ export default function App() {
     engineState === 'error' ? normalizeIssueDetail(engineDetail || 'Unknown processing error') : null
   const processingErrorInline = processingErrorText ? normalizeIssueDetail(processingErrorText, 72) : null
   const processingStatus = isProcessingStarting ? 'booting' : processingErrorText ? 'error' : isInferenceActive ? 'active' : 'idle'
+  const modelCandidateUrlsForUi = getModelCandidateUrls(model)
   const activeDownloadUi =
     downloadModalKind === 'ort'
       ? ortDownloadUi
       : downloadModalKind === 'model'
         ? modelDownloadUi
         : null
+  const fallbackDownloadUi: AssetDownloadUiState | null = downloadModalKind
+    ? {
+        assetLabel: downloadModalKind === 'ort' ? 'ONNX Runtime WASM Core' : model.label,
+        sourceUrl:
+          downloadModalKind === 'ort'
+            ? ortBaseUrl
+            : toAbsoluteUrl(modelCandidateUrlsForUi[0] ?? model.url),
+        sourceLabel:
+          downloadModalKind === 'ort'
+            ? describeModelSource(ortBaseUrl)
+            : describeModelSource(toAbsoluteUrl(modelCandidateUrlsForUi[0] ?? model.url)),
+        attempt: 1,
+        totalAttempts: downloadModalKind === 'model' ? Math.max(1, modelCandidateUrlsForUi.length) : ORT_DOWNLOAD_RETRY_MAX,
+        loadedBytes: 0,
+        totalBytes: null,
+        phase: 'downloading',
+        errorDetail: null,
+      }
+    : null
+  const resolvedDownloadUi = activeDownloadUi ?? fallbackDownloadUi
   const activeDownloadPercent =
-    activeDownloadUi?.totalBytes && activeDownloadUi.totalBytes > 0
-      ? Math.max(0, Math.min(100, (activeDownloadUi.loadedBytes / activeDownloadUi.totalBytes) * 100))
+    resolvedDownloadUi?.totalBytes && resolvedDownloadUi.totalBytes > 0
+      ? Math.max(0, Math.min(100, (resolvedDownloadUi.loadedBytes / resolvedDownloadUi.totalBytes) * 100))
       : null
   const activeDownloadBytes =
-    activeDownloadUi?.totalBytes && activeDownloadUi.totalBytes > 0
-      ? `${formatByteSize(activeDownloadUi.loadedBytes)} / ${formatByteSize(activeDownloadUi.totalBytes)}`
-      : activeDownloadUi
-        ? `${formatByteSize(activeDownloadUi.loadedBytes)} downloaded`
+    resolvedDownloadUi?.totalBytes && resolvedDownloadUi.totalBytes > 0
+      ? `${formatByteSize(resolvedDownloadUi.loadedBytes)} / ${formatByteSize(resolvedDownloadUi.totalBytes)}`
+      : resolvedDownloadUi
+        ? `${formatByteSize(resolvedDownloadUi.loadedBytes)} downloaded`
         : ''
+  const activeDownloadPhaseLabel = resolvedDownloadUi?.phase === 'retrying' ? 'Switching source…' : 'Downloading…'
   const activeDownloadTitle = downloadModalKind === 'ort' ? 'Downloading Runtime Assets' : 'Downloading AI model'
   const activeDownloadAssetLabel = downloadModalKind === 'ort' ? 'Runtime' : 'Model'
   const activeDownloadAttemptLabel = downloadModalKind === 'ort' ? 'Attempt' : 'Source'
@@ -2274,28 +2313,28 @@ export default function App() {
   return (
     <div className={`pcApp ${isMobile ? 'isMobile' : ''}`} data-tab={mobileTab} data-playstate={nowState}>
       <div className="pcBackdrop" aria-hidden="true" />
-      {downloadModalKind && activeDownloadUi ? (
+      {downloadModalKind && resolvedDownloadUi ? (
         <div className="pcModelDlOverlay" role="dialog" aria-modal="true" aria-labelledby="pcModelDlTitle">
           <div className="pcModelDlBackdrop" aria-hidden="true" />
           <section className="pcModelDlCard pcChamfer">
             <header className="pcModelDlHead">
               <div>
-                <div className="pcModelDlKicker">Processing Bootstrap</div>
+                <div className="pcModelDlKicker">Processing Bootstrap (One time download)</div>
                 <h2 className="pcModelDlTitle" id="pcModelDlTitle">
                   {activeDownloadTitle}
                 </h2>
               </div>
               <span className="pcModelDlAttempt">
-                {activeDownloadAttemptLabel} {activeDownloadUi.attempt}/{activeDownloadUi.totalAttempts}
+                {activeDownloadAttemptLabel} {resolvedDownloadUi.attempt}/{resolvedDownloadUi.totalAttempts}
               </span>
             </header>
             <div className="pcModelDlMetaGrid">
               <div className="pcModelDlLabel">{activeDownloadAssetLabel}</div>
-              <div className="pcModelDlValue">{activeDownloadUi.assetLabel}</div>
+              <div className="pcModelDlValue">{resolvedDownloadUi.assetLabel}</div>
               <div className="pcModelDlLabel">Source</div>
-              <div className="pcModelDlValue">{activeDownloadUi.sourceLabel}</div>
+              <div className="pcModelDlValue">{resolvedDownloadUi.sourceLabel}</div>
             </div>
-            <div className="pcModelDlUrl">{activeDownloadUi.sourceUrl}</div>
+            <div className="pcModelDlUrl">{resolvedDownloadUi.sourceUrl}</div>
             <div className="pcModelDlProgressWrap">
               <div className={`pcModelDlProgress ${activeDownloadPercent === null ? 'isIndeterminate' : ''}`}>
                 <span
@@ -2304,15 +2343,18 @@ export default function App() {
                 />
               </div>
               <div className="pcModelDlProgressMeta">
-                <span>
-                  {activeDownloadUi.phase === 'retrying' ? 'Switching source…' : 'Downloading…'}
+                <span className="pcModelDlPhase">
+                  <span className="pcModelDlBraille" aria-hidden="true">
+                    <span className="pcModelDlBrailleGlyph" />
+                  </span>
+                  <span>{activeDownloadPhaseLabel}</span>
                 </span>
                 <span>{activeDownloadBytes}</span>
               </div>
             </div>
-            {activeDownloadUi.phase === 'retrying' ? (
+            {resolvedDownloadUi.phase === 'retrying' ? (
               <div className="pcModelDlRetryMsg" aria-live="polite">
-                Previous source failed: {activeDownloadUi.errorDetail ?? 'Unknown error'}
+                Previous source failed: {resolvedDownloadUi.errorDetail ?? 'Unknown error'}
               </div>
             ) : null}
           </section>
@@ -2335,7 +2377,21 @@ export default function App() {
           <div className={`pcStatusIndicator ${processingStatus}`} title={processingErrorText ?? undefined}>
             <span className="pcStatusDot"></span>
             <span className="pcStatusText">
-              Processing: {isProcessingStarting ? 'Initializing' : processingErrorInline ? `Error · ${processingErrorInline}` : isInferenceActive ? 'Active' : 'Idle'}
+              Processing:{' '}
+              {isProcessingStarting ? (
+                <>
+                  <span>Initializing</span>
+                  <span className="pcStatusBootGlyph" aria-hidden="true">
+                    <span className="pcStatusBootGlyphInner" />
+                  </span>
+                </>
+              ) : processingErrorInline ? (
+                `Error · ${processingErrorInline}`
+              ) : isInferenceActive ? (
+                'Active'
+              ) : (
+                'Idle'
+              )}
             </span>
           </div>
         </div>
