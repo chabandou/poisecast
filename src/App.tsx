@@ -1067,6 +1067,20 @@ export default function App() {
 
       if (opts.showModal) {
         setDownloadModalKind('ort')
+        setOrtDownloadUi((prev) => {
+          if (prev) return prev
+          return {
+            assetLabel: isExtended ? 'ONNX Runtime WASM Extended' : 'ONNX Runtime WASM Core',
+            sourceUrl: ortBaseUrl,
+            sourceLabel: describeModelSource(ortBaseUrl),
+            attempt: 1,
+            totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+            loadedBytes: 0,
+            totalBytes: null,
+            phase: 'downloading',
+            errorDetail: null,
+          }
+        })
       }
 
       const files = isExtended ? ORT_WASM_EXTENDED_FILES : ORT_WASM_CORE_FILES
@@ -1486,7 +1500,6 @@ export default function App() {
       setEngineDetail('Preparing ONNX runtime…')
       initPromiseRef.current = (async () => {
         const ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'core' })
-        setDownloadModalKind(null)
         setEngineDetail('Loading ONNX session…')
         const modelUrl = await resolveModelInitUrl(model, {
           onDownloadStart: ({ url, attempt, totalAttempts }) => {
