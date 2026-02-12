@@ -354,7 +354,7 @@ const SourceList = memo(function SourceList({
   onSelect,
 }: SourceListProps) {
   return (
-    <div className="pcSourceList">
+    <div className="pcSourceList pcListStack">
       {feeds.map((f) => {
         const isLoading = !!loadingFeedUrl && f.rssUrl === loadingFeedUrl
         return (
@@ -1044,6 +1044,7 @@ export default function App() {
   const [isInferenceActive, setIsInferenceActive] = useState(false)
   const [isProcessingStarting, setIsProcessingStarting] = useState(false)
   const [isFooterClosing, setIsFooterClosing] = useState(false)
+  const [isFooterExpanded, setIsFooterExpanded] = useState(false)
   const [modelDownloadUi, setModelDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [ortDownloadUi, setOrtDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [downloadModalKind, setDownloadModalKind] = useState<'ort' | 'model' | null>(null)
@@ -2106,6 +2107,10 @@ export default function App() {
     setVolumeClamped(0)
   }, [lastNonZeroVolume, setVolumeClamped, volume])
 
+  const toggleFooterExpansion = useCallback(() => {
+    setIsFooterExpanded(prev => !prev)
+  }, [])
+
   function seekBySeconds(deltaSeconds: number) {
     const audioEl = audioRef.current
     if (!audioEl || !episode) return
@@ -2310,8 +2315,14 @@ export default function App() {
     ))
   }, [episodes, episode?.guid, loadingEpisodeId, downloadingEpisodeId, startEpisode, handleEpisodeDownload])
 
+  const isSidebarCollapsed = isFooterExpanded && !isMobile
+
   return (
-    <div className={`pcApp ${isMobile ? 'isMobile' : ''}`} data-tab={mobileTab} data-playstate={nowState}>
+    <div
+      className={`pcApp ${isMobile ? 'isMobile' : ''}`}
+      data-tab={mobileTab}
+      data-playstate={nowState}
+    >
       <div className="pcBackdrop" aria-hidden="true" />
       {downloadModalKind && resolvedDownloadUi ? (
         <div className="pcModelDlOverlay" role="dialog" aria-modal="true" aria-labelledby="pcModelDlTitle">
@@ -2433,10 +2444,10 @@ export default function App() {
       </div>
 
       <div className="pcShell">
-        <aside className="pcSidebar pcChamfer">
+        <aside className={`pcSidebar pcChamfer ${isSidebarCollapsed ? 'pcSidebarCollapsed' : ''}`}>
           <div className="pcSidebarBody">
             <>
-                <div className="pcSourceList">
+                <div className="pcNavigation pcListStack">
 		                  <button
                     type="button"
                     className={`pcNavigationItem ${(isMobile ? mobileTab === 'sources' : sidebarTab === 'sources') ? 'active' : ''}`}
@@ -2471,53 +2482,57 @@ export default function App() {
                     </div>
                     <div className="pcNavigationIcon">
                       <span className="material-symbols-outlined">explore</span>
-                    </div>
-                  </button>
+	                    </div>
+	                  </button>
 	                </div>
-                
-                <div className="pcSidebarHead" style={{paddingTop: '24px', paddingBottom: '8px'}}>
-                  <div className="pcSidebarTitle" style={{fontSize: '9px', letterSpacing: '0.2em', opacity: 0.4}}>
-                    <span className="material-symbols-outlined" style={{fontSize: '12px'}}>rss_feed</span>
-                    Recent Feeds
-                  </div>
-                </div>
-                
-                <SourceList
-                  feeds={DEFAULT_FEEDS}
-                  activeUrl={rssUrl}
-                  rssLoading={rssLoading}
-                  loadingFeedUrl={loadingFeedUrl}
-                  imageByUrl={feedImages}
-                  showThumbs={isMobile && mobileTab === 'sources'}
-                  onSelect={handleSourceSelect}
-                />
-                {sidebarIssues.length > 0 ? (
-                  <div className="pcSidebarFoot pcSidebarIssues" role="status" aria-live="polite">
-                    <div className="pcSidebarIssuesHeader">
-                      <h4 className="pcFeedMetaTitle">System Alerts ({sidebarIssues.length})</h4>
-                      <button type="button" className="pcSidebarIssuesClear" onClick={clearSidebarIssues}>
-                        Clear
-                      </button>
+
+                {!isSidebarCollapsed ? (
+                  <>
+                    <div className="pcSidebarHead" style={{paddingTop: '24px', paddingBottom: '8px'}}>
+                      <div className="pcSidebarTitle" style={{fontSize: '9px', letterSpacing: '0.2em', opacity: 0.4}}>
+                        <span className="material-symbols-outlined" style={{fontSize: '12px'}}>rss_feed</span>
+                        Recent Feeds
+                      </div>
                     </div>
-                    <div className="pcSidebarIssuesList">
-                      {sidebarIssues.map((issue) => (
-                        <article key={issue.id} className="pcSidebarIssueItem">
-                          <div className="pcSidebarIssueTop">
-                            <span className="pcSidebarIssueSource">{formatIssueSource(issue.source)}</span>
-                            <span className="pcSidebarIssueTime">
-                              {new Date(issue.createdAt).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                          <p className="pcSidebarIssueSummary">{issue.summary}</p>
-                          <p className="pcSidebarIssueDetail">{issue.detail}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
+
+                    <SourceList
+                      feeds={DEFAULT_FEEDS}
+                      activeUrl={rssUrl}
+                      rssLoading={rssLoading}
+                      loadingFeedUrl={loadingFeedUrl}
+                      imageByUrl={feedImages}
+                      showThumbs={isMobile && mobileTab === 'sources'}
+                      onSelect={handleSourceSelect}
+                    />
+                    {sidebarIssues.length > 0 ? (
+                      <div className="pcSidebarFoot pcSidebarIssues" role="status" aria-live="polite">
+                        <div className="pcSidebarIssuesHeader">
+                          <h4 className="pcFeedMetaTitle">System Alerts ({sidebarIssues.length})</h4>
+                          <button type="button" className="pcSidebarIssuesClear" onClick={clearSidebarIssues}>
+                            Clear
+                          </button>
+                        </div>
+                        <div className="pcSidebarIssuesList">
+                          {sidebarIssues.map((issue) => (
+                            <article key={issue.id} className="pcSidebarIssueItem">
+                              <div className="pcSidebarIssueTop">
+                                <span className="pcSidebarIssueSource">{formatIssueSource(issue.source)}</span>
+                                <span className="pcSidebarIssueTime">
+                                  {new Date(issue.createdAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+                              <p className="pcSidebarIssueSummary">{issue.summary}</p>
+                              <p className="pcSidebarIssueDetail">{issue.detail}</p>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
             </>
           </div> 
@@ -2820,7 +2835,7 @@ export default function App() {
           )}
 
       {episode ? (
-        <footer className={`pcFooter ${isFooterClosing ? 'pcFooterSlideOut' : 'pcFooterSlideUp'}`}>
+        <footer className={`pcFooter ${isFooterClosing ? 'pcFooterSlideOut' : 'pcFooterSlideUp'} ${isFooterExpanded ? 'pcFooterExpanded' : ''}`}>
           <div className="pcFooterProgress">
             <div className="pcFooterProgressTrack" onClick={episode ? onProgressPointer : undefined}>
               <div className="pcFooterProgressFill" style={{ width: `${footerProgressPct}%` }}></div>
@@ -2840,7 +2855,7 @@ export default function App() {
             </div>
           </div>
           <div className="pcFooterControls">
-            <div className="pcFooterLeft">
+            <div className="pcFooterLeft" onClick={toggleFooterExpansion} style={{ cursor: 'pointer' }}>
               <div className="pcFooterEpisodeInfo">
                 <div className="pcFooterEpisodeArtwork">
                   <span className="material-symbols-outlined">history_edu</span>
@@ -2942,6 +2957,152 @@ export default function App() {
               </div>
             </div>
           </div>
+          {isFooterExpanded && episode ? (
+            <div className="pcFooterExpandedContent">
+              <div className="pcFooterExpandedBody flex-1 flex flex-col items-center p-8 relative z-10 pt-12">
+                <div className="pcFooterExpandedHero text-center mb-10 max-w-4xl mx-auto space-y-4">
+                  <div className="pcFooterExpandedBadge">
+                    <span className="pcFooterExpandedBadgeDot"></span>
+                    <span className="pcFooterExpandedBadgeText">
+                      Transmission Active
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="pcFooterExpandedTitle">
+                      {footerEpisodeTitle || 'Unknown Episode'}
+                    </h2>
+                    <p className="pcFooterExpandedSubtitle">
+                      {footerEpisodeShow || 'Unknown Show'} /// Episode {episodesAll.findIndex(e => e?.guid === episode?.guid) + 1}
+                    </p>
+                  </div>
+                  <div className="pcFooterExpandedDescriptionWrap">
+                    <div
+                      className="pcFooterExpandedDescription"
+                      dangerouslySetInnerHTML={{ __html: episode?.description || 'No description available.' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="pcFooterExpandedTelemetry">
+                  <div className="pcFooterExpandedMetrics pcFooterExpandedMetricsLeft">
+                    <div className="pcFooterExpandedMetric">
+                      <span className="pcFooterExpandedMetricLabel">
+                        Current Position
+                      </span>
+                      <span className="pcFooterExpandedMetricValue pcFooterExpandedMetricValuePrimary">
+                        {footerCurrent}
+                      </span>
+                    </div>
+                    <div className="pcFooterExpandedMetric">
+                      <span className="pcFooterExpandedMetricLabel">
+                        Stream Bitrate
+                      </span>
+                      <span className="pcFooterExpandedMetricValue">
+                        1,411 KBPS
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pcFooterExpandedWaveform">
+                    {/* Waveform visualization */}
+                    {Array.from({ length: 80 }, (_, i) => {
+                      const isActive = i < Math.floor((currentTime || 0) / (duration || 1) * 80)
+                      const height = Math.random() > 0.5 ? '75%' : Math.random() > 0.3 ? '50%' : '25%'
+                      return (
+                        <div
+                          key={i}
+                          className={isActive ? 'waveform-bar-active' : 'waveform-bar'}
+                          style={{
+                            width: '3px',
+                            height,
+                            borderRadius: '9999px',
+                            transition: 'all 300ms'
+                          }}
+                        ></div>
+                      )
+                    })}
+                    <div className="pcFooterExpandedWaveMarker pcFooterExpandedWaveMarkerLeft"></div>
+                    <div className="pcFooterExpandedWaveMarker pcFooterExpandedWaveMarkerRight"></div>
+                  </div>
+
+                  <div className="pcFooterExpandedMetrics pcFooterExpandedMetricsRight">
+                    <div className="pcFooterExpandedMetric">
+                      <span className="pcFooterExpandedMetricLabel">
+                        Remaining
+                      </span>
+                      <span className="pcFooterExpandedMetricValue">
+                        {footerDuration}
+                      </span>
+                    </div>
+                    <div className="pcFooterExpandedMetric">
+                      <span className="pcFooterExpandedMetricLabel">
+                        Playback Speed
+                      </span>
+                      <span className="pcFooterExpandedMetricValue">
+                        1.25X // VAR
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pcFooterExpandedControls">
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnSm">
+                    <span className="material-symbols-outlined">shuffle</span>
+                  </button>
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnLg" disabled={!canPrev} onClick={playPrev}>
+                    <span className="material-symbols-outlined">skip_previous</span>
+                  </button>
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnMd" onClick={() => seekBySeconds(-10)}>
+                    <span className="material-symbols-outlined">replay_10</span>
+                  </button>
+                  <div className="pcFooterExpandedPlayWrap">
+                    <div className="pcFooterExpandedPlayGlow"></div>
+                    <button
+                      className="pcFooterExpandedPlayBtn"
+                      onClick={() => void togglePlayPause()}
+                    >
+                      <span className="material-symbols-outlined pcFooterExpandedPlayIcon FILL-1">
+                        {isPlaying ? 'pause' : 'play_arrow'}
+                      </span>
+                    </button>
+                  </div>
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnMd" onClick={() => seekBySeconds(10)}>
+                    <span className="material-symbols-outlined">forward_10</span>
+                  </button>
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnLg" disabled={!canNext} onClick={playNext}>
+                    <span className="material-symbols-outlined">skip_next</span>
+                  </button>
+                  <button className="pcFooterExpandedControlBtn pcFooterExpandedControlBtnSm">
+                    <span className="material-symbols-outlined">repeat</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pcFooterExpandedTray">
+                <div className="pcFooterExpandedTrayActions">
+                  <button
+                    className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnGhost"
+                    onClick={toggleFooterExpansion}
+                  >
+                    <span className="material-symbols-outlined">keyboard_double_arrow_down</span>
+                    Collapse View
+                  </button>
+                  <button className="pcFooterExpandedTrayBtn">
+                    <span className="material-symbols-outlined">closed_caption</span>
+                    Subtitles
+                  </button>
+                  <button className="pcFooterExpandedTrayBtn">
+                    <span className="material-symbols-outlined">list</span>
+                    Chapters
+                  </button>
+                  <button className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnPrimary">
+                    <span className="material-symbols-outlined">equalizer</span>
+                    DSP Control
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </footer>
       ) : null}
         </main>
