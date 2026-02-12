@@ -21,22 +21,26 @@ type IoSpec = {
   stateSize?: number
 }
 
+type SessionWithMetadata = ort.InferenceSession & {
+  inputMetadata?: Record<string, InputMeta>
+  outputMetadata?: Record<string, InputMeta>
+}
+
 let session: ort.InferenceSession | null = null
 let backend: InferenceBackend | null = null
 let ioSpec: IoSpec | null = null
 let state: Float32Array | null = null
 let fetchPatched = false
+const scope = self as DedicatedWorkerGlobalScope
 
 function post(msg: WorkerReply, transfer?: Transferable[]) {
-  // eslint-disable-next-line no-restricted-globals
-  ;(self as unknown as DedicatedWorkerGlobalScope).postMessage(msg, transfer ?? [])
+  scope.postMessage(msg, transfer ?? [])
 }
 
 function installCachedAssetFetch(baseUrl: string, cacheName: string) {
   if (fetchPatched) return
   fetchPatched = true
 
-  const scope = self as unknown as DedicatedWorkerGlobalScope
   const originalFetch = scope.fetch.bind(scope)
   scope.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const requestUrl =
@@ -66,16 +70,16 @@ function configureOrtWasm(baseUrl?: string, cacheName?: string) {
 
   if (baseUrl) {
     if (cacheName) installCachedAssetFetch(baseUrl, cacheName)
-    ort.env.wasm.wasmPaths = `${baseUrl.replace(/\/+$/, '')}/` as any
+    ort.env.wasm.wasmPaths = `${baseUrl.replace(/\/+$/, '')}/`
   }
 }
 
 function pickIoSpec(sess: ort.InferenceSession): IoSpec {
-  const inputMetadata = (sess as any).inputMetadata as Record<string, InputMeta> | undefined
-  const outputMetadata = (sess as any).outputMetadata as Record<string, InputMeta> | undefined
-
-  const inputNames = (sess as any).inputNames as string[] | undefined
-  const outputNames = (sess as any).outputNames as string[] | undefined
+  const sessionWithMetadata = sess as SessionWithMetadata
+  const inputMetadata = sessionWithMetadata.inputMetadata
+  const outputMetadata = sessionWithMetadata.outputMetadata
+  const inputNames = [...sess.inputNames]
+  const outputNames = [...sess.outputNames]
 
   if (!inputNames?.length || !outputNames?.length || !inputMetadata || !outputMetadata) {
     // Minimal fallback for known time-domain model signature.
@@ -159,10 +163,13 @@ async function init(msg: WorkerInitMsg) {
     const errs: Array<{ backend: InferenceBackend; message: string }> = []
     for (const option of tryProviders) {
       try {
-        const s = await ort.InferenceSession.create(msg.modelUrl, {
-          executionProviders: option.providers as any,
+        const sessionOptions: ort.InferenceSession.SessionOptions = {
+          executionProviders: option.providers,
           graphOptimizationLevel: 'all',
-        } as any)
+        }
+        const s = await ort.InferenceSession.create(msg.modelUrl, {
+          ...sessionOptions,
+        })
         session = s
         backend = option.backend
         break
@@ -229,8 +236,8 @@ async function processFrame(msg: WorkerProcessMsg) {
     }
 
     const outputs = await session.run(feeds)
-
-    const outAny = outputs[ioSpec.audioOutName] ?? outputs[(session as any).outputNames?.[0]]
+    const fallbackOutputName = session.outputNames[0]
+    const outAny = outputs[ioSpec.audioOutName] ?? (fallbackOutputName ? outputs[fallbackOutputName] : undefined)
     const out = outAny?.data as Float32Array | undefined
     if (!out) {
       post({ type: 'result', id: msg.id, audio: msg.audio } as WorkerReply, [msg.audio])
@@ -261,7 +268,6 @@ async function processFrame(msg: WorkerProcessMsg) {
   }
 }
 
-// eslint-disable-next-line no-restricted-globals
 self.onmessage = (evt: MessageEvent<WorkerInitMsg | WorkerProcessMsg>) => {
   const msg = evt.data
   if (msg.type === 'init') {

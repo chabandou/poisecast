@@ -1,5 +1,9 @@
 import type { InferenceBackend, MainToWorkletMsg, WorkletFrameMsg, WorkerReply } from './types'
 
+function ignoreError(): void {
+  // Deliberate no-op for best-effort cleanup paths.
+}
+
 export type EngineStatus =
   | { state: 'idle' }
   | { state: 'loading-model' }
@@ -127,7 +131,7 @@ export class DenoiseEngine {
   async dispose() {
     try {
       this.setEnabled(false)
-    } catch {}
+    } catch { ignoreError() }
 
     this.worklet?.disconnect()
     this.source?.disconnect()
@@ -138,7 +142,7 @@ export class DenoiseEngine {
     if (this.ctx) {
       try {
         await this.ctx.close()
-      } catch {}
+      } catch { ignoreError() }
       this.ctx = null
     }
 

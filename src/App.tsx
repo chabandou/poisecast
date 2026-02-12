@@ -166,6 +166,10 @@ function normalizeIssueCardDetail(raw: string): string {
   return compact || 'Unknown error'
 }
 
+function ignoreError(): void {
+  // Deliberate no-op for best-effort operations.
+}
+
 function toAbsoluteUrl(url: string): string {
   try {
     return new URL(url, window.location.href).toString()
@@ -508,10 +512,7 @@ function useScrambleText(text: string, durationMs = 700, delayMs = 0): string {
       delayRef.current = null
     }
 
-    if (!text) {
-      setDisplay(text)
-      return
-    }
+    if (!text) return
 
     const chars = text.split('')
     const reveals = chars.map((ch, i) => {
@@ -564,7 +565,7 @@ function useScrambleText(text: string, durationMs = 700, delayMs = 0): string {
     }
   }, [text, durationMs, delayMs])
 
-  return display
+  return text ? display : text
 }
 
 async function corsProbe(url: string): Promise<boolean> {
@@ -580,7 +581,7 @@ async function corsProbe(url: string): Promise<boolean> {
   try {
     const head = await fetch(url, { method: 'HEAD', mode: 'cors' })
     if (head.ok) return true
-  } catch {}
+  } catch { ignoreError() }
 
   try {
     const get = await fetch(url, {
@@ -639,22 +640,48 @@ const ORT_WASM_EXTENDED_FILES = [
 ] as const
 
 const AUDIO_FILE_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
-const FOOTER_SLIDE_MS = 260
+const FOOTER_SLIDE_MS = 500
+const FOOTER_EXPAND_REVEAL_MS = 600
 const ASSET_FETCH_TIMEOUT_MS = 120_000
 const ENGINE_INIT_TIMEOUT_MS = 90_000
-const MIME_TO_EXT: Record<string, string> = {
-  'audio/mpeg': '.mp3',
-  'audio/mp3': '.mp3',
-  'audio/mp4': '.m4a',
-  'audio/x-m4a': '.m4a',
-  'audio/aac': '.aac',
-  'audio/wav': '.wav',
-  'audio/x-wav': '.wav',
-  'audio/flac': '.flac',
-  'audio/x-flac': '.flac',
-  'audio/ogg': '.ogg',
-  'audio/opus': '.opus',
-  'audio/webm': '.webm',
+const MEDIA_SESSION_ACTIONS: MediaSessionAction[] = [
+  'play',
+  'pause',
+  'stop',
+  'seekbackward',
+  'seekforward',
+  'seekto',
+  'previoustrack',
+  'nexttrack',
+]
+const MEDIA_SESSION_ARTWORK_SIZES = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'] as const
+
+function clearMediaSessionActionHandlers(session: MediaSession): void {
+  for (const action of MEDIA_SESSION_ACTIONS) {
+    try {
+      session.setActionHandler(action, null)
+    } catch { ignoreError() }
+  }
+}
+
+function inferArtworkMimeType(src: string): string | undefined {
+  try {
+    const path = new URL(src, window.location.href).pathname.toLowerCase()
+    if (path.endsWith('.png')) return 'image/png'
+    if (path.endsWith('.webp')) return 'image/webp'
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg'
+  } catch { ignoreError() }
+  return undefined
+}
+
+function buildMediaSessionArtwork(src: string): MediaImage[] {
+  const absoluteSrc = toAbsoluteUrl(src)
+  const mimeType = inferArtworkMimeType(absoluteSrc)
+  return MEDIA_SESSION_ARTWORK_SIZES.map((sizes) => {
+    const image: MediaImage = { src: absoluteSrc, sizes }
+    if (mimeType) image.type = mimeType
+    return image
+  })
 }
 
 async function probeAssetDownload(assetUrl: string): Promise<void> {
@@ -666,7 +693,7 @@ async function probeAssetDownload(assetUrl: string): Promise<void> {
       `Asset probe failed for ${assetUrl}`,
     )
     if (head.ok) return
-  } catch {}
+  } catch { ignoreError() }
 
   const res = await fetchWithTimeout(
     assetUrl,
@@ -886,32 +913,6 @@ function isLikelyAudioFile(file: File): boolean {
   return /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus|webm|m4b|mp4)$/i.test(file.name)
 }
 
-function sanitizeFileName(value: string): string {
-  const clean = value
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return clean || 'episode'
-}
-
-function inferAudioExtension(url: string, mimeType?: string): string {
-  if (mimeType) {
-    const normalized = mimeType.toLowerCase().split(';', 1)[0]
-    const mapped = MIME_TO_EXT[normalized]
-    if (mapped) return mapped
-  }
-
-  try {
-    const pathname = new URL(url, window.location.href).pathname
-    const match = pathname.match(/\.([A-Za-z0-9]{2,8})$/)
-    if (match) return `.${match[1].toLowerCase()}`
-  } catch {
-    // Ignore parse failures and fall back to mp3.
-  }
-
-  return '.mp3'
-}
-
 function buildStreamProxyUrl(sourceUrl: string): string {
   return `/api/stream?url=${encodeURIComponent(sourceUrl)}`
 }
@@ -988,6 +989,7 @@ export default function App() {
   const proxyVerifiedRef = useRef<Set<string>>(new Set())
   const lastInferenceAtRef = useRef(0)
   const footerCloseTimerRef = useRef<number | null>(null)
+  const footerExpandTimerRef = useRef<number | null>(null)
 
   const engineRef = useRef<DenoiseEngine | null>(null)
   const initPromiseRef = useRef<Promise<void> | null>(null)
@@ -1020,7 +1022,6 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<ApplePodcastResult[]>([])
   const [loadingFeedUrl, setLoadingFeedUrl] = useState<string | null>(null)
   const [loadingEpisodeId, setLoadingEpisodeId] = useState<string | null>(null)
-  const [downloadingEpisodeId, setDownloadingEpisodeId] = useState<string | null>(null)
   const [feedImages, setFeedImages] = useState<Record<string, string>>({})
   const feedImageFetchRef = useRef<Set<string>>(new Set())
 
@@ -1031,7 +1032,7 @@ export default function App() {
   const [engineState, setEngineState] = useState<string>('idle')
   const [engineDetail, setEngineDetail] = useState<string>('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
-  const [canDenoise, setCanDenoise] = useState<boolean | null>(null)
+  const [, setCanDenoise] = useState<boolean | null>(null)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installing, setInstalling] = useState(false)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode())
@@ -1044,7 +1045,10 @@ export default function App() {
   const [isInferenceActive, setIsInferenceActive] = useState(false)
   const [isProcessingStarting, setIsProcessingStarting] = useState(false)
   const [isFooterClosing, setIsFooterClosing] = useState(false)
+  const [isFooterCollapsing, setIsFooterCollapsing] = useState(false)
+  const [isFooterExpanding, setIsFooterExpanding] = useState(false)
   const [isFooterExpanded, setIsFooterExpanded] = useState(false)
+  const [isSidebarCompact, setIsSidebarCompact] = useState(false)
   const [isFooterDescriptionExpanded, setIsFooterDescriptionExpanded] = useState(false)
   const [isFooterDescriptionOverflowing, setIsFooterDescriptionOverflowing] = useState(false)
   const [footerDescriptionExpandedMaxHeight, setFooterDescriptionExpandedMaxHeight] = useState(0)
@@ -1061,7 +1065,7 @@ export default function App() {
   const ortCoreInitPromiseRef = useRef<Promise<string> | null>(null)
   const ortExtendedInitPromiseRef = useRef<Promise<string> | null>(null)
 
-  const episodesAll = podcast?.episodes ?? []
+  const episodesAll = useMemo(() => podcast?.episodes ?? [], [podcast?.episodes])
   const episodes = useMemo(() => {
     const q = deferredEpisodeQuery.trim().toLowerCase()
     const filtered = !q ? episodesAll : episodesAll.filter((e) => e.title.toLowerCase().includes(q))
@@ -1295,6 +1299,13 @@ export default function App() {
     }
   }, [])
 
+  const cancelFooterExpandTimer = useCallback(() => {
+    if (footerExpandTimerRef.current !== null) {
+      window.clearTimeout(footerExpandTimerRef.current)
+      footerExpandTimerRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     if (!denoiseEnabled || !isPlaying || engineState !== 'ready') {
       setIsInferenceActive(false)
@@ -1337,10 +1348,11 @@ export default function App() {
           setFeedImages(parsed)
         }
       }
-    } catch {}
+    } catch { ignoreError() }
     void loadFeed(rssUrl)
     return () => {
       cancelFooterCloseTimer()
+      cancelFooterExpandTimer()
       engineRef.current?.setInferenceActivityHandler(null)
       void engineRef.current?.dispose()
       if (objectUrlRef.current) {
@@ -1357,6 +1369,27 @@ export default function App() {
     if (episode && mobileTab === 'sources') setMobileTab('playing')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, episode])
+
+  useEffect(() => {
+    if (!episode?.guid) {
+      cancelFooterExpandTimer()
+      setIsFooterExpanding(false)
+      setIsFooterExpanded(false)
+      setIsSidebarCompact(false)
+      return
+    }
+
+    if (isMobile) {
+      cancelFooterExpandTimer()
+      setIsFooterExpanding(false)
+      setIsSidebarCompact(false)
+      return
+    }
+
+    if (isFooterExpanded) {
+      setIsSidebarCompact(true)
+    }
+  }, [cancelFooterExpandTimer, episode?.guid, isFooterExpanded, isMobile])
 
   useEffect(() => {
     if (!isMobile || mobileTab !== 'sources') return
@@ -1378,7 +1411,7 @@ export default function App() {
               const next = { ...prev, [url]: art }
               try {
                 localStorage.setItem(feedImageCacheKey, JSON.stringify(next))
-              } catch {}
+              } catch { ignoreError() }
               return next
             })
           }
@@ -1427,7 +1460,7 @@ export default function App() {
               searchCacheKey,
               JSON.stringify({ entries: Array.from(searchCacheRef.current.entries()) }),
             )
-          } catch {}
+          } catch { ignoreError() }
           setSearchResults(results)
         } catch (e) {
           if (e instanceof DOMException && e.name === 'AbortError') return
@@ -1538,7 +1571,7 @@ export default function App() {
         }
         try {
           localStorage.setItem(feedCacheKey, JSON.stringify({ entries: Array.from(feedCacheRef.current.entries()) }))
-        } catch {}
+        } catch { ignoreError() }
       }
 
       const bestImage = parsed.feed?.imageUrl || lookup?.artworkUrl || null
@@ -1548,7 +1581,7 @@ export default function App() {
           const next = { ...prev, [url]: bestImage }
           try {
             localStorage.setItem(feedImageCacheKey, JSON.stringify(next))
-          } catch {}
+          } catch { ignoreError() }
           return next
         })
       }
@@ -1692,7 +1725,7 @@ export default function App() {
 
             try {
               await engineRef.current?.dispose()
-            } catch {}
+            } catch { ignoreError() }
 
             engineRef.current = new DenoiseEngine()
             engineRef.current.setInferenceActivityHandler(() => {
@@ -1733,12 +1766,13 @@ export default function App() {
 
   const stopEpisodeAndHideFooter = useCallback(() => {
     cancelFooterCloseTimer()
+    cancelFooterExpandTimer()
 
     const audioEl = audioRef.current
     if (audioEl) {
       try {
         audioEl.pause()
-      } catch {}
+      } catch { ignoreError() }
       audioEl.removeAttribute('crossorigin')
       audioEl.removeAttribute('src')
       audioEl.load()
@@ -1750,6 +1784,7 @@ export default function App() {
     setDuration(null)
     setCanDenoise(null)
     setDenoiseEnabled(false)
+    // setIsSidebarCompact(false) // Moved inside setTimeout
     setIsInferenceActive(false)
     setIsProcessingStarting(false)
     lastInferenceAtRef.current = 0
@@ -1759,9 +1794,13 @@ export default function App() {
     footerCloseTimerRef.current = window.setTimeout(() => {
       setEpisode(null)
       setIsFooterClosing(false)
+      setIsFooterExpanding(false)
+      setIsFooterExpanded(false)
+      setIsFooterCollapsing(false)
+      setIsSidebarCompact(false) // Moved here
       footerCloseTimerRef.current = null
-    }, FOOTER_SLIDE_MS)
-  }, [cancelFooterCloseTimer])
+    }, FOOTER_SLIDE_MS + 20) // Slightly longer than FOOTER_SLIDE_MS to ensure animation completes
+  }, [cancelFooterCloseTimer, cancelFooterExpandTimer])
 
   const startEpisode = useCallback(async (ep: PodcastEpisode) => {
     const audioEl = audioRef.current
@@ -1833,60 +1872,6 @@ export default function App() {
     [isMobile, loadFeed],
   )
 
-  const handleEpisodeDownload = useCallback(
-    async (ep: PodcastEpisode) => {
-      if (downloadingEpisodeId === ep.guid) return
-      setDownloadingEpisodeId(ep.guid)
-      setEngineDetail('Preparing download…')
-
-      try {
-        const res = await fetch(ep.enclosureUrl, { mode: 'cors' })
-        if (!res.ok) {
-          throw new Error(`Download failed: ${res.status} ${res.statusText}`)
-        }
-
-        const blob = await res.blob()
-        const ext = inferAudioExtension(ep.enclosureUrl, blob.type || res.headers.get('content-type') || undefined)
-        const fileName = `${sanitizeFileName(ep.title)}${ext}`
-        const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' })
-
-        const canShareWithFiles =
-          typeof navigator.share === 'function' &&
-          typeof navigator.canShare === 'function' &&
-          navigator.canShare({ files: [file] })
-
-        if (isMobile && canShareWithFiles) {
-          await navigator.share({ files: [file], title: ep.title })
-          setEngineDetail('Download ready. Use Save to Files from the share sheet.')
-          return
-        }
-
-        const blobUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = blobUrl
-        a.download = fileName
-        a.rel = 'noopener noreferrer'
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000)
-        setEngineDetail('Download started.')
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'AbortError') {
-          setEngineDetail('Download canceled.')
-          return
-        }
-        reportIssue('download', 'Episode download failed', e)
-        setEngineDetail('Direct file save blocked by the host. Opening source URL.')
-        window.open(ep.enclosureUrl, '_blank', 'noopener,noreferrer')
-      } finally {
-        setDownloadingEpisodeId(null)
-      }
-    },
-    [downloadingEpisodeId, isMobile, reportIssue],
-  )
-
   async function startLocalFile(file: File) {
     const audioEl = audioRef.current
     if (!audioEl) return
@@ -1927,13 +1912,13 @@ export default function App() {
     // Switch source first for immediate playback.
     try {
       audioEl.pause()
-    } catch {}
+    } catch { ignoreError() }
     audioEl.removeAttribute('crossorigin')
     audioEl.src = url
     audioEl.load()
     try {
       await audioEl.play()
-    } catch {}
+    } catch { ignoreError() }
 
     if (isMobile) setMobileTab('playing')
   }
@@ -1982,11 +1967,11 @@ export default function App() {
         await waitForAudioMetadata(audioEl)
         try {
           if (t > 0) audioEl.currentTime = t
-        } catch {}
+        } catch { ignoreError() }
         if (!wasPaused) {
           try {
             await audioEl.play()
-          } catch {}
+          } catch { ignoreError() }
         }
       }
 
@@ -2007,7 +1992,7 @@ export default function App() {
     }
   }
 
-  async function togglePlayPause() {
+  const togglePlayPause = useCallback(async () => {
     const audioEl = audioRef.current
     if (!audioEl) return
     try {
@@ -2016,7 +2001,7 @@ export default function App() {
     } catch {
       // Autoplay restrictions; ignore.
     }
-  }
+  }, [])
 
   function seekToPct(pct: number) {
     const audioEl = audioRef.current
@@ -2024,7 +2009,7 @@ export default function App() {
     const next = Math.max(0, Math.min(duration, pct * duration))
     try {
       audioEl.currentTime = next
-    } catch {}
+    } catch { ignoreError() }
   }
 
   function onProgressPointer(e: PointerEvent<HTMLDivElement>) {
@@ -2112,10 +2097,48 @@ export default function App() {
   }, [lastNonZeroVolume, setVolumeClamped, volume])
 
   const toggleFooterExpansion = useCallback(() => {
-    setIsFooterExpanded(prev => !prev)
-  }, [])
+    if (isFooterClosing) return
 
-  function seekBySeconds(deltaSeconds: number) {
+    if (isFooterExpanded) {
+      cancelFooterExpandTimer()
+      if (!isMobile) setIsSidebarCompact(false)
+      
+      setIsFooterCollapsing(true)
+      
+      // Delay the footer height change so the sidebar gets a head start expanding
+      // Reduced delay to 120ms for more overlap with sidebar expansion
+      footerExpandTimerRef.current = window.setTimeout(() => {
+        setIsFooterExpanded(false)
+        setIsFooterExpanding(false)
+        
+        // Let controls appear slightly before the height transition finishes (600ms start for 750ms animation)
+        footerExpandTimerRef.current = window.setTimeout(() => {
+          setIsFooterCollapsing(false)
+          footerExpandTimerRef.current = null
+        }, 600) 
+      }, 120)
+      return
+    }
+
+    if (isFooterExpanding) return
+
+    if (isMobile) {
+      setIsFooterExpanded(true)
+      return
+    }
+
+    setIsFooterExpanding(true)
+    setIsSidebarCompact(true)
+    cancelFooterExpandTimer()
+    const expandDelayMs = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : FOOTER_EXPAND_REVEAL_MS
+    footerExpandTimerRef.current = window.setTimeout(() => {
+      setIsFooterExpanded(true)
+      setIsFooterExpanding(false)
+      footerExpandTimerRef.current = null
+    }, expandDelayMs)
+  }, [cancelFooterExpandTimer, isFooterClosing, isFooterExpanded, isFooterExpanding, isMobile])
+
+  const seekBySeconds = useCallback((deltaSeconds: number) => {
     const audioEl = audioRef.current
     if (!audioEl || !episode) return
 
@@ -2126,22 +2149,22 @@ export default function App() {
 
     try {
       audioEl.currentTime = next
-    } catch {}
-  }
+    } catch { ignoreError() }
+  }, [episode])
 
-  function playPrev() {
+  const playPrev = useCallback(() => {
     if (!episode || sourceKind !== 'remote' || !episodesAll.length) return
     const idx = episodesAll.findIndex((e) => e.guid === episode.guid)
     const prev = idx > 0 ? episodesAll[idx - 1] : null
     if (prev) void startEpisode(prev)
-  }
+  }, [episode, episodesAll, sourceKind, startEpisode])
 
-  function playNext() {
+  const playNext = useCallback(() => {
     if (!episode || sourceKind !== 'remote' || !episodesAll.length) return
     const idx = episodesAll.findIndex((e) => e.guid === episode.guid)
     const next = idx >= 0 && idx < episodesAll.length - 1 ? episodesAll[idx + 1] : null
     if (next) void startEpisode(next)
-  }
+  }, [episode, episodesAll, sourceKind, startEpisode])
 
   const canPrev = sourceKind === 'remote' && episode ? episodesAll.findIndex((e) => e.guid === episode.guid) > 0 : false
   const canNext =
@@ -2183,6 +2206,114 @@ export default function App() {
   const showMetaScramble = useScrambleText(showNetworkLabel, 850, 180)
   const sectionTagScramble = useScrambleText(sectionTagLabel, 850, 260)
   const showArtwork = podcast?.feed.imageUrl || feedImages[rssUrl] || null
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+
+    const session = navigator.mediaSession
+    if (!episode) {
+      session.metadata = null
+      session.playbackState = 'none'
+      clearMediaSessionActionHandlers(session)
+      return
+    }
+
+    const artworkSrc = sourceKind === 'local' ? '/icons/icon-512.png' : showArtwork || '/icons/icon-512.png'
+    if (typeof MediaMetadata === 'function') {
+      session.metadata = new MediaMetadata({
+        title: episode.title || 'Unknown episode',
+        artist: sourceKind === 'local' ? 'Local file' : podcast?.feed.title ?? 'Poisecast',
+        album: sourceKind === 'local' ? 'Poisecast' : podcast?.feed.title ?? 'Poisecast',
+        artwork: buildMediaSessionArtwork(artworkSrc),
+      })
+    } else {
+      session.metadata = null
+    }
+
+    clearMediaSessionActionHandlers(session)
+    try {
+      session.setActionHandler('play', () => {
+        const audioEl = audioRef.current
+        if (!audioEl || !audioEl.paused) return
+        void audioEl.play().catch(() => {})
+      })
+    } catch { ignoreError() }
+    try {
+      session.setActionHandler('pause', () => {
+        const audioEl = audioRef.current
+        if (!audioEl || audioEl.paused) return
+        audioEl.pause()
+      })
+    } catch { ignoreError() }
+    try {
+      session.setActionHandler('stop', () => {
+        const audioEl = audioRef.current
+        if (!audioEl) return
+        audioEl.pause()
+        try {
+          audioEl.currentTime = 0
+        } catch { ignoreError() }
+      })
+    } catch { ignoreError() }
+    try {
+      session.setActionHandler('seekbackward', (details) => {
+        const offset = typeof details.seekOffset === 'number' && Number.isFinite(details.seekOffset) ? details.seekOffset : 10
+        seekBySeconds(-offset)
+      })
+    } catch { ignoreError() }
+    try {
+      session.setActionHandler('seekforward', (details) => {
+        const offset = typeof details.seekOffset === 'number' && Number.isFinite(details.seekOffset) ? details.seekOffset : 10
+        seekBySeconds(offset)
+      })
+    } catch { ignoreError() }
+    try {
+      session.setActionHandler('seekto', (details) => {
+        const audioEl = audioRef.current
+        if (!audioEl) return
+        if (typeof details.seekTime !== 'number' || !Number.isFinite(details.seekTime)) return
+
+        const max = Number.isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : details.seekTime
+        const next = Math.max(0, Math.min(max, details.seekTime))
+        try {
+          if (details.fastSeek && typeof audioEl.fastSeek === 'function') audioEl.fastSeek(next)
+          else audioEl.currentTime = next
+        } catch { ignoreError() }
+      })
+    } catch { ignoreError() }
+    if (canPrev) {
+      try {
+        session.setActionHandler('previoustrack', playPrev)
+      } catch { ignoreError() }
+    }
+    if (canNext) {
+      try {
+        session.setActionHandler('nexttrack', playNext)
+      } catch { ignoreError() }
+    }
+
+    return () => {
+      clearMediaSessionActionHandlers(session)
+    }
+  }, [canNext, canPrev, episode, playNext, playPrev, podcast?.feed.title, seekBySeconds, showArtwork, sourceKind])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.playbackState = episode ? (isPlaying ? 'playing' : 'paused') : 'none'
+  }, [episode, isPlaying])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !episode) return
+    if (!duration || duration <= 0 || !Number.isFinite(duration)) return
+
+    const playbackRateRaw = audioRef.current?.playbackRate
+    const playbackRate = typeof playbackRateRaw === 'number' && Number.isFinite(playbackRateRaw) ? playbackRateRaw : 1
+    const position = Math.max(0, Math.min(duration, Number.isFinite(currentTime) ? currentTime : 0))
+    try {
+      navigator.mediaSession.setPositionState({ duration, playbackRate, position })
+    } catch { ignoreError() }
+  }, [currentTime, duration, episode])
+
   const showDescription = useMemo(() => {
     if (rssLoading) return 'Loading selected feed…'
     const parsed = normalizeFeedDescription(podcast?.feed.description)
@@ -2382,7 +2513,7 @@ export default function App() {
     ]
       .filter(Boolean)
       .join('   ')
-  }, [canDenoise, engineDetail, engineState, sourceKind])
+  }, [engineDetail, engineState])
 
   const episodeItems = useMemo(() => {
     return episodes.map((ep) => (
@@ -2421,9 +2552,9 @@ export default function App() {
         </td>
       </tr>
     ))
-  }, [episodes, episode?.guid, loadingEpisodeId, downloadingEpisodeId, startEpisode, handleEpisodeDownload])
+  }, [episodes, episode?.guid, loadingEpisodeId, startEpisode])
 
-  const isSidebarCollapsed = isFooterExpanded && !isMobile
+  const isSidebarCollapsed = isSidebarCompact && !isMobile
 
   return (
     <div
@@ -2594,8 +2725,7 @@ export default function App() {
 	                  </button>
 	                </div>
 
-                {!isSidebarCollapsed ? (
-                  <>
+                <div className={`pcSidebarExpandedSection ${isSidebarCollapsed ? 'isCollapsed' : ''}`} aria-hidden={isSidebarCollapsed}>
                     <div className="pcSidebarHead" style={{paddingTop: '24px', paddingBottom: '8px'}}>
                       <div className="pcSidebarTitle" style={{fontSize: '9px', letterSpacing: '0.2em', opacity: 0.4}}>
                         <span className="material-symbols-outlined" style={{fontSize: '12px'}}>rss_feed</span>
@@ -2640,8 +2770,7 @@ export default function App() {
                         </div>
                       </div>
                     ) : null}
-                  </>
-                ) : null}
+                  </div>
             </>
           </div> 
         </aside>
@@ -2943,7 +3072,19 @@ export default function App() {
           )}
 
       {episode ? (
-        <footer className={`pcFooter ${isFooterClosing ? 'pcFooterSlideOut' : 'pcFooterSlideUp'} ${isFooterExpanded ? 'pcFooterExpanded' : ''}`}>
+        <>
+          <div className="pcFooterSpacer" />
+          <footer
+            className={`pcFooter ${
+              isFooterClosing
+                ? 'pcFooterSlideOut'
+                : !isFooterExpanding && !isFooterExpanded && !isFooterCollapsing
+                ? 'pcFooterSlideUp'
+                : ''
+            } ${isFooterExpanding ? 'pcFooterExpanding' : ''} ${
+              isFooterExpanded ? 'pcFooterExpanded' : ''
+            } ${isFooterCollapsing ? 'pcFooterCollapsing' : ''}`}
+          >
           <div className="pcFooterProgress">
             <div className="pcFooterProgressTrack" onClick={episode ? onProgressPointer : undefined}>
               <div className="pcFooterProgressFill" style={{ width: `${footerProgressPct}%` }}></div>
@@ -2962,7 +3103,7 @@ export default function App() {
               <span className="pcFooterProgressTime pcFooterProgressDuration">{footerDuration}</span>
             </div>
           </div>
-          <div className="pcFooterControls">
+          <div className={`pcFooterControls ${isFooterExpanding || isFooterExpanded || isFooterCollapsing ? 'isCollapsed' : ''}`}>
             <div className="pcFooterLeft" onClick={toggleFooterExpansion} style={{ cursor: 'pointer' }}>
               <div className="pcFooterEpisodeInfo">
                 <div className="pcFooterEpisodeArtwork">
@@ -3065,7 +3206,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {isFooterExpanded && episode ? (
+          {(isFooterExpanded || isFooterExpanding || isFooterCollapsing) && episode ? (
             <div className="pcFooterExpandedContent">
               <div className="pcFooterExpandedBody">
                 <div className="pcFooterExpandedHero text-center mb-10 max-w-4xl mx-auto space-y-4">
@@ -3230,6 +3371,7 @@ export default function App() {
             </div>
           ) : null}
         </footer>
+        </>
       ) : null}
         </main>
       </div>
@@ -3253,7 +3395,7 @@ export default function App() {
         </button>
       </nav>
 
-      <audio ref={audioRef} className="pcAudio" preload="metadata" />
+      <audio ref={audioRef} className="pcAudio" preload="metadata" playsInline />
 
       <input
         ref={fileInputRef}
