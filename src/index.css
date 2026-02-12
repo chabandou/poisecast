@@ -3082,9 +3082,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 48px 32px 20px;
-  overflow: auto;
+  position: relative;
+  z-index: 10;
+  gap: 18px;
+  padding: 30px 32px 132px;
+  overflow: visible;
 }
 
 .pcFooterExpandedHero {
@@ -3097,36 +3099,36 @@ body {
 .pcFooterExpandedBadge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
+  gap: 7px;
+  padding: 3px 10px;
   border: 1px solid rgba(0, 229, 255, 0.2);
   border-radius: 999px;
   background: rgba(0, 229, 255, 0.05);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .pcFooterExpandedBadgeDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--pc-primary);
-  margin-right: 8px;
+  margin-right: 6px;
   animation: pulse 2s infinite;
   box-shadow: 0 0 20px -5px rgba(0, 229, 255, 0.4);
 }
 
 .pcFooterExpandedBadgeText {
   font-family: var(--pc-font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--pc-primary);
 }
 
 .pcFooterExpandedTitle {
-  margin: 0 0 12px;
-  font-size: clamp(42px, 4.7vw, 86px);
+  margin: 0 0 8px;
+  font-size: clamp(34px, 4vw, 68px);
   line-height: 0.95;
   letter-spacing: -0.02em;
   font-weight: 800;
@@ -3136,56 +3138,169 @@ body {
 .pcFooterExpandedSubtitle {
   margin: 0;
   font-family: var(--pc-font-mono);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 300;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: rgba(148, 163, 184, 0.92);
 }
 
 .pcFooterExpandedDescriptionWrap {
-  margin-top: 24px;
+  margin-top: 18px;
   padding: 0 48px;
   width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   justify-content: center;
 }
 
 .pcFooterExpandedDescription {
+  --pc-footer-description-line-height: 1.45;
   margin: 0 auto;
   width: 100%;
-  max-width: 760px;
+  max-width: 75ch;
   font-size: clamp(14px, 1.25vw, 16px);
-  line-height: 1.6;
+  line-height: var(--pc-footer-description-line-height);
   font-weight: 400;
   color: rgba(226, 232, 240, 0.8);
   text-align: center;
+  overflow: hidden;
+  transition: max-height 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.pcFooterExpandedDescription.isClamped {
+  position: relative;
+  max-height: 15vh;
+}
+
+.pcFooterExpandedDescription.isExpanded {
+  max-height: var(--pc-footer-description-expanded-height, 2000px);
+}
+
+.pcFooterExpandedDescription::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(1em * var(--pc-footer-description-line-height) * 1.5);
+  background: linear-gradient(to bottom, rgba(10, 10, 11, 0), rgba(10, 10, 11, 0.95));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.pcFooterExpandedDescription.isClamped::after {
+  opacity: 1;
+}
+
+.pcFooterExpandedDescriptionToggle {
+  margin-top: -0.08em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(0, 229, 255, 0.92);
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: var(--pc-footer-description-line-height);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+
+.pcFooterExpandedDescriptionToggle:hover {
+  color: rgba(111, 246, 255, 0.98);
+}
+
+.pcFooterExpandedDescriptionToggle:focus-visible {
+  outline: 2px solid rgba(0, 229, 255, 0.45);
+  outline-offset: 1px;
+}
+
+.pcFooterExpandedDescription a,
+.pcFooterExpandedDescription a:visited {
+  color: #c9aa91;
+  text-decoration-color: rgba(201, 170, 145, 0.7);
+}
+
+.pcFooterExpandedDescription a:hover {
+  color: #dec3ad;
+  text-decoration-color: rgba(222, 195, 173, 0.9);
 }
 
 .pcFooterExpandedDescription p {
-  margin: 0 0 0.85em;
+  margin: 0 0 0.35em !important;
+  line-height: inherit;
 }
 
 .pcFooterExpandedDescription p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.pcFooterExpandedDescription :is(h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+  margin: 0 0 0.45em;
+}
+
+.pcFooterExpandedDescription :is(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.25;
+}
+
+.pcFooterExpandedDescription :is(ul, ol) {
+  padding-left: 1.1em;
+}
+
+.pcFooterExpandedDescription li + li {
+  margin-top: 0.2em;
+}
+
+.pcFooterExpandedDescription br + br {
+  display: none;
+}
+
+.pcFooterExpandedDescription > :last-child {
   margin-bottom: 0;
 }
 
 .pcFooterExpandedTelemetry {
   width: 100%;
-  max-width: 1320px;
+  max-width: 1180px;
   display: flex;
   align-items: center;
-  gap: 48px;
-  padding: 0 32px;
-  margin-bottom: 16px;
+  gap: 32px;
+  padding: 0 24px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 280ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 180ms ease,
+    transform 240ms ease,
+    margin-top 220ms ease,
+    margin-bottom 220ms ease;
+}
+
+.pcFooterExpandedTelemetry.isHidden {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  margin-top: 0;
+  margin-bottom: 0;
+  pointer-events: none;
 }
 
 .pcFooterExpandedMetrics {
-  width: 128px;
-  flex: 0 0 128px;
+  width: 220px;
+  flex: 0 0 220px;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 18px;
 }
 
 .pcFooterExpandedMetricsLeft {
@@ -3204,21 +3319,21 @@ body {
 
 .pcFooterExpandedMetricLabel {
   font-family: var(--pc-font-mono);
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   color: rgba(148, 163, 184, 0.5);
 }
 
 .pcFooterExpandedMetricValue {
   font-family: var(--pc-font-mono);
-  font-size: 14px;
+  font-size: 12px;
   color: var(--pc-text-main);
   font-weight: 400;
 }
 
 .pcFooterExpandedMetricValuePrimary {
-  font-size: 20px;
+  font-size: 17px;
   color: var(--pc-primary);
   font-weight: 700;
 }
@@ -3228,10 +3343,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   flex: 1 1 auto;
+  max-width: 50vw;
+  margin: 0;
   min-width: 0;
-  height: 128px;
+  height: 108px;
 }
 
 .pcFooterExpandedWaveMarker {
@@ -3254,10 +3371,17 @@ body {
 }
 
 .pcFooterExpandedControls {
-  margin-top: 24px;
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 12;
   display: flex;
   align-items: center;
-  gap: 34px;
+  justify-content: center;
+  gap: 24px;
+  width: min(860px, calc(100% - 48px));
+  margin-top: 0;
 }
 
 .pcFooterExpandedControlBtn {
@@ -3282,15 +3406,15 @@ body {
 }
 
 .pcFooterExpandedControlBtnSm .material-symbols-outlined {
-  font-size: 32px;
+  font-size: 26px;
 }
 
 .pcFooterExpandedControlBtnMd .material-symbols-outlined {
-  font-size: 40px;
+  font-size: 31px;
 }
 
 .pcFooterExpandedControlBtnLg .material-symbols-outlined {
-  font-size: 50px;
+  font-size: 38px;
 }
 
 .pcFooterExpandedPlayWrap {
@@ -3313,22 +3437,24 @@ body {
 
 .pcFooterExpandedPlayBtn {
   position: relative;
-  width: 92px;
-  height: 92px;
-  border: none;
+  width: 74px;
+  height: 74px;
+  border: 3px solid rgba(0, 229, 255, 0.28);
   border-radius: 50%;
   background: var(--pc-primary);
   color: #091217;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 30px rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
   cursor: pointer;
-  transition: transform 160ms ease;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 
 .pcFooterExpandedPlayBtn:hover {
-  transform: scale(1.05);
+  background: #091217;
+  color: var(--pc-primary);
+  border-color: rgba(0, 229, 255, 1);
 }
 
 .pcFooterExpandedPlayBtn:active {
@@ -3336,15 +3462,14 @@ body {
 }
 
 .pcFooterExpandedPlayIcon {
-  font-size: 48px;
+  font-size: 38px;
 }
 
 .pcFooterExpandedTray {
   height: 80px;
   flex: 0 0 80px;
   padding: 0 48px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 100%);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -3358,6 +3483,22 @@ body {
   align-items: center;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.pcFooterExpandedTrayMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-width 240ms ease, opacity 180ms ease;
+}
+
+.pcFooterExpandedTrayMeta.isHidden {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .pcFooterExpandedTrayBtn {
@@ -3409,12 +3550,14 @@ body {
 
 @media (max-width: 1200px) {
   .pcFooterExpandedTelemetry {
+    display: flex;
+    justify-content: center;
     gap: 28px;
     padding: 0 16px;
   }
 
   .pcFooterExpandedControls {
-    gap: 20px;
+    gap: 16px;
   }
 
   .pcFooterExpandedTray {
@@ -3422,6 +3565,10 @@ body {
   }
 
   .pcFooterExpandedTrayActions {
+    gap: 8px;
+  }
+
+  .pcFooterExpandedTrayMeta {
     gap: 8px;
   }
 
@@ -3433,7 +3580,11 @@ body {
 
 @media (max-width: 980px) {
   .pcFooterExpandedBody {
-    padding: 28px 16px 12px;
+    padding: 20px 16px 128px;
+  }
+
+  .pcFooterExpandedDescriptionWrap {
+    padding: 0 14px;
   }
 
   .pcFooterExpandedTelemetry {

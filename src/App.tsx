@@ -1045,6 +1045,9 @@ export default function App() {
   const [isProcessingStarting, setIsProcessingStarting] = useState(false)
   const [isFooterClosing, setIsFooterClosing] = useState(false)
   const [isFooterExpanded, setIsFooterExpanded] = useState(false)
+  const [isFooterDescriptionExpanded, setIsFooterDescriptionExpanded] = useState(false)
+  const [isFooterDescriptionOverflowing, setIsFooterDescriptionOverflowing] = useState(false)
+  const [footerDescriptionExpandedMaxHeight, setFooterDescriptionExpandedMaxHeight] = useState(0)
   const [modelDownloadUi, setModelDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [ortDownloadUi, setOrtDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [downloadModalKind, setDownloadModalKind] = useState<'ort' | 'model' | null>(null)
@@ -1068,6 +1071,7 @@ export default function App() {
   // Keep the status in the mobile top bar; desktop has the floating widget.
   const nowTitle = episode?.title ?? 'Select an episode'
   const nowTitleRef = useRef<HTMLHeadingElement | null>(null)
+  const footerDescriptionRef = useRef<HTMLDivElement | null>(null)
 
   const progressPct = duration && duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
   const isEpisodeLoading = !!loadingEpisodeId && episode?.guid === loadingEpisodeId
@@ -2152,6 +2156,13 @@ export default function App() {
   const footerVolumeIcon = volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up'
   const footerEpisodeTitle = episode?.title ?? 'Select an episode'
   const footerEpisodeShow = sourceKind === 'local' ? 'LOCAL FILE' : podcast?.feed.title ?? 'NO SOURCE SELECTED'
+  const footerDescriptionHtml = episode?.description || 'No description available.'
+  const footerDescriptionStyle: CSSProperties | undefined =
+    footerDescriptionExpandedMaxHeight > 0
+      ? ({
+          ['--pc-footer-description-expanded-height' as const]: `${footerDescriptionExpandedMaxHeight}px`,
+        } as CSSProperties)
+      : undefined
   const footerTitlePan = useOverflowPanText<HTMLSpanElement>(footerEpisodeTitle)
   const footerShowPan = useOverflowPanText<HTMLSpanElement>(footerEpisodeShow)
   const footerPanActive = footerTitlePan.overflow || footerShowPan.overflow
@@ -2242,6 +2253,103 @@ export default function App() {
     : denoiseEnabled
       ? 'Disable audio processing (AI denoise)'
       : 'Enable audio processing (AI denoise)'
+  const toggleFooterDescriptionExpanded = useCallback(() => {
+    setIsFooterDescriptionExpanded((prev) => !prev)
+  }, [])
+
+  const measureFooterDescriptionOverflow = useCallback(() => {
+    const el = footerDescriptionRef.current
+    if (!el) {
+      setIsFooterDescriptionOverflowing(false)
+      setFooterDescriptionExpandedMaxHeight(0)
+      return
+    }
+
+    const parent = el.parentElement
+    if (!parent) {
+      setIsFooterDescriptionOverflowing(false)
+      setFooterDescriptionExpandedMaxHeight(0)
+      return
+    }
+
+    const width = el.clientWidth || el.getBoundingClientRect().width
+    if (!Number.isFinite(width) || width <= 0) {
+      setIsFooterDescriptionOverflowing(false)
+      setFooterDescriptionExpandedMaxHeight(0)
+      return
+    }
+
+    const makeMeasureClone = (): HTMLDivElement => {
+      const clone = el.cloneNode(true) as HTMLDivElement
+      clone.style.position = 'absolute'
+      clone.style.visibility = 'hidden'
+      clone.style.pointerEvents = 'none'
+      clone.style.inset = '0 auto auto 0'
+      clone.style.width = `${width}px`
+      return clone
+    }
+
+    const expandedClone = makeMeasureClone()
+    expandedClone.classList.remove('isClamped')
+    expandedClone.classList.add('isExpanded')
+    expandedClone.style.maxHeight = 'none'
+    parent.appendChild(expandedClone)
+    const expandedHeight = Math.ceil(expandedClone.scrollHeight)
+    expandedClone.remove()
+
+    const clampedClone = makeMeasureClone()
+    clampedClone.classList.remove('isExpanded')
+    clampedClone.classList.add('isClamped')
+    parent.appendChild(clampedClone)
+    const clampedHeight = Math.ceil(clampedClone.clientHeight)
+    clampedClone.remove()
+
+    const overflow = expandedHeight - clampedHeight > 1
+    setFooterDescriptionExpandedMaxHeight(Math.max(expandedHeight, clampedHeight))
+    setIsFooterDescriptionOverflowing(overflow)
+  }, [])
+
+  useEffect(() => {
+    setIsFooterDescriptionExpanded(false)
+    setFooterDescriptionExpandedMaxHeight(0)
+  }, [episode?.guid, isFooterExpanded])
+
+  useEffect(() => {
+    if (!isFooterExpanded || !episode?.guid) {
+      setIsFooterDescriptionOverflowing(false)
+      setFooterDescriptionExpandedMaxHeight(0)
+      return
+    }
+
+    let frame = 0
+    const scheduleMeasure = () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        measureFooterDescriptionOverflow()
+      })
+    }
+
+    scheduleMeasure()
+    window.addEventListener('resize', scheduleMeasure)
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleMeasure) : null
+    if (ro && footerDescriptionRef.current) {
+      ro.observe(footerDescriptionRef.current)
+    }
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', scheduleMeasure)
+      ro?.disconnect()
+    }
+  }, [
+    episode?.guid,
+    footerDescriptionHtml,
+    isFooterDescriptionExpanded,
+    isFooterExpanded,
+    measureFooterDescriptionOverflow,
+  ])
+
   useEffect(() => {
     const el = audioRef.current
     if (!el) return
@@ -2959,7 +3067,7 @@ export default function App() {
           </div>
           {isFooterExpanded && episode ? (
             <div className="pcFooterExpandedContent">
-              <div className="pcFooterExpandedBody flex-1 flex flex-col items-center p-8 relative z-10 pt-12">
+              <div className="pcFooterExpandedBody">
                 <div className="pcFooterExpandedHero text-center mb-10 max-w-4xl mx-auto space-y-4">
                   <div className="pcFooterExpandedBadge">
                     <span className="pcFooterExpandedBadgeDot"></span>
@@ -2977,13 +3085,30 @@ export default function App() {
                   </div>
                   <div className="pcFooterExpandedDescriptionWrap">
                     <div
-                      className="pcFooterExpandedDescription"
-                      dangerouslySetInnerHTML={{ __html: episode?.description || 'No description available.' }}
+                      id="footer-expanded-description"
+                      ref={footerDescriptionRef}
+                      className={`pcFooterExpandedDescription ${isFooterDescriptionExpanded ? 'isExpanded' : 'isClamped'}`}
+                      style={footerDescriptionStyle}
+                      dangerouslySetInnerHTML={{ __html: footerDescriptionHtml }}
                     />
+                    {isFooterDescriptionOverflowing ? (
+                      <button
+                        type="button"
+                        className="pcFooterExpandedDescriptionToggle"
+                        aria-controls="footer-expanded-description"
+                        aria-expanded={isFooterDescriptionExpanded}
+                        onClick={toggleFooterDescriptionExpanded}
+                      >
+                        {isFooterDescriptionExpanded ? 'Show less' : 'Show more'}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="pcFooterExpandedTelemetry">
+                <div
+                  className={`pcFooterExpandedTelemetry ${isFooterDescriptionExpanded ? 'isHidden' : ''}`}
+                  aria-hidden={isFooterDescriptionExpanded}
+                >
                   <div className="pcFooterExpandedMetrics pcFooterExpandedMetricsLeft">
                     <div className="pcFooterExpandedMetric">
                       <span className="pcFooterExpandedMetricLabel">
@@ -3005,15 +3130,15 @@ export default function App() {
 
                   <div className="pcFooterExpandedWaveform">
                     {/* Waveform visualization */}
-                    {Array.from({ length: 80 }, (_, i) => {
-                      const isActive = i < Math.floor((currentTime || 0) / (duration || 1) * 80)
+                    {Array.from({ length: 64 }, (_, i) => {
+                      const isActive = i < Math.floor((currentTime || 0) / (duration || 1) * 64)
                       const height = Math.random() > 0.5 ? '75%' : Math.random() > 0.3 ? '50%' : '25%'
                       return (
                         <div
                           key={i}
                           className={isActive ? 'waveform-bar-active' : 'waveform-bar'}
                           style={{
-                            width: '3px',
+                            width: '2px',
                             height,
                             borderRadius: '9999px',
                             transition: 'all 300ms'
@@ -3021,8 +3146,7 @@ export default function App() {
                         ></div>
                       )
                     })}
-                    <div className="pcFooterExpandedWaveMarker pcFooterExpandedWaveMarkerLeft"></div>
-                    <div className="pcFooterExpandedWaveMarker pcFooterExpandedWaveMarkerRight"></div>
+                    
                   </div>
 
                   <div className="pcFooterExpandedMetrics pcFooterExpandedMetricsRight">
@@ -3078,29 +3202,31 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pcFooterExpandedTray">
-                <div className="pcFooterExpandedTrayActions">
-                  <button
-                    className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnGhost"
-                    onClick={toggleFooterExpansion}
-                  >
-                    <span className="material-symbols-outlined">keyboard_double_arrow_down</span>
-                    Collapse View
-                  </button>
-                  <button className="pcFooterExpandedTrayBtn">
-                    <span className="material-symbols-outlined">closed_caption</span>
-                    Subtitles
-                  </button>
-                  <button className="pcFooterExpandedTrayBtn">
-                    <span className="material-symbols-outlined">list</span>
-                    Chapters
-                  </button>
-                  <button className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnPrimary">
-                    <span className="material-symbols-outlined">equalizer</span>
-                    DSP Control
-                  </button>
+                <div className="pcFooterExpandedTray">
+                  <div className="pcFooterExpandedTrayActions">
+                    <button
+                      className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnGhost"
+                      onClick={toggleFooterExpansion}
+                    >
+                      <span className="material-symbols-outlined">keyboard_double_arrow_down</span>
+                      Collapse View
+                    </button>
+                    <div className="pcFooterExpandedTrayMeta">
+                      <button className="pcFooterExpandedTrayBtn">
+                        <span className="material-symbols-outlined">closed_caption</span>
+                        Subtitles
+                      </button>
+                      <button className="pcFooterExpandedTrayBtn">
+                        <span className="material-symbols-outlined">list</span>
+                        Chapters
+                      </button>
+                      <button className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnPrimary">
+                        <span className="material-symbols-outlined">equalizer</span>
+                        DSP Control
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
             </div>
           ) : null}
         </footer>
