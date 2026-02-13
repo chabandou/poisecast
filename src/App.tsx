@@ -347,11 +347,15 @@ function normalizeFeedEntry(value: unknown): DefaultFeed | null {
   };
 }
 
+function normalizeFeedUrlKey(url: string): string {
+  return url.trim().replace(/\/+$/, "").toLowerCase();
+}
+
 function dedupeFeedsByUrl(feeds: DefaultFeed[]): DefaultFeed[] {
   const seen = new Set<string>();
   const out: DefaultFeed[] = [];
   for (const feed of feeds) {
-    const key = feed.rssUrl.trim().toLowerCase();
+    const key = normalizeFeedUrlKey(feed.rssUrl);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(feed);
@@ -479,18 +483,22 @@ const SourceList = memo(function SourceList({
   return (
     <div className="pcSourceList pcListStack">
       {feeds.map((f) => {
-        const isLoading = !!loadingFeedUrl && f.rssUrl === loadingFeedUrl;
+        const isActive =
+          normalizeFeedUrlKey(activeUrl) === normalizeFeedUrlKey(f.rssUrl);
+        const isLoading =
+          !!loadingFeedUrl &&
+          normalizeFeedUrlKey(f.rssUrl) === normalizeFeedUrlKey(loadingFeedUrl);
         return (
           <button
             key={f.rssUrl}
-            className={`pcSourceItem ${activeUrl === f.rssUrl ? "active" : ""} ${isLoading ? "isLoading" : ""}`}
+            className={`pcSourceItem ${isActive ? "active" : ""} ${isLoading ? "isLoading" : ""}`}
             disabled={rssLoading || isLoading}
             onClick={() => onSelect(f)}
           >
             <div className="pcSourceItemTitle">{f.title}</div>
             <div className="pcSourceItemMeta">
               <span className="pcSourceUrl">{f.rssUrl}</span>
-              {activeUrl === f.rssUrl ? (
+              {isActive ? (
                 <span className="pcActiveIndicator"></span>
               ) : null}
             </div>
@@ -1210,6 +1218,8 @@ async function waitForAudioMetadata(
 export default function App() {
   const isMobile = useIsMobile(980);
   const initialLibraryFeeds = useMemo(() => loadPersistedLibraryFeeds(), []);
+  const initialRssUrl =
+    initialLibraryFeeds[0]?.rssUrl ?? DEFAULT_FEEDS[0]?.rssUrl ?? "";
   const [mobileView, setMobileView] = useState<MobileView>("library");
   const [mobileDiscoverMode, setMobileDiscoverMode] =
     useState<MobileDiscoverMode>("browse");
@@ -1250,9 +1260,16 @@ export default function App() {
   const [libraryFeeds, setLibraryFeeds] = useState<DefaultFeed[]>(
     initialLibraryFeeds,
   );
-  const [rssUrl, setRssUrl] = useState(
-    initialLibraryFeeds[0]?.rssUrl ?? DEFAULT_FEEDS[0]?.rssUrl ?? "",
+  const [rssUrl, setRssUrl] = useState(initialRssUrl);
+  const [isCurrentShowFollowed, setIsCurrentShowFollowed] = useState(
+    () =>
+      !!initialRssUrl &&
+      initialLibraryFeeds.some(
+        (feed) =>
+          normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(initialRssUrl),
+      ),
   );
+  const [isFollowCheckPending, setIsFollowCheckPending] = useState(false);
   const [rssLoading, setRssLoading] = useState(false);
   const [rssError, setRssError] = useState<string | null>(null);
   const [podcast, setPodcast] = useState<ParsedPodcast | null>(null);
@@ -1716,10 +1733,35 @@ export default function App() {
   }, [libraryFeeds]);
 
   useEffect(() => {
-    if (!libraryFeeds.length) return;
-    if (libraryFeeds.some((feed) => feed.rssUrl === rssUrl)) return;
-    setRssUrl(libraryFeeds[0].rssUrl);
-  }, [libraryFeeds, rssUrl]);
+    if (isFollowCheckPending) return;
+    if (!rssUrl) {
+      setIsCurrentShowFollowed(false);
+      return;
+    }
+    const followed = libraryFeeds.some(
+      (feed) => normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(rssUrl),
+    );
+    setIsCurrentShowFollowed(followed);
+  }, [isFollowCheckPending, libraryFeeds, rssUrl]);
+
+  useEffect(() => {
+    if (!isFollowCheckPending) return;
+    const targetRssUrl = rssUrl;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const followed = libraryFeeds.some(
+        (feed) =>
+          normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(targetRssUrl),
+      );
+      setIsCurrentShowFollowed(followed);
+      setIsFollowCheckPending(false);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isFollowCheckPending, libraryFeeds, rssUrl]);
 
   useEffect(() => {
     if (!episode?.guid) {
@@ -2313,6 +2355,8 @@ export default function App() {
   const handleSearchSelect = useCallback(
     (result: ApplePodcastResult) => {
       if (!result.feedUrl) return;
+      setIsCurrentShowFollowed(false);
+      setIsFollowCheckPending(true);
       setRssUrl(result.feedUrl);
       void loadFeed(result.feedUrl);
       openShowDetailsView();
@@ -2322,6 +2366,8 @@ export default function App() {
 
   const handleSourceSelect = useCallback(
     (feed: DefaultFeed) => {
+      setIsCurrentShowFollowed(true);
+      setIsFollowCheckPending(false);
       setRssUrl(feed.rssUrl);
       void loadFeed(feed.rssUrl);
       openShowDetailsView();
@@ -2755,6 +2801,7 @@ export default function App() {
   const isDesktopLibraryView = !isMobile && desktopView === "library";
   const isDesktopDiscoverView = !isMobile && desktopView === "discover";
   const isDesktopShowDetailsView = !isMobile && desktopView === "showDetails";
+  const isShowInfoLoading = !podcast && (rssLoading || !!loadingFeedUrl);
   const searchQuery = searchTerm.trim();
   const hasSearchQuery = searchQuery.length > 0;
   const footerProgressPct = Math.round(progressPct * 1000) / 10;
@@ -2788,18 +2835,26 @@ export default function App() {
     ["--pc-pan-delay" as const]: "0.8s",
   } as CSSProperties;
   const activeSource = useMemo(
-    () => libraryFeeds.find((f) => f.rssUrl === rssUrl),
+    () =>
+      libraryFeeds.find(
+        (f) => normalizeFeedUrlKey(f.rssUrl) === normalizeFeedUrlKey(rssUrl),
+      ),
     [libraryFeeds, rssUrl],
   );
   const showHost = useMemo(() => feedHostFromUrl(rssUrl), [rssUrl]);
-  const showTitleRaw =
-    podcast?.feed.title || activeSource?.title || "SELECT A SOURCE";
+  const showTitleRaw = isShowInfoLoading
+    ? "LOADING SHOW..."
+    : (podcast?.feed.title || activeSource?.title || "SELECT A SOURCE");
   const showTitleParts = useMemo(
     () => splitTitle(showTitleRaw),
     [showTitleRaw],
   );
-  const showNetworkLabel = `/// Source: ${showHost} · ${episodesAll.length} entries`;
-  const sectionTagLabel = `/// ${episodes.length} ENTRIES`;
+  const showNetworkLabel = isShowInfoLoading
+    ? "/// Loading feed metadata..."
+    : `/// Source: ${showHost} · ${episodesAll.length} entries`;
+  const sectionTagLabel = isShowInfoLoading
+    ? "/// LOADING ENTRIES"
+    : `/// ${episodes.length} ENTRIES`;
   const showTitleHeadScramble = useScrambleText(showTitleParts.head, 950, 0);
   const showTitleAccentScramble = useScrambleText(
     showTitleParts.accent ?? "",
@@ -2831,8 +2886,12 @@ export default function App() {
         imageUrl: libraryImageByUrl[feed.rssUrl] ?? null,
         episodeCount: stats?.episodeCount ?? 0,
         latestPubMs: stats?.latestPubMs ?? null,
-        isActive: feed.rssUrl === rssUrl,
-        isLoading: feed.rssUrl === loadingFeedUrl,
+        isActive:
+          normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(rssUrl),
+        isLoading:
+          !!loadingFeedUrl &&
+          normalizeFeedUrlKey(feed.rssUrl) ===
+            normalizeFeedUrlKey(loadingFeedUrl),
       };
     });
 
@@ -3113,13 +3172,14 @@ export default function App() {
   }, [currentTime, duration, episode]);
 
   const showDescription = useMemo(() => {
-    if (rssLoading) return "Loading selected feed…";
+    if (isShowInfoLoading) return "Loading selected feed…";
     const parsed = normalizeFeedDescription(podcast?.feed.description);
     if (parsed) return parsed;
     if (activeSource) return `Feed URL: ${activeSource.rssUrl}`;
     return "Select a source from the sidebar to load show details.";
-  }, [activeSource, podcast?.feed.description, rssLoading]);
+  }, [activeSource, podcast?.feed.description, isShowInfoLoading]);
   const showGenres = useMemo(() => {
+    if (isShowInfoLoading) return ["Loading..."];
     if (sourceKind === "local") return ["LOCAL FILE"];
     const parsed = (podcast?.feed.genres ?? []).filter(
       (g) => typeof g === "string" && g.trim().length > 0,
@@ -3127,13 +3187,11 @@ export default function App() {
     if (parsed.length) return parsed.slice(0, 3);
     if (activeSource?.category?.trim()) return [activeSource.category.trim()];
     return ["Podcast"];
-  }, [activeSource?.category, podcast?.feed.genres, sourceKind]);
-  const isCurrentShowFollowed = useMemo(
-    () => !!rssUrl && libraryFeeds.some((feed) => feed.rssUrl === rssUrl),
-    [libraryFeeds, rssUrl],
-  );
+  }, [activeSource?.category, podcast?.feed.genres, sourceKind, isShowInfoLoading]);
   const followCurrentShow = useCallback(() => {
     if (!rssUrl) return;
+    const targetFeedKey = normalizeFeedUrlKey(rssUrl);
+    const shouldUnfollow = isCurrentShowFollowed;
     const derivedTitle =
       podcast?.feed.title?.trim() ||
       activeSource?.title?.trim() ||
@@ -3145,7 +3203,13 @@ export default function App() {
       genreFromFeed?.trim() || activeSource?.category?.trim() || undefined;
 
     setLibraryFeeds((prev) => {
-      const existingIndex = prev.findIndex((feed) => feed.rssUrl === rssUrl);
+      const existingIndex = prev.findIndex(
+        (feed) => normalizeFeedUrlKey(feed.rssUrl) === targetFeedKey,
+      );
+      if (shouldUnfollow) {
+        if (existingIndex < 0) return prev;
+        return prev.filter((_, idx) => idx !== existingIndex);
+      }
       if (existingIndex >= 0) {
         const existing = prev[existingIndex];
         const nextTitle = derivedTitle || existing.title;
@@ -3174,9 +3238,12 @@ export default function App() {
         ...prev,
       ];
     });
+    setIsCurrentShowFollowed(!shouldUnfollow);
+    setIsFollowCheckPending(false);
   }, [
     activeSource?.category,
     activeSource?.title,
+    isCurrentShowFollowed,
     podcast?.feed.genres,
     podcast?.feed.title,
     rssUrl,
@@ -3766,7 +3833,20 @@ export default function App() {
                   <div className="pcMobileArtworkContainer">
                     <div className="pcMobileArtworkGlow"></div>
                     <div className="pcMobileArtworkCard">
-                      {showArtwork ? (
+                      {isShowInfoLoading ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            background: "var(--pc-surface)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <span className="pcSpinner" aria-label="Loading show artwork" />
+                        </div>
+                      ) : showArtwork ? (
                         <img
                           className="pcMobileArtworkCover"
                           src={showArtwork}
@@ -3800,6 +3880,7 @@ export default function App() {
                       className={`pcMobileFollowButton ${isCurrentShowFollowed ? "isFollowed" : ""}`}
                       onClick={followCurrentShow}
                       aria-pressed={isCurrentShowFollowed}
+                      disabled={isShowInfoLoading}
                     >
                       <span className="material-symbols-outlined fill-1">
                         {isCurrentShowFollowed ? "check" : "notifications"}
@@ -3892,50 +3973,56 @@ export default function App() {
                     </span>
                   </div>
                   <div className="pcMobileEpisodeList">
-                    {mobileVisibleEpisodes.map((ep, idx) => (
-                      <div key={ep.guid} className="pcMobileEpisodeCard">
-                        <div className="pcMobileEpisodeContent">
-                          <span className="pcMobileEpisodeNumber">
-                            EP_{episodes.length - idx}
-                          </span>
-                          <h4 className="pcMobileEpisodeTitle">{ep.title}</h4>
-                          <p className="pcMobileEpisodeDescription">
-                            {ep.description}
-                          </p>
-                          <div className="pcMobileEpisodeMeta">
-                            <span className="pcMobileEpisodeMetaItem">
-                              <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
-                                schedule
-                              </span>
-                              {ep.duration || "--:--"}
-                            </span>
-                            <span className="pcMobileEpisodeMetaItem">
-                              <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
-                                calendar_month
-                              </span>
-                              {ep.pubDate
-                                ? new Date(ep.pubDate).toLocaleDateString(
-                                    "en-US",
-                                    { month: "short", day: "numeric" },
-                                  )
-                                : "--"}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="pcMobileEpisodePlayButton"
-                          disabled={loadingEpisodeId === ep.guid}
-                          onClick={() => void startEpisode(ep)}
-                        >
-                          <span className="material-symbols-outlined fill-1">
-                            play_arrow
-                          </span>
-                        </button>
+                    {isShowInfoLoading ? (
+                      <div className="pcItemStatus pcLoadingText">
+                        LOADING EPISODES...
                       </div>
-                    ))}
+                    ) : (
+                      mobileVisibleEpisodes.map((ep, idx) => (
+                        <div key={ep.guid} className="pcMobileEpisodeCard">
+                          <div className="pcMobileEpisodeContent">
+                            <span className="pcMobileEpisodeNumber">
+                              EP_{episodes.length - idx}
+                            </span>
+                            <h4 className="pcMobileEpisodeTitle">{ep.title}</h4>
+                            <p className="pcMobileEpisodeDescription">
+                              {ep.description}
+                            </p>
+                            <div className="pcMobileEpisodeMeta">
+                              <span className="pcMobileEpisodeMetaItem">
+                                <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
+                                  schedule
+                                </span>
+                                {ep.duration || "--:--"}
+                              </span>
+                              <span className="pcMobileEpisodeMetaItem">
+                                <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
+                                  calendar_month
+                                </span>
+                                {ep.pubDate
+                                  ? new Date(ep.pubDate).toLocaleDateString(
+                                      "en-US",
+                                      { month: "short", day: "numeric" },
+                                    )
+                                  : "--"}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="pcMobileEpisodePlayButton"
+                            disabled={loadingEpisodeId === ep.guid}
+                            onClick={() => void startEpisode(ep)}
+                          >
+                            <span className="material-symbols-outlined fill-1">
+                              play_arrow
+                            </span>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  {hasMoreMobileEpisodes && (
+                  {!isShowInfoLoading && hasMoreMobileEpisodes && (
                     <div style={{ textAlign: "center", padding: "24px" }}>
                       <button
                         type="button"
@@ -4401,7 +4488,20 @@ export default function App() {
                 <div className="pcShowDetailsInner">
                   <div className="pcShowArtwork">
                     <div className="pcShowArtworkCard">
-                      {showArtwork ? (
+                      {isShowInfoLoading ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            background: "var(--pc-surface)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <span className="pcSpinner" aria-label="Loading show artwork" />
+                        </div>
+                      ) : showArtwork ? (
                         <img
                           className="pcShowArtworkCover"
                           src={showArtwork}
@@ -4430,8 +4530,8 @@ export default function App() {
                       <span className="pcShowNetwork">{showMetaScramble}</span>
                     </div>
                     <h2 ref={nowTitleRef} className="pcShowTitle">
-                      {showTitleHeadScramble}
-                      {showTitleParts.accent ? (
+                      {isShowInfoLoading ? "LOADING SHOW..." : showTitleHeadScramble}
+                      {!isShowInfoLoading && showTitleParts.accent ? (
                         <>
                           {" "}
                           <span className="pcShowTitleAccent">
@@ -4490,10 +4590,26 @@ export default function App() {
                   </div>
 
                   <EpisodeList
-                    items={episodeItems}
-                    hasEpisodes={episodes.length > 0}
+                    items={
+                      isShowInfoLoading ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="pcItemStatus pcLoadingText"
+                            style={{ padding: "20px" }}
+                          >
+                            LOADING EPISODES...
+                          </td>
+                        </tr>
+                      ) : (
+                        episodeItems
+                      )
+                    }
+                    hasEpisodes={isShowInfoLoading || episodes.length > 0}
                   />
-                  {rssError ? <div className="pcError">{rssError}</div> : null}
+                  {!isShowInfoLoading && rssError ? (
+                    <div className="pcError">{rssError}</div>
+                  ) : null}
                 </section>
               )}
             </>
