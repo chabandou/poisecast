@@ -1,0 +1,1023 @@
+/* Processing panel (integrated) */
+.pcProcessingInline {
+  margin-top: 16px;
+  background: rgba(8, 10, 14, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  padding: 14px;
+}
+
+.pcProcHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.pcProcTitle {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--pc-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pcDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--pc-primary);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.35);
+  animation: pcPulse 1.2s infinite;
+}
+@keyframes pcPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+.pcProcSpec {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pcProcMid {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.pcProcDial {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--pc-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.pcProcDial::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  transform: scale(1.1);
+  animation: pcPulse 1.2s infinite;
+}
+.pcProcToggle {
+  flex: 1;
+}
+.pcProcToggleTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.pcProcState {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  color: rgba(242, 233, 215, 0.45);
+}
+.pcProcState.on {
+  color: var(--pc-primary);
+}
+
+.pcSwitch {
+  width: 58px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 10, 14, 0.6);
+  position: relative;
+  cursor: pointer;
+}
+.pcSwitch.on {
+  border-color: rgba(46, 217, 195, 0.45);
+  background: rgba(46, 217, 195, 0.12);
+}
+.pcSwitch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pcSwitchThumb {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(242, 233, 215, 0.75);
+  transition:
+    left 160ms ease,
+    background 160ms ease;
+}
+.pcSwitch.on .pcSwitchThumb {
+  left: 32px;
+  background: var(--pc-accent);
+}
+
+.pcProcBar {
+  margin-top: 8px;
+  height: 6px;
+  background: rgba(18, 24, 32, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pcProcBarFill {
+  display: block;
+  height: 100%;
+  background: var(--pc-accent);
+}
+
+.pcProcLog {
+  padding: 10px;
+  background: rgba(8, 10, 14, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  margin-bottom: 10px;
+}
+.pcLogLine {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  color: rgba(242, 233, 215, 0.5);
+  line-height: 1.3;
+}
+
+.pcProcActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.pcMiniBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(8, 10, 14, 0.55);
+  color: var(--pc-primary);
+  text-decoration: none;
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+  position: relative;
+  overflow: hidden;
+}
+.pcMiniBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.pcMiniBtn.pcMiniBtnFull {
+  width: 100%;
+  justify-content: center;
+}
+.pcInstallBtn {
+  white-space: nowrap;
+}
+.pcMiniLink {
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  color: rgba(242, 233, 215, 0.6);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.35);
+  padding-bottom: 1px;
+}
+.pcMiniLink:hover {
+  color: var(--pc-primary);
+}
+
+.pcCyan {
+  color: var(--pc-primary);
+}
+.pcMuted {
+  color: rgba(242, 233, 215, 0.45);
+}
+
+/* Model download modal */
+.pcModelDlOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 96px 24px 24px;
+}
+
+.pcModelDlBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 14, 0.65);
+  backdrop-filter: blur(3px);
+}
+
+.pcModelDlCard {
+  position: relative;
+  width: min(640px, 100%);
+  background: rgba(12, 14, 18, 0.96);
+  border: 1px solid var(--pc-border-active);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  padding: 18px;
+  z-index: 1;
+}
+
+.pcModelDlHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.pcModelDlKicker {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.55);
+  margin-bottom: 4px;
+}
+
+.pcModelDlTitle {
+  margin: 0;
+  font-family: var(--pc-font-mono);
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pc-text-main);
+}
+
+.pcModelDlAttempt {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pc-primary);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.1);
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.pcModelDlMetaGrid {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.pcModelDlLabel {
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.5);
+}
+
+.pcModelDlValue {
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--pc-text-main);
+}
+
+.pcModelDlUrl {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 10, 14, 0.55);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--pc-muted);
+  overflow-wrap: anywhere;
+}
+
+.pcModelDlProgressWrap {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 10, 14, 0.55);
+  padding: 10px;
+}
+
+.pcModelDlProgress {
+  position: relative;
+  height: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(12, 16, 22, 0.85);
+  overflow: hidden;
+}
+
+.pcModelDlProgress > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 229, 255, 0.55) 0%,
+    rgba(0, 229, 255, 1) 100%
+  );
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.45);
+  transition: width 120ms linear;
+}
+
+.pcModelDlProgress.isIndeterminate > span {
+  width: 45%;
+  animation: pcModelDlSweep 1s ease-in-out infinite;
+}
+
+@keyframes pcModelDlSweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+
+.pcModelDlProgressMeta {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(242, 233, 215, 0.62);
+}
+
+.pcModelDlPhase {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcModelDlBraille {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(0, 229, 255, 0.92);
+  letter-spacing: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.35));
+}
+
+.pcModelDlBrailleGlyph::before {
+  content: "⣿⣿";
+  display: inline-block;
+  min-width: 2.15em;
+  text-align: center;
+  animation: pcBrailleDownload 1.1s steps(1, end) infinite;
+}
+
+@keyframes pcBrailleDownload {
+  0%,
+  10%,
+  100% {
+    content: "⣿⣿";
+  }
+  20% {
+    content: "⣷⣾";
+  }
+  30% {
+    content: "⣧⣼";
+  }
+  40% {
+    content: "⣇⣸";
+  }
+  50% {
+    content: "⡇⢸";
+  }
+  60% {
+    content: "⡏⢹";
+  }
+  70% {
+    content: "⡟⢻";
+  }
+  80% {
+    content: "⡿⢿";
+  }
+  90% {
+    content: "⣿⣿";
+  }
+}
+
+.pcModelDlRetryMsg {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 176, 124, 0.35);
+  background: rgba(255, 176, 124, 0.08);
+  color: #ffc9a4;
+  padding: 8px 10px;
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+/* Footer */
+.pcFooter {
+  height: 96px;
+  flex: none;
+  border-top: 1px solid var(--pc-border-active);
+  background: var(--pc-surface);
+  backdrop-filter: blur(20px);
+  z-index: 40;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  transition:
+    height 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-top-color 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 750ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pcFooterSpacer {
+  height: 96px;
+  flex: none;
+}
+
+.pcFooterExpanded {
+  height: 100%;
+  background: var(--deep-charcoal);
+  border-top-color: rgba(0, 229, 255, 0.24);
+  box-shadow: 0 -18px 56px rgba(0, 0, 0, 0.58);
+  z-index: 50;
+  transition: none !important;
+}
+
+.pcFooterSlideUp {
+  animation: pcFooterSlideUp 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pcFooter.pcFooterSlideOut {
+  animation: pcFooterSlideOut 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+  z-index: 60 !important;
+  background: var(--pc-surface); /* Default closing background */
+}
+
+/* If closing specifically from an expanded state, keep the dark background */
+.pcFooter.pcFooterSlideOut.pcFooterExpanded {
+  background: #0a0a0b !important;
+}
+
+.pcFooterExpanding {
+  height: 100%;
+  background: #0a0a0b; /* Fully opaque --deep-charcoal equivalent */
+  border-top-color: rgba(0, 229, 255, 0.24);
+  box-shadow: 0 -18px 56px rgba(0, 0, 0, 0.58);
+  z-index: 50;
+  overflow: hidden;
+  animation: pcFooterExpandShell 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: none !important;
+  background: #0a0a0b;
+}
+
+.pcFooterExpanding .pcFooterControls,
+.pcFooterExpanding .pcFooterProgressTrack {
+  pointer-events: none;
+}
+
+.pcFooterExpanding .pcFooterProgress {
+  animation: pcFooterExpandLift 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pcFooterExpanding .pcFooterLeft,
+.pcFooterExpanding .pcFooterCenter,
+.pcFooterExpanding .pcFooterRight {
+  animation: pcFooterExpandLift 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.pcFooterExpanding .pcFooterCenter {
+  animation-delay: 18ms;
+}
+
+.pcFooterExpanding .pcFooterRight {
+  animation-delay: 34ms;
+}
+
+.pcFooterCollapsing {
+  z-index: 50;
+  overflow: hidden;
+}
+
+.pcFooterCollapsing .pcFooterExpandedContent {
+  animation: pcFooterExpandedContentOut 300ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes pcFooterExpandedContentOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes pcFooterSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pcFooterSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes pcFooterExpandLift {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pcFooterExpandShell {
+  from {
+    height: 96px;
+    background: var(--pc-surface);
+    border-top-color: var(--pc-border-active);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  }
+  to {
+    height: 100%;
+    background: var(--deep-charcoal);
+    border-top-color: rgba(0, 229, 255, 0.24);
+    box-shadow: 0 -18px 56px rgba(0, 0, 0, 0.58);
+  }
+}
+
+.pcFooterProgress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--pc-border-subtle);
+  overflow: visible;
+}
+
+.pcFooterProgressTrack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.pcFooterProgressTooltip {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%) translateY(6px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid rgba(242, 233, 215, 0.22);
+  background: rgba(16, 16, 16, 0.94);
+  color: var(--pc-text-main);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.pcFooterProgress:hover .pcFooterProgressTooltip {
+  opacity: 1;
+}
+
+.pcFooterProgressTime {
+  color: var(--pc-primary);
+}
+
+.pcFooterProgressDuration {
+  color: var(--pc-muted);
+  font-weight: 700;
+}
+
+.pcFooterProgressSep {
+  color: var(--pc-muted);
+  opacity: 0.7;
+}
+
+.pcFooterProgressFill {
+  height: 100%;
+  background: var(--pc-primary);
+  box-shadow: 0 0 10px -2px var(--pc-glow-sm);
+  position: relative;
+  width: 38%;
+}
+
+.pcFooterProgressHandle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background: var(--pc-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 20px -5px var(--pc-glow);
+}
+
+.pcFooterControls {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  transition:
+    opacity 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.pcFooterControls.isCollapsed {
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.pcFooter.pcFooterSlideOut .pcFooterControls,
+.pcFooter.pcFooterSlideOut .pcFooterProgress {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 100ms ease !important;
+}
+
+.pcFooterLeft {
+  flex: 0 0 auto;
+  min-width: 300px;
+  max-width: 30%;
+}
+
+.pcFooterEpisodeInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pcFooterEpisodeArtwork {
+  width: 48px;
+  height: 48px;
+  background: var(--pc-background-base);
+  border: 1px solid var(--pc-border-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pcFooterEpisodeArtwork .material-symbols-outlined {
+  color: var(--pc-primary);
+  font-size: 24px;
+}
+
+.pcFooterEpisodeDetails {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pcFooterEpisodeTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pc-text-main);
+  margin: 0 0 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcFooterEpisodeShow {
+  font-size: 10px;
+  font-family: var(--pc-font-mono);
+  color: var(--pc-muted);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pcFooterEpisodeTitle.isPanning,
+.pcFooterEpisodeShow.isPanning {
+  text-overflow: clip;
+}
+
+.pcFooterMarquee {
+  display: inline-block;
+  min-width: 100%;
+  transform: translateX(0);
+  will-change: transform;
+}
+
+.pcFooterMarquee.isPanning {
+  animation-name: pcFooterPan;
+  animation-duration: var(--pc-pan-duration, 14s);
+  animation-timing-function: ease-in-out;
+  animation-delay: var(--pc-pan-delay, 0.8s);
+  animation-iteration-count: infinite;
+}
+
+@keyframes pcFooterPan {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  52%,
+  64% {
+    transform: translateX(calc(-1 * var(--pc-pan-distance, 0px)));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.pcFooterInfoBtn {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--pc-muted);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.pcFooterInfoBtn:hover {
+  color: var(--pc-text-main);
+}
+.pcFooterInfoBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pcFooterCenter {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.pcFooterPlayerControls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.pcFooterControlBtn {
+  background: transparent;
+  border: none;
+  color: var(--pc-muted);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    transform 120ms ease;
+  padding: 5px;
+}
+
+.pcFooterControlBtn:hover {
+  color: var(--pc-text-main);
+}
+.pcFooterControlBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pcFooterControlWithTooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pcFooterControlTooltip {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  transform: translateX(-50%) translateY(6px);
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid rgba(242, 233, 215, 0.22);
+  background: rgba(16, 16, 16, 0.94);
+  color: var(--pc-text-main);
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.pcFooterControlWithTooltip:hover .pcFooterControlTooltip,
+.pcFooterControlWithTooltip:focus-within .pcFooterControlTooltip {
+  opacity: 1;
+}
+
+.pcFooterProcessBtn.on {
+  color: var(--pc-primary);
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
+.pcFooterSeekBtn .material-symbols-outlined {
+  font-size: 23px;
+}
+
+.pcFooterPlayBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--pc-primary);
+  border: none;
+  color: var(--pc-background-base);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px -5px var(--pc-glow);
+  transition: transform 120ms ease;
+}
+
+.pcFooterPlayBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.pcFooterPlayBtn .material-symbols-outlined {
+  font-size: 30px;
+}
+
+.pcFooterDividerVertical {
+  width: 1px;
+  height: 12px;
+  background: var(--pc-border-active);
+  opacity: 0.3;
+  margin: 0 8px;
+}
+
+.pcFooterDivider {
+  height: 1px;
+  background: var(--pc-border-active);
+  margin: 16px 0;
+  opacity: 0.3;
+  width: 100%;
+}
+
+.pcFooterRight {
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: 30%;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  justify-content: flex-end;
+}
+
+.pcFooterVolume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcFooterVolume .material-symbols-outlined {
+  color: var(--pc-muted);
+  font-size: 18px;
+  transition: color 120ms ease;
+}
+
+.pcFooterVolume:hover .material-symbols-outlined {
+  color: var(--pc-primary);
+}
+
+.pcFooterVolumeTrack {
+  width: 96px;
+  height: 3px;
+  background: var(--pc-border-subtle);
+  border-radius: 1.5px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.pcFooterVolumeTrack:focus-visible {
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.35);
+}
+
+.pcFooterVolumeFill {
+  height: 100%;
+  background: var(--pc-muted);
+  width: 0;
+  transition: background 120ms ease;
+}
+
+.pcFooterVolumeHandle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pc-muted);
+  transform: translateY(-50%);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.pcFooterVolume:hover .pcFooterVolumeFill {
+  background: var(--pc-primary);
+}
+
+.pcFooterVolume:hover .pcFooterVolumeHandle {
+  background: var(--pc-primary);
+}
+
+.pcFooterDetailsBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  color: var(--pc-muted);
+  cursor: pointer;
+  transition: color 120ms ease;
+  padding: 4px;
+}
+
+.pcFooterDetailsBtn:hover {
+  color: var(--pc-primary);
+}
+
+.pcFooterDetailsText {
+  font-size: 8px;
+  font-family: var(--pc-font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pcFooterDivider {
+  width: 1px;
+  height: 12px;
+  background: var(--pc-border-active);
+  opacity: 0.3;
+}
+

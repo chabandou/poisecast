@@ -10,6 +10,7 @@ export type ModelSpec = {
 }
 
 const DEFAULT_GITHUB_MODELS_BASE_URL = 'https://raw.githubusercontent.com/chabandou/poisecast/master/models'
+const DEFAULT_LOCAL_MODELS_BASE_URL = '/models'
 
 function normalizeBaseUrl(value: string | undefined): string | null {
   const trimmed = value?.trim()
@@ -29,7 +30,17 @@ const githubModelsBaseUrl =
 export function getModelCandidateUrls(model: ModelSpec): string[] {
   const fileName = getModelFileName(model.url)
   if (!fileName) return []
-  return [`${githubModelsBaseUrl}/${fileName}`]
+
+  const candidates = [`${DEFAULT_LOCAL_MODELS_BASE_URL}/${fileName}`, `${githubModelsBaseUrl}/${fileName}`]
+  const deduped: string[] = []
+  const seen = new Set<string>()
+  for (const candidate of candidates) {
+    const key = candidate.trim()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    deduped.push(key)
+  }
+  return deduped
 }
 
 export const MODELS: ModelSpec[] = [

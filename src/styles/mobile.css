@@ -1,0 +1,1840 @@
+/* Mobile navigation */
+.pcMobileNav {
+  display: none;
+  background: black;
+  border-top: 1px solid var(--pc-border-active);
+  height: var(--pc-nav-h);
+  padding: 10px 24px;
+  z-index: 60;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pcMobileNavItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: rgba(242, 233, 215, 0.45);
+  cursor: pointer;
+  transition: color 120ms ease;
+  text-decoration: none;
+}
+
+.pcMobileNavItem.active {
+  color: var(--pc-primary);
+}
+
+.pcMobileNavItemIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pcMobileNavItemLabel {
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-family: var(--pc-font-mono);
+}
+
+/* Mobile layout rules */
+.pcApp.isMobile .pcHeader {
+  display: none;
+}
+.pcApp.isMobile .pcMobileStatus {
+  display: flex;
+}
+.pcApp.isMobile .pcMobileNav {
+  display: flex;
+}
+.pcApp.isMobile .pcShell {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+.pcApp.isMobile .pcSidebar,
+.pcApp.isMobile .pcMain {
+  border-radius: 0;
+  clip-path: none;
+  box-shadow: none;
+  transform: none;
+}
+.pcApp.isMobile .pcSidebar {
+  width: 100%;
+}
+.pcApp.isMobile .pcMain {
+  width: 100%;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.pcApp.isMobile .pcNow {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  border-left: none;
+  border-right: none;
+  overflow: hidden;
+}
+.pcApp.isMobile .pcNowInner {
+  padding: 18px;
+  overflow: auto;
+}
+.pcApp.isMobile .pcNow::after {
+  font-size: 84px;
+  top: 6px;
+  right: 10px;
+}
+.pcApp.isMobile .pcControls {
+  flex-direction: column;
+  align-items: stretch;
+}
+.pcApp.isMobile .pcControlsSide {
+  width: 100%;
+  justify-content: center;
+}
+.pcApp.isMobile .pcMetaCard {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pcApp.isMobile .pcEpisodes {
+  flex: 1 1 auto;
+  border-left: none;
+  border-right: none;
+}
+.pcApp.isMobile .pcProcessingInline {
+  display: none;
+}
+.pcApp.isMobile .pcModelDlOverlay {
+  align-items: flex-start;
+  padding: 74px 14px 16px;
+}
+.pcApp.isMobile .pcModelDlCard {
+  width: 100%;
+  padding: 14px;
+}
+.pcApp.isMobile .pcModelDlHead {
+  flex-direction: column;
+  align-items: stretch;
+}
+.pcApp.isMobile .pcModelDlAttempt {
+  align-self: flex-start;
+}
+.pcApp.isMobile .pcModelDlMetaGrid {
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 7px 10px;
+}
+.pcApp.isMobile .pcModelDlProgressMeta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.pcApp.isMobile .pcSidebar {
+  display: none;
+}
+.pcApp.isMobile .pcMain {
+  display: flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcDot,
+  .pcSpinner,
+  .pcSpinnerSm,
+  .pcPlaySpinner,
+  .pcSidebar,
+  .pcMain,
+  .pcNow,
+  .pcEpisodes,
+  .pcModelDlProgress.isIndeterminate > span {
+    animation: none !important;
+  }
+
+  .pcFooterExpanding .pcFooterProgress,
+  .pcFooterExpanding .pcFooterLeft,
+  .pcFooterExpanding .pcFooterCenter,
+  .pcFooterExpanding .pcFooterRight {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .pcFooterExpanding {
+    animation: none !important;
+    height: 100% !important;
+  }
+
+  .pcFooterExpandedContent {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Expanded Footer Styles */
+.pcFooterExpandedContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--deep-charcoal);
+  z-index: 10;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: pcFooterExpandedContentIn 400ms cubic-bezier(0.22, 1, 0.36, 1)
+    420ms both;
+}
+
+.pcFooterExpandedHero {
+  opacity: 0;
+  animation: pcFooterExpandedContentIn 500ms cubic-bezier(0.22, 1, 0.36, 1)
+    500ms both;
+}
+
+.pcFooterExpandedTelemetry {
+  opacity: 0;
+  animation: pcFooterExpandedContentIn 500ms cubic-bezier(0.22, 1, 0.36, 1)
+    580ms both;
+}
+
+.pcFooterExpandedControls {
+  opacity: 0;
+  animation: pcFooterExpandedContentInCentered 500ms
+    cubic-bezier(0.22, 1, 0.36, 1) 660ms both;
+}
+
+@keyframes pcFooterExpandedContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pcFooterExpandedContentInCentered {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.pcFooterExpanded .pcFooterControls {
+  display: none;
+}
+
+.pcFooterExpanded .pcFooterProgress {
+  display: none;
+}
+
+.pcFooterExpandedBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  gap: 18px;
+  padding: 30px 32px 132px;
+  overflow: visible;
+}
+
+.pcFooterExpandedHero {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pcFooterExpandedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(0, 229, 255, 0.05);
+  margin-bottom: 6px;
+}
+
+.pcFooterExpandedBadgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pc-primary);
+  margin-right: 6px;
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 20px -5px rgba(0, 229, 255, 0.4);
+}
+
+.pcFooterExpandedBadgeText {
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pc-primary);
+}
+
+.pcFooterExpandedTitle {
+  margin: 0 0 8px;
+  font-size: clamp(34px, 4vw, 68px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  color: var(--pc-text-main);
+}
+
+.pcFooterExpandedSubtitle {
+  margin: 0;
+  font-family: var(--pc-font-mono);
+  font-size: 14px;
+  font-weight: 300;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.pcFooterExpandedDescriptionWrap {
+  margin-top: 18px;
+  padding: 0 48px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+}
+
+.pcFooterExpandedDescription {
+  --pc-footer-description-line-height: 1.45;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 75ch;
+  font-size: clamp(14px, 1.25vw, 16px);
+  line-height: var(--pc-footer-description-line-height);
+  font-weight: 400;
+  color: rgba(226, 232, 240, 0.8);
+  text-align: center;
+  overflow: hidden;
+  transition: max-height 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.pcFooterExpandedDescription.isClamped {
+  position: relative;
+  max-height: 15vh;
+}
+
+.pcFooterExpandedDescription.isExpanded {
+  max-height: var(--pc-footer-description-expanded-height, 2000px);
+}
+
+.pcFooterExpandedDescription::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(1em * var(--pc-footer-description-line-height) * 1.5);
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 11, 0),
+    rgba(10, 10, 11, 0.95)
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.pcFooterExpandedDescription.isClamped::after {
+  opacity: 1;
+}
+
+.pcFooterExpandedDescriptionToggle {
+  margin-top: -0.08em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(0, 229, 255, 0.92);
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: var(--pc-footer-description-line-height);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.pcFooterExpandedDescriptionToggle:hover {
+  color: rgba(111, 246, 255, 0.98);
+}
+
+.pcFooterExpandedDescriptionToggle:focus-visible {
+  outline: 2px solid rgba(0, 229, 255, 0.45);
+  outline-offset: 1px;
+}
+
+.pcFooterExpandedDescription a,
+.pcFooterExpandedDescription a:visited {
+  color: #c9aa91;
+  text-decoration-color: rgba(201, 170, 145, 0.7);
+}
+
+.pcFooterExpandedDescription a:hover {
+  color: #dec3ad;
+  text-decoration-color: rgba(222, 195, 173, 0.9);
+}
+
+.pcFooterExpandedDescription p {
+  margin: 0 0 0.35em !important;
+  line-height: inherit;
+}
+
+.pcFooterExpandedDescription p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.pcFooterExpandedDescription :is(h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+  margin: 0 0 0.45em;
+}
+
+.pcFooterExpandedDescription :is(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.25;
+}
+
+.pcFooterExpandedDescription :is(ul, ol) {
+  padding-left: 1.1em;
+}
+
+.pcFooterExpandedDescription li + li {
+  margin-top: 0.2em;
+}
+
+.pcFooterExpandedDescription br + br {
+  display: none;
+}
+
+.pcFooterExpandedDescription > :last-child {
+  margin-bottom: 0;
+}
+
+.pcFooterExpandedTelemetry {
+  width: 100%;
+  max-width: 1180px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 24px;
+  margin-top: 24px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 280ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 180ms ease,
+    transform 240ms ease,
+    margin-top 220ms ease,
+    margin-bottom 220ms ease;
+}
+
+.pcFooterExpandedTelemetry.isHidden {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  margin-top: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+}
+
+.pcFooterExpandedMetrics {
+  width: 220px;
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pcFooterExpandedMetricsLeft {
+  text-align: right;
+}
+
+.pcFooterExpandedMetricsRight {
+  text-align: left;
+}
+
+.pcFooterExpandedMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pcFooterExpandedMetricLabel {
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.pcFooterExpandedMetricValue {
+  font-family: var(--pc-font-mono);
+  font-size: 12px;
+  color: var(--pc-text-main);
+  font-weight: 400;
+}
+
+.pcFooterExpandedMetricValuePrimary {
+  font-size: 17px;
+  color: var(--pc-primary);
+  font-weight: 700;
+}
+
+.pcFooterExpandedWaveform {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1 1 auto;
+  max-width: 50vw;
+  margin: 0;
+  min-width: 0;
+  height: 108px;
+}
+
+.pcFooterExpandedWaveMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.pcFooterExpandedWaveMarkerLeft {
+  left: 20%;
+  width: 2px;
+  background: rgba(0, 229, 255, 0.2);
+}
+
+.pcFooterExpandedWaveMarkerRight {
+  right: 10%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pcFooterExpandedControls {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: min(860px, calc(100% - 48px));
+  margin-top: 0;
+}
+
+.pcFooterExpandedControlBtn {
+  background: transparent;
+  border: none;
+  color: var(--pc-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.pcFooterExpandedControlBtn:hover {
+  color: var(--pc-primary);
+}
+
+.pcFooterExpandedControlBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pcFooterExpandedControlBtnSm .material-symbols-outlined {
+  font-size: 26px;
+}
+
+.pcFooterExpandedControlBtnMd .material-symbols-outlined {
+  font-size: 31px;
+}
+
+.pcFooterExpandedControlBtnLg .material-symbols-outlined {
+  font-size: 38px;
+}
+
+.pcFooterExpandedPlayWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.pcFooterExpandedPlayGlow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.2);
+  filter: blur(20px);
+  transition: background 180ms ease;
+}
+
+.pcFooterExpandedPlayWrap:hover .pcFooterExpandedPlayGlow {
+  background: rgba(0, 229, 255, 0.4);
+}
+
+.pcFooterExpandedPlayBtn {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  border: 3px solid rgba(0, 229, 255, 0.28);
+  border-radius: 50%;
+  background: var(--pc-primary);
+  color: #091217;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.pcFooterExpandedPlayBtn:hover {
+  background: #091217;
+  color: var(--pc-primary);
+  border-color: rgba(0, 229, 255, 1);
+}
+
+.pcFooterExpandedPlayBtn:active {
+  transform: scale(0.95);
+}
+
+.pcFooterExpandedPlayIcon {
+  font-size: 38px;
+}
+
+.pcFooterExpandedTray {
+  height: 80px;
+  flex: 0 0 80px;
+  padding: 0 48px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.pcFooterExpandedTrayActions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.pcFooterExpandedTrayMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-width 240ms ease,
+    opacity 180ms ease;
+}
+
+.pcFooterExpandedTrayMeta.isHidden {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pcFooterExpandedTrayBtn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+  cursor: pointer;
+}
+
+.pcFooterExpandedTrayBtn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.pcFooterExpandedTrayBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--pc-text-main);
+}
+
+.pcFooterExpandedTrayBtnPrimary {
+  border-color: rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.1);
+  color: var(--pc-primary);
+}
+
+.pcFooterExpandedTrayBtnPrimary:hover {
+  background: rgba(0, 229, 255, 0.18);
+}
+
+.pcFooterExpandedTrayBtnGhost {
+  border-color: transparent;
+  background: transparent;
+  margin-right: auto;
+}
+
+.pcFooterExpandedTrayBtnGhost:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 1200px) {
+  .pcFooterExpandedTelemetry {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    padding: 0 16px;
+  }
+
+  .pcFooterExpandedControls {
+    gap: 16px;
+  }
+
+  .pcFooterExpandedTray {
+    padding: 0 24px;
+  }
+
+  .pcFooterExpandedTrayActions {
+    gap: 8px;
+  }
+
+  .pcFooterExpandedTrayMeta {
+    gap: 8px;
+  }
+
+  .pcFooterExpandedTrayBtn {
+    padding: 0 10px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 980px) {
+  .pcFooterExpandedBody {
+    padding: 20px 16px 128px;
+  }
+
+  .pcFooterExpandedDescriptionWrap {
+    padding: 0 14px;
+  }
+
+  .pcFooterExpandedTelemetry {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .pcFooterExpandedMetrics {
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .pcFooterExpandedControls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pcFooterExpandedTray {
+    height: auto;
+    flex: 0 0 auto;
+    min-height: 76px;
+    padding: 10px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .pcFooterExpandedTrayActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* Waveform styles */
+.waveform-bar {
+  background: rgba(0, 229, 255, 0.4);
+  border-radius: 9999px;
+  transition: all 300ms;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+.waveform-bar-active {
+  background: var(--pc-primary);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+}
+
+/* Custom utility classes for expanded view */
+.shadow-glow {
+  box-shadow: 0 0 20px -5px rgba(0, 229, 255, 0.4);
+}
+
+.shadow-glow-sm {
+  box-shadow: 0 0 10px -2px rgba(0, 229, 255, 0.3);
+}
+
+.cyan-fuzz {
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+}
+
+.FILL-1 {
+  font-variation-settings: "FILL" 1;
+}
+
+/* Grid pattern background */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, #27272a 1px, transparent 1px),
+    linear-gradient(to bottom, #27272a 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black, transparent 80%);
+}
+
+/* =============================================
+   MOBILE PODCAST DETAILS STYLES
+   ============================================= */
+
+/* Mobile Show Details Header */
+.pcApp.isMobile .pcMobileShowDetailsHeader {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pc-border-active);
+}
+
+.pcApp.isMobile .pcMobileHeaderButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--pc-text);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.pcApp.isMobile .pcMobileHeaderButton:hover {
+  background: rgba(0, 229, 255, 0.1);
+}
+
+.pcApp.isMobile .pcMobileHeaderTitle {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-family: var(--pc-font-mono);
+  color: var(--pc-muted);
+}
+
+/* Mobile Show Details Container */
+.pcApp.isMobile .pcMobileShowDetails {
+  padding: 0;
+  background: var(--pc-background-base);
+}
+
+/* Mobile Hero Section */
+.pcApp.isMobile .pcMobileHeroSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+}
+
+.pcApp.isMobile .pcMobileArtworkContainer {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.pcApp.isMobile .pcMobileArtworkGlow {
+  position: absolute;
+  inset: -8px;
+  background: rgba(0, 229, 255, 0.2);
+  border-radius: 12px;
+  filter: blur(24px);
+  opacity: 0.5;
+}
+
+.pcApp.isMobile .pcMobileArtworkCard {
+  position: relative;
+  width: 256px;
+  height: 256px;
+  background: var(--pc-surface);
+  border: 2px solid var(--pc-border-active);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 40px -8px rgba(0, 0, 0, 0.8);
+}
+
+.pcApp.isMobile .pcMobileArtworkCover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pcApp.isMobile .pcMobileShowInfo {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.pcApp.isMobile .pcMobileShowTitle {
+  font-size: 36px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.05em;
+  font-family: var(--pc-font-mono);
+  color: white;
+  line-height: 1;
+  margin: 0 0 8px 0;
+  text-shadow: 0 0 15px rgba(19, 182, 236, 0.3);
+}
+
+.pcApp.isMobile .pcMobileShowHost {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--pc-font-mono);
+  color: var(--pc-muted);
+  margin: 0;
+}
+
+/* Mobile Action Buttons */
+.pcApp.isMobile .pcMobileActionRow {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 384px;
+  margin-bottom: 24px;
+}
+
+.pcApp.isMobile .pcMobileFollowButton {
+  flex: 1;
+  background: var(--pc-primary);
+  color: black;
+  font-weight: 900;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 120ms ease;
+  box-shadow: 0 0 20px rgba(19, 182, 236, 0.2);
+}
+
+.pcApp.isMobile .pcMobileFollowButton:hover {
+  background: rgba(0, 229, 255, 0.9);
+  transform: scale(0.98);
+}
+
+.pcApp.isMobile .pcMobileFollowButton.isFollowed {
+  background: var(--pc-background-base);
+  color: var(--pc-primary);
+  border: 1px solid var(--pc-primary);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.pcApp.isMobile .pcMobileFollowButton.isFollowed:hover {
+  background: var(--pc-primary);
+  color: black;
+}
+
+.pcApp.isMobile .pcMobileFollowButton:active {
+  transform: scale(0.95);
+}
+
+.pcApp.isMobile .pcMobileDownloadButton {
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: 1px solid var(--pc-border-active);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pc-primary);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.pcApp.isMobile .pcMobileDownloadButton:hover {
+  background: var(--pc-surface);
+  border-color: var(--pc-primary);
+}
+
+/* Mobile Metadata Grid */
+.pcApp.isMobile .pcMobileMetadataGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 16px;
+}
+
+.pcApp.isMobile .pcMobileMetadataCard {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border-active);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.pcApp.isMobile .pcMobileMetadataLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  margin-bottom: 4px;
+}
+
+.pcApp.isMobile .pcMobileMetadataValue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pc-text);
+}
+
+.pcApp.isMobile .pcMobileMetadataIcon {
+  color: var(--pc-primary);
+  font-size: 16px;
+}
+
+/* Mobile Description Section */
+.pcApp.isMobile .pcMobileDescriptionSection {
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.pcApp.isMobile .pcMobileDescriptionHeader {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  margin-bottom: 8px;
+}
+
+.pcApp.isMobile .pcMobileDescriptionText {
+  color: var(--pc-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  border-left: 2px solid var(--pc-primary);
+  padding-left: 16px;
+  margin-bottom: 12px;
+}
+
+.pcApp.isMobile .pcMobileReadMoreButton {
+  color: var(--pc-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: var(--pc-font-mono);
+}
+
+/* Mobile Episode List */
+.pcApp.isMobile .pcMobileEpisodeList {
+  margin-top: 16px;
+}
+
+.pcApp.isMobile .pcMobileEpisodeListHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--pc-border-active);
+}
+
+.pcApp.isMobile .pcMobileEpisodeListTitle {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  margin: 0;
+}
+
+.pcApp.isMobile .pcMobileEpisodeSortInfo {
+  font-size: 10px;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+}
+
+.pcApp.isMobile .pcMobileEpisodeCard {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--pc-border-active);
+  transition: background-color 120ms ease;
+}
+
+.pcApp.isMobile .pcMobileEpisodeCard:hover {
+  background: var(--pc-surface);
+}
+
+.pcApp.isMobile .pcMobileEpisodeContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.pcApp.isMobile .pcMobileEpisodeNumber {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pc-primary);
+  font-family: var(--pc-font-mono);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pcApp.isMobile .pcMobileEpisodeTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pc-text);
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+}
+
+.pcApp.isMobile .pcMobileEpisodeDescription {
+  font-size: 12px;
+  color: var(--pc-muted);
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pcApp.isMobile .pcMobileEpisodeMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+}
+
+.pcApp.isMobile .pcMobileEpisodeMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pcApp.isMobile .pcMobileEpisodeMetaIcon {
+  font-size: 12px;
+}
+
+.pcApp.isMobile .pcMobileEpisodePlayButton {
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: 1px solid var(--pc-border-active);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pc-primary);
+  cursor: pointer;
+  transition: all 120ms ease;
+  align-self: center;
+}
+
+.pcApp.isMobile .pcMobileEpisodePlayButton:hover {
+  border-color: rgba(0, 229, 255, 0.5);
+}
+
+.pcApp.isMobile .pcMobileEpisodePlayButton:active {
+  transform: scale(0.9);
+}
+
+.pcApp.isMobile .pcMobileLoadMoreButton {
+  display: block;
+  width: fit-content;
+  margin: 24px auto;
+  padding: 8px 24px;
+  border: 1px solid var(--pc-border-active);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--pc-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 120ms ease;
+  font-family: var(--pc-font-mono);
+}
+
+.pcApp.isMobile .pcMobileLoadMoreButton:hover {
+  color: var(--pc-primary);
+}
+
+/* Mobile Fixed Bottom UI */
+.pcApp.isMobile .pcMobileFixedBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--pc-nav-h);
+  z-index: 55;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 0s;
+}
+
+.pcApp.isMobile .pcMobileFixedBottom.isHidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+/* Mobile Mini Player */
+.pcApp.isMobile .pcMobileMiniPlayer {
+  background: black;
+  border-top: 1px solid var(--pc-border-active);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art info controls"
+    "art timeline timeline";
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: center;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerArtwork {
+  grid-area: art;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerArtwork::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 229, 255, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerArtwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%) brightness(0.75);
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerInfo {
+  grid-area: info;
+  flex: 1;
+  min-width: 0;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerLabel {
+  font-size: 10px;
+  color: var(--pc-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: var(--pc-font-mono);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerProgressMeta {
+  margin-top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  color: var(--pc-muted);
+  letter-spacing: 0.05em;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerProgress {
+  margin-top: 3px;
+  position: relative;
+  height: 4px;
+  width: 100%;
+  background: rgba(148, 163, 184, 0.36);
+  border-radius: 999px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerProgress:focus-visible {
+  outline: 2px solid rgba(0, 229, 255, 0.45);
+  outline-offset: 2px;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerProgressFill {
+  height: 100%;
+  background: var(--pc-primary);
+  box-shadow: 0 0 8px rgba(19, 182, 236, 0.8);
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControls {
+  grid-area: controls;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerTimeline {
+  grid-area: timeline;
+  width: 100%;
+  min-width: 0;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControlButton {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControlButton.seek {
+  width: 34px;
+}
+
+.pcApp.isMobile
+  .pcMobileMiniPlayerControlButton.seek
+  .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControlButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControlButton.primary {
+  color: var(--pc-primary);
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerProcessBtn.on {
+  color: var(--pc-primary);
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
+}
+
+/* Hide desktop show details on mobile */
+.pcApp.isMobile .pcShowDetails {
+  display: none;
+}
+
+/* Add padding to main content to account for fixed bottom */
+.pcApp.isMobile .pcMain {
+  padding-bottom: 88px;
+  overflow-y: auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make mobile show details scrollable */
+.pcApp.isMobile .pcMobileShowDetails {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 220px;
+}
+
+.pcApp.isMobile .pcLibraryScreen {
+  flex: 1;
+  min-height: 0;
+}
+
+.pcApp.isMobile .pcLibraryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 120px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.pcApp.isMobile .pcLibraryCard {
+  width: 100%;
+  height: 120px;
+}
+
+/* Library View Styles */
+.pcLibraryScreen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--pc-background-base);
+}
+
+.pcLibraryHeader {
+  padding: 40px 48px 24px;
+  border-bottom: 1px solid var(--pc-border-subtle);
+  background: var(--pc-background-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.pcLibraryHeader::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, var(--pc-primary) 0%, transparent 70%);
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+.pcLibraryHeader::after {
+  content: "inventory_2";
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  font-family: "Material Symbols Outlined";
+  font-size: 180px;
+  line-height: 1;
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+.pcLibraryHeaderContent {
+  position: relative;
+  z-index: 1;
+}
+
+.pcLibraryHeaderBadges {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pcLibraryBadge {
+  background: rgba(0, 229, 255, 0.2);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--pc-primary);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-family: var(--pc-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pcLibraryId {
+  color: var(--pc-muted);
+  font-size: 10px;
+  font-family: var(--pc-font-mono);
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.pcLibrarySubtitle {
+  color: var(--pc-muted);
+  font-family: var(--pc-font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  opacity: 0.6;
+  margin: 0;
+}
+
+.pcLibraryControls {
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--pc-border-subtle);
+  background: rgba(24, 24, 27, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+
+.pcLibraryControlsLeft {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.pcLibrarySort,
+.pcLibraryFilters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pcLibraryLabel {
+  color: var(--pc-muted);
+  font-size: 10px;
+  font-family: var(--pc-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pcLibrarySelect {
+  background: var(--pc-background-base);
+  border: 1px solid var(--pc-border-active);
+  color: var(--pc-text-main);
+  font-size: 10px;
+  font-family: var(--pc-font-mono);
+  padding: 4px 8px 4px 8px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pcLibrarySelect:focus {
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 1px var(--pc-primary);
+}
+
+.pcLibraryFilterButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.pcLibraryFilterButton {
+  background: transparent;
+  border: 1px solid var(--pc-border-active);
+  color: var(--pc-text-muted);
+  font-size: 10px;
+  font-family: var(--pc-font-mono);
+  padding: 4px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 120ms ease;
+}
+
+.pcLibraryFilterButton:hover {
+  border-color: rgba(0, 229, 255, 0.5);
+  color: var(--pc-text-main);
+}
+
+.pcLibraryFilterButton.active {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--pc-primary);
+  color: var(--pc-primary);
+}
+
+.pcLibraryFilterButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pcLibrarySearch {
+  position: relative;
+  width: 256px;
+}
+
+.pcLibrarySearchIcon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pc-muted);
+  font-size: 14px;
+  transition: color 120ms ease;
+}
+
+.pcLibrarySearch:focus-within .pcLibrarySearchIcon {
+  color: var(--pc-primary);
+}
+
+.pcLibrarySearchInput {
+  width: 100%;
+  padding: 6px 16px 6px 32px;
+  background: var(--pc-background-base);
+  border: 1px solid var(--pc-border-active);
+  border-radius: 2px;
+  color: var(--pc-text-main);
+  font-size: 12px;
+  font-family: var(--pc-font-mono);
+  outline: none;
+  transition: all 120ms ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pcLibrarySearchInput::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.pcLibrarySearchInput:focus {
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 1px var(--pc-primary);
+}
+
+.pcLibraryGrid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 48px;
+  background: #0f0f11;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, max-content));
+  gap: 24px;
+  justify-content: start;
+}
+
+.pcLibraryCard {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  width: 200px;
+  height: 200px;
+  transition: all 300ms ease;
+}
+
+.pcLibraryCard:hover {
+  border-color: rgba(0, 229, 255, 0.4);
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.pcLibraryCardInactive {
+  opacity: 0.7;
+}
+
+.pcLibraryCardInactive:hover {
+  opacity: 1;
+  border-color: rgba(0, 229, 255, 0.4);
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.pcLibraryCardImageContainer {
+  width: 100%;
+  height: 100%;
+  background: var(--pc-background-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.pcLibraryCardOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 229, 255, 0.1);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.pcLibraryCard:hover .pcLibraryCardOverlay {
+  opacity: 1;
+}
+
+.pcLibraryPlayIcon {
+  font-size: 64px;
+  color: var(--pc-primary);
+  filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.4));
+}
+
+.pcLibraryCardPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #181818;
+}
+
+.pcLibraryCardPlaceholder .material-symbols-outlined {
+  font-size: 96px;
+  color: var(--pc-border-active);
+}
+
+.pcLibraryCardBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--pc-primary);
+  color: var(--pc-background-base);
+  font-family: var(--pc-font-mono);
+  font-weight: 700;
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .pcLibraryGrid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, max-content));
+    gap: 20px;
+    padding: 24px 32px;
+  }
+
+  .pcLibraryCard {
+    width: 180px;
+    height: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pcLibraryHeader {
+    padding: 24px 20px 16px;
+  }
+
+  .pcLibraryControls {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+
+  .pcLibraryControlsLeft {
+    display: none;
+  }
+
+  .pcLibrarySearch {
+    width: 100%;
+  }
+
+  .pcLibraryGrid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, max-content));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .pcLibraryCard {
+    width: 150px;
+    height: 150px;
+  }
+}

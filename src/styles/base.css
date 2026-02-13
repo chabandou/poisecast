@@ -1,0 +1,127 @@
+:root {
+  --pc-primary: #00e5ff;
+  --pc-accent: #00e5ff;
+  --pc-primary-dim: rgba(0, 229, 255, 0.1);
+  --pc-background-base: #121212;
+  --pc-black: #121212;
+  --pc-dark: #121212;
+  --pc-surface: #18181b;
+  --pc-surface-2: #27272a;
+  --pc-surface-hover: #27272a;
+  --pc-text: #f8fafc;
+  --pc-text-main: #f8fafc;
+  --pc-muted: #94a3b8;
+  --pc-line: #27272a;
+  --pc-border-subtle: #27272a;
+  --pc-line2: #3f3f46;
+  --pc-border-active: #3f3f46;
+  --pc-shadow: rgba(0, 0, 0, 0.65);
+  --pc-glow: rgba(0, 229, 255, 0.4);
+  --pc-glow-sm: rgba(0, 229, 255, 0.3);
+  --pc-chamfer: 4px;
+  --pc-header-h: 64px;
+  --pc-status-h: 36px;
+  --pc-nav-h: 66px;
+  --pc-section-top: 12px;
+  --pc-font-display: "Inter", sans-serif;
+  --pc-font-body: "Inter", sans-serif;
+  --pc-font-mono:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  /* Expanded footer colors */
+  --deep-charcoal: #0a0a0b;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--pc-black);
+  color: var(--pc-text);
+  font-family: var(--pc-font-body);
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--pc-primary);
+  color: #0b0e12;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--pc-black);
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+.pcChamfer {
+  clip-path: polygon(
+    var(--pc-chamfer) 0,
+    100% 0,
+    100% calc(100% - var(--pc-chamfer)),
+    calc(100% - var(--pc-chamfer)) 100%,
+    0 100%,
+    0 var(--pc-chamfer)
+  );
+}
+
+.pcApp {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.pcBackdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--pc-border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pc-border-subtle) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom, transparent, black);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 5%, black 40%);
+  opacity: 0.05;
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, var(--pc-border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pc-border-subtle) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom, transparent, black);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 5%, black 40%);
+}
+
+.FILL-1 {
+  font-variation-settings: "FILL" 1;
+}
+.shadow-primary {
+  text-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+}
+
+.pcBackdrop::after,
+.pcBackdrop::before {
+  display: none;
+}

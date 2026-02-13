@@ -86,8 +86,15 @@ function collectFeedGenres(channel: Element): string[] {
     .map((entry) => entry.label)
 }
 
-export async function fetchAndParseRss(rssUrl: string): Promise<ParsedPodcast> {
-  const res = await fetch(rssUrl, { mode: 'cors' })
+type FetchAndParseRssOptions = {
+  signal?: AbortSignal
+}
+
+export async function fetchAndParseRss(
+  rssUrl: string,
+  options: FetchAndParseRssOptions = {},
+): Promise<ParsedPodcast> {
+  const res = await fetch(rssUrl, { mode: 'cors', signal: options.signal })
   if (!res.ok) {
     throw new Error(`RSS fetch failed: ${res.status} ${res.statusText}`)
   }

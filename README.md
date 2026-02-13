@@ -30,6 +30,10 @@ Firefox install paths:
 - Override the ORT base with `VITE_GITHUB_ORT_BASE_URL`.
 - The app downloads a minimal ORT core set first, then fetches extended ORT variants only if runtime init fails and needs them.
 - ORT and model binaries are cached on demand in the browser cache.
+- Prefetch strategy is configurable with `VITE_ORT_PREFETCH_STRATEGY`:
+  - `adaptive` (default)
+  - `eager`
+  - `off`
 
 ## Notes / Constraints
 
@@ -38,3 +42,13 @@ Firefox install paths:
 - In local static preview (`bun run preview`), `/api/stream` is not available and playback falls back to direct episode URLs.
 - Workaround (no server): use **Import file** in the player to process a locally-downloaded episode.
 - v1 supports the time-domain model (`denoiser_model.onnx`). The UMXHQ spectral models require an STFT pipeline (not implemented yet).
+
+## Engineering Docs
+
+- Architecture plan: `docs/architecture-improvement-plan.md`
+- Architecture decisions: `docs/architecture-decisions.md`
+- App module map: `docs/app-module-map.md`
+- Cache policy: `docs/cache-policy.md`
+- Proxy security policy: `docs/proxy-security-policy.md`
+- Rollout checklist: `docs/rollout-checklist.md`
+- Final verification report: `docs/final-verification-report.md`
