@@ -17,6 +17,13 @@ bun run build
 bun run preview
 ```
 
+First-paint flash regression check (Playwright CLI):
+
+```bash
+bunx playwright install firefox
+bun run test:visual:first-paint
+```
+
 Firefox install paths:
 
 - Windows: use the Web Apps button in the address bar.

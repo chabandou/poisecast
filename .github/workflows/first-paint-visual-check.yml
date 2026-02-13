@@ -1,0 +1,42 @@
+name: First Paint Visual Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  first-paint-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build app
+        run: bun run build
+
+      - name: Install Playwright Firefox
+        run: bunx playwright install firefox
+
+      - name: Run first-paint visual check
+        run: bun run test:visual:first-paint
+
+      - name: Upload visual artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-paint-visual-artifacts
+          path: |
+            output/playwright/first-paint-no-css.png
+            output/playwright/first-paint-normal.png
+            output/playwright/preview-server.log
