@@ -9,6 +9,7 @@ import type { PodcastEpisode } from '../../podcasts/types'
 import { ScrambleText } from '../system/ScrambleText'
 import { EpisodeList } from '../player/EpisodeList'
 import { EpisodeRows } from '../player/EpisodeRows'
+import { GlitchImage } from '../../ui/GlitchImage'
 
 type ShowTitleParts = {
   head: string
@@ -165,10 +166,15 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                         justifyContent: 'center',
                       }}
                     >
-                      <span className="pcSpinner" aria-label="Loading show artwork" />
+                      <span
+                        className="pcSpinner"
+                        aria-label="Loading show artwork"
+                      />
                     </div>
                   ) : showArtwork ? (
-                    <img
+                    <GlitchImage
+                      variant="artwork"
+                      wrapperClassName="pcGlitchImage--outsideFx"
                       className="pcMobileArtworkCover"
                       src={showArtwork}
                       alt={`${showTitleRaw} cover art`}
@@ -191,7 +197,11 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                 <h2 className="pcMobileShowTitle">{showTitleRaw}</h2>
                 <p className="pcMobileShowHost">
                   Hosted by{' '}
-                  <ScrambleText text={showNetworkLabel} durationMs={850} delayMs={180} />
+                  <ScrambleText
+                    text={showNetworkLabel}
+                    durationMs={850}
+                    delayMs={180}
+                  />
                 </p>
               </div>
 
@@ -218,28 +228,36 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               <div className="pcMobileMetadataCard">
                 <span className="pcMobileMetadataLabel">Audio Output</span>
                 <div className="pcMobileMetadataValue">
-                  <span className="material-symbols-outlined pcMobileMetadataIcon">waves</span>
+                  <span className="material-symbols-outlined pcMobileMetadataIcon">
+                    waves
+                  </span>
                   <span>48kHz / 24-bit</span>
                 </div>
               </div>
               <div className="pcMobileMetadataCard">
                 <span className="pcMobileMetadataLabel">Frequency</span>
                 <div className="pcMobileMetadataValue">
-                  <span className="material-symbols-outlined pcMobileMetadataIcon">calendar_today</span>
+                  <span className="material-symbols-outlined pcMobileMetadataIcon">
+                    calendar_today
+                  </span>
                   <span>Weekly Update</span>
                 </div>
               </div>
               <div className="pcMobileMetadataCard">
                 <span className="pcMobileMetadataLabel">Genre</span>
                 <div className="pcMobileMetadataValue">
-                  <span className="material-symbols-outlined pcMobileMetadataIcon">settings_input_component</span>
+                  <span className="material-symbols-outlined pcMobileMetadataIcon">
+                    settings_input_component
+                  </span>
                   <span>{showGenres[0] || 'Industrial'}</span>
                 </div>
               </div>
               <div className="pcMobileMetadataCard">
                 <span className="pcMobileMetadataLabel">Archive Size</span>
                 <div className="pcMobileMetadataValue">
-                  <span className="material-symbols-outlined pcMobileMetadataIcon">data_usage</span>
+                  <span className="material-symbols-outlined pcMobileMetadataIcon">
+                    data_usage
+                  </span>
                   <span>{episodes.length} Episodes</span>
                 </div>
               </div>
@@ -248,15 +266,19 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
             <section className="pcMobileDescriptionSection">
               <h3 className="pcMobileDescriptionHeader">Show Intelligence</h3>
               <div className="pcMobileDescriptionText">
-                {showDescription
-                  || 'A deep dive into the mechanical heart of modern synthesis and industrial soundscapes. Exploring the intersection of human error and machine precision.'}
+                {showDescription ||
+                  'A deep dive into the mechanical heart of modern synthesis and industrial soundscapes. Exploring the intersection of human error and machine precision.'}
               </div>
-              <button className="pcMobileReadMoreButton">Read Full Protocol »</button>
+              <button className="pcMobileReadMoreButton">
+                Read Full Protocol »
+              </button>
             </section>
 
             <section className="pcMobileEpisodeList">
               <div className="pcMobileEpisodeListHeader">
-                <h3 className="pcMobileEpisodeListTitle">Archived Transmissions</h3>
+                <h3 className="pcMobileEpisodeListTitle">
+                  Archived Transmissions
+                </h3>
                 <span
                   className="pcMobileEpisodeSortInfo"
                   role="button"
@@ -274,7 +296,9 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               </div>
               <div className="pcMobileEpisodeList pcStaggerList">
                 {isShowInfoLoading ? (
-                  <div className="pcStaggerList">{mobileEpisodeSkeletonCards}</div>
+                  <div className="pcStaggerList">
+                    {mobileEpisodeSkeletonCards}
+                  </div>
                 ) : (
                   mobileVisibleEpisodes.map((episode, index) => (
                     <div
@@ -287,21 +311,34 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                       }
                     >
                       <div className="pcMobileEpisodeContent">
-                        <span className="pcMobileEpisodeNumber">EP_{episodes.length - index}</span>
-                        <h4 className="pcMobileEpisodeTitle">{episode.title}</h4>
-                        <p className="pcMobileEpisodeDescription">{episode.description}</p>
+                        <span className="pcMobileEpisodeNumber">
+                          EP_{episodes.length - index}
+                        </span>
+                        <h4 className="pcMobileEpisodeTitle">
+                          {episode.title}
+                        </h4>
+                        <p className="pcMobileEpisodeDescription">
+                          {episode.description}
+                        </p>
                         <div className="pcMobileEpisodeMeta">
                           <span className="pcMobileEpisodeMetaItem">
-                            <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">schedule</span>
+                            <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
+                              schedule
+                            </span>
                             {episode.duration || '--:--'}
                           </span>
                           <span className="pcMobileEpisodeMetaItem">
-                            <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">calendar_month</span>
+                            <span className="material-symbols-outlined pcMobileEpisodeMetaIcon">
+                              calendar_month
+                            </span>
                             {episode.pubDate
-                              ? new Date(episode.pubDate).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })
+                              ? new Date(episode.pubDate).toLocaleDateString(
+                                  'en-US',
+                                  {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  },
+                                )
                               : '--'}
                           </span>
                         </div>
@@ -312,7 +349,9 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                         disabled={loadingEpisodeId === episode.guid}
                         onClick={() => void startEpisode(episode)}
                       >
-                        <span className="material-symbols-outlined fill-1">play_arrow</span>
+                        <span className="material-symbols-outlined fill-1">
+                          play_arrow
+                        </span>
                       </button>
                     </div>
                   ))
@@ -351,17 +390,24 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                         justifyContent: 'center',
                       }}
                     >
-                      <span className="pcSpinner" aria-label="Loading show artwork" />
+                      <span
+                        className="pcSpinner"
+                        aria-label="Loading show artwork"
+                      />
                     </div>
                   ) : showArtwork ? (
-                    <img
+                    <GlitchImage
+                      variant="artwork"
+                      wrapperClassName="pcGlitchImage--outsideFx"
                       className="pcShowArtworkCover"
                       src={showArtwork}
                       alt={`${showTitleRaw} cover art`}
                       loading="lazy"
                     />
                   ) : (
-                    <span className="material-symbols-outlined pcShowArtworkIcon">history_edu</span>
+                    <span className="material-symbols-outlined pcShowArtworkIcon">
+                      history_edu
+                    </span>
                   )}
                 </div>
               </div>
@@ -378,7 +424,11 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                     ))}
                   </div>
                   <span className="pcShowNetwork">
-                    <ScrambleText text={showNetworkLabel} durationMs={850} delayMs={180} />
+                    <ScrambleText
+                      text={showNetworkLabel}
+                      durationMs={850}
+                      delayMs={180}
+                    />
                   </span>
                 </div>
                 <h2 ref={nowTitleRef} className="pcShowTitle">
@@ -413,7 +463,11 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                 <div className="pcSectionTitle">
                   <ScrambleText text="Archive Records" durationMs={840} />
                   <span className="pcSectionTag">
-                    <ScrambleText text={sectionTagLabel} durationMs={850} delayMs={260} />
+                    <ScrambleText
+                      text={sectionTagLabel}
+                      durationMs={850}
+                      delayMs={260}
+                    />
                   </span>
                 </div>
                 <div className="pcSectionTools">
@@ -466,7 +520,9 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                 }
                 hasEpisodes={isShowInfoLoading || episodes.length > 0}
               />
-              {!isShowInfoLoading && rssError ? <div className="pcError">{rssError}</div> : null}
+              {!isShowInfoLoading && rssError ? (
+                <div className="pcError">{rssError}</div>
+              ) : null}
             </section>
           ) : null}
         </div>

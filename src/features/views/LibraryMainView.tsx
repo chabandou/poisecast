@@ -8,6 +8,7 @@ import {
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
 import type { LibraryFeedViewItem } from '../feeds/useFeedPresentationModel'
 import { ScrambleText } from '../system/ScrambleText'
+import { GlitchImage } from '../../ui/GlitchImage'
 
 type LibrarySortMode = 'updated' | 'alpha' | 'count'
 
@@ -45,7 +46,11 @@ export const LibraryMainView = memo(function LibraryMainView({
               <ScrambleText text="Archive Node" durationMs={820} />
             </span>
             <span className="pcLibraryId">
-              <ScrambleText text="/// USER_COLLECTION_001" durationMs={860} delayMs={70} />
+              <ScrambleText
+                text="/// USER_COLLECTION_001"
+                durationMs={860}
+                delayMs={70}
+              />
             </span>
           </div>
           <p className="pcLibrarySubtitle">
@@ -65,7 +70,9 @@ export const LibraryMainView = memo(function LibraryMainView({
             <select
               className="pcLibrarySelect"
               value={librarySortMode}
-              onChange={(event) => setLibrarySortMode(event.target.value as LibrarySortMode)}
+              onChange={(event) =>
+                setLibrarySortMode(event.target.value as LibrarySortMode)
+              }
             >
               <option value="updated">Last Updated</option>
               <option value="alpha">Alphabetical</option>
@@ -75,20 +82,34 @@ export const LibraryMainView = memo(function LibraryMainView({
           <div className="pcLibraryFilters">
             <span className="pcLibraryLabel">Filter:</span>
             <div className="pcLibraryFilterButtons">
-              <button className="pcLibraryFilterButton active" disabled aria-disabled="true">
+              <button
+                className="pcLibraryFilterButton active"
+                disabled
+                aria-disabled="true"
+              >
                 All
               </button>
-              <button className="pcLibraryFilterButton" disabled aria-disabled="true">
+              <button
+                className="pcLibraryFilterButton"
+                disabled
+                aria-disabled="true"
+              >
                 Unplayed
               </button>
-              <button className="pcLibraryFilterButton" disabled aria-disabled="true">
+              <button
+                className="pcLibraryFilterButton"
+                disabled
+                aria-disabled="true"
+              >
                 Downloaded
               </button>
             </div>
           </div>
         </div>
         <div className="pcLibrarySearch">
-          <span className="material-symbols-outlined pcLibrarySearchIcon">search</span>
+          <span className="material-symbols-outlined pcLibrarySearchIcon">
+            search
+          </span>
           <input
             className="pcLibrarySearchInput"
             type="text"
@@ -102,6 +123,8 @@ export const LibraryMainView = memo(function LibraryMainView({
       <div className="pcLibraryGrid pcStaggerList" ref={libraryGridRef}>
         {libraryFeedsView.length > 0 ? (
           libraryFeedsView.map((feed, index) => {
+            const cardRevealDelayMs = 220 + index * 118
+            const imageStartDelayMs = Math.min(cardRevealDelayMs + 260, 1960)
             return (
               <div
                 key={feed.rssUrl}
@@ -110,6 +133,7 @@ export const LibraryMainView = memo(function LibraryMainView({
                 style={
                   {
                     '--pc-stagger-index': `${index}`,
+                    '--pc-library-reveal-delay': `${cardRevealDelayMs}ms`,
                   } as CSSProperties
                 }
                 onClick={() => onSelectFeed(feed)}
@@ -127,7 +151,10 @@ export const LibraryMainView = memo(function LibraryMainView({
                 <div className="pcLibraryCardImageContainer">
                   <div className="pcLibraryCardOverlay"></div>
                   {feed.imageUrl ? (
-                    <img
+                    <GlitchImage
+                      variant="card"
+                      wrapperClassName="pcGlitchImage--outsideFx"
+                      startDelayMs={imageStartDelayMs}
                       src={feed.imageUrl}
                       alt={`${feed.title} cover art`}
                       loading="lazy"
@@ -140,7 +167,9 @@ export const LibraryMainView = memo(function LibraryMainView({
                     />
                   ) : (
                     <div className="pcLibraryCardPlaceholder">
-                      <span className="material-symbols-outlined">history_edu</span>
+                      <span className="material-symbols-outlined">
+                        history_edu
+                      </span>
                     </div>
                   )}
                 </div>
@@ -148,7 +177,9 @@ export const LibraryMainView = memo(function LibraryMainView({
             )
           })
         ) : (
-          <div className="pcEmpty">No sources match "{libraryQuery.trim()}".</div>
+          <div className="pcEmpty">
+            No sources match "{libraryQuery.trim()}".
+          </div>
         )}
       </div>
     </div>

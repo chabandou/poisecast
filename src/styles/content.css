@@ -446,7 +446,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 120ms ease;
 }
 
@@ -866,7 +866,7 @@
   aspect-ratio: 1;
   border: 1px solid var(--pc-border-active);
   background: var(--pc-surface);
-  overflow: hidden;
+  overflow: visible;
   transition: all 120ms ease;
 }
 

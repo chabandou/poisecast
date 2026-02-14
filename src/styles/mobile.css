@@ -931,7 +931,7 @@
   background: var(--pc-surface);
   border: 2px solid var(--pc-border-active);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 0 40px -8px rgba(0, 0, 0, 0.8);
 }
 
@@ -1708,7 +1708,7 @@
   background: var(--pc-surface);
   border: 1px solid var(--pc-border-subtle);
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   cursor: pointer;
   width: 200px;
@@ -1740,7 +1740,8 @@
   height: 100%;
   background: var(--pc-background-base);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  border-radius: inherit;
 }
 
 .pcLibraryCardOverlay {
@@ -1753,6 +1754,7 @@
   align-items: center;
   justify-content: center;
   z-index: 10;
+  border-radius: inherit;
 }
 
 .pcLibraryCard:hover .pcLibraryCardOverlay {
@@ -1772,6 +1774,7 @@
   align-items: center;
   justify-content: center;
   background: #181818;
+  border-radius: inherit;
 }
 
 .pcLibraryCardPlaceholder .material-symbols-outlined {

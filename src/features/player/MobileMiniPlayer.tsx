@@ -1,4 +1,10 @@
-import { memo, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import {
+  memo,
+  type KeyboardEvent,
+  type PointerEvent,
+  type RefObject,
+} from 'react'
+import { GlitchImage } from '../../ui/GlitchImage'
 import { formatClock } from './playbackMath'
 import { useAudioTimeline } from './useAudioTimeline'
 
@@ -60,7 +66,11 @@ export const MobileMiniPlayer = memo(function MobileMiniPlayer({
       <div className="pcMobileMiniPlayer">
         <div className="pcMobileMiniPlayerArtwork">
           {nowPlayingArtworkUrl ? (
-            <img src={nowPlayingArtworkUrl} alt="Now playing" />
+            <GlitchImage
+              variant="mini"
+              src={nowPlayingArtworkUrl}
+              alt="Now playing"
+            />
           ) : (
             <div
               style={{
@@ -90,7 +100,9 @@ export const MobileMiniPlayer = memo(function MobileMiniPlayer({
             type="button"
             className={`pcMobileMiniPlayerControlButton pcMobileMiniPlayerProcessBtn ${denoiseEnabled ? 'on' : ''}`}
             disabled={!hasEpisode || !modelSupported || isProcessingStarting}
-            aria-label={denoiseEnabled ? 'Disable processing' : 'Enable processing'}
+            aria-label={
+              denoiseEnabled ? 'Disable processing' : 'Enable processing'
+            }
             title={footerProcessTooltip}
             onClick={() => void toggleDenoise(!denoiseEnabled)}
           >
