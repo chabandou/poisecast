@@ -1,0 +1,226 @@
+/* Startup choreography for desktop shell entry. */
+html.pcBooting .pcApp:not(.isMobile) .pcHeader {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.995);
+  filter: blur(6px);
+}
+
+html.pcBooting .pcApp:not(.isMobile) .pcShell > .pcSidebar {
+  opacity: 0;
+  transform: translateX(-24px);
+  filter: blur(8px);
+}
+
+html.pcBooting .pcApp:not(.isMobile) .pcMain {
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(8px);
+}
+
+html.pcBooting .pcApp:not(.isMobile) .pcBackdrop {
+  opacity: 0;
+}
+
+html.pcBootComplete .pcApp:not(.isMobile) .pcHeader {
+  animation: pcBootHeaderIn 430ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+
+html.pcBootComplete .pcApp:not(.isMobile) .pcShell > .pcSidebar {
+  animation: pcBootSidebarIn 500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms both;
+}
+
+html.pcBootComplete .pcApp:not(.isMobile) .pcMain {
+  animation: pcBootMainIn 560ms cubic-bezier(0.22, 1, 0.36, 1) 420ms both;
+}
+
+html.pcBootComplete .pcApp:not(.isMobile) .pcBackdrop {
+  animation: pcBootBackdropIn 580ms ease-out 300ms both;
+}
+
+html.pcBootComplete .pcApp:not(.isMobile)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(0, 229, 255, 0.24) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: pcBootScanPass 560ms ease-out 220ms both;
+}
+
+/* Mobile boot sequence: lighter but still staged. */
+html.pcBooting .pcApp.isMobile .pcMobileStatus {
+  opacity: 0;
+  transform: translateY(-14px);
+  filter: blur(6px);
+}
+
+html.pcBooting .pcApp.isMobile .pcMain {
+  opacity: 0;
+  transform: translateY(16px);
+  filter: blur(6px);
+}
+
+html.pcBooting .pcApp.isMobile .pcMobileFixedBottom:not(.isHidden),
+html.pcBooting .pcApp.isMobile .pcMobileNav {
+  opacity: 0;
+  transform: translateY(18px);
+  filter: blur(4px);
+}
+
+html.pcBootComplete .pcApp.isMobile .pcMobileStatus {
+  animation: pcBootMobileStatusIn 360ms cubic-bezier(0.22, 1, 0.36, 1) 70ms
+    both;
+}
+
+html.pcBootComplete .pcApp.isMobile .pcMain {
+  animation: pcBootMobileMainIn 430ms cubic-bezier(0.22, 1, 0.36, 1) 210ms both;
+}
+
+html.pcBootComplete .pcApp.isMobile .pcMobileFixedBottom:not(.isHidden) {
+  animation: pcBootMobileBottomIn 400ms cubic-bezier(0.22, 1, 0.36, 1) 330ms
+    both;
+}
+
+html.pcBootComplete .pcApp.isMobile .pcMobileNav {
+  animation: pcBootMobileBottomIn 430ms cubic-bezier(0.22, 1, 0.36, 1) 390ms
+    both;
+}
+
+html.pcBootComplete .pcApp.isMobile .pcBackdrop {
+  animation: pcBootBackdropIn 500ms ease-out 220ms both;
+}
+
+@keyframes pcBootHeaderIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.995);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootSidebarIn {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootMainIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootMobileStatusIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootMobileMainIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootMobileBottomIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes pcBootBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.05;
+  }
+}
+
+@keyframes pcBootScanPass {
+  from {
+    opacity: 0.75;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pcBooting .pcApp .pcHeader,
+  html.pcBooting .pcApp .pcMobileStatus,
+  html.pcBooting .pcApp .pcShell > .pcSidebar,
+  html.pcBooting .pcApp .pcMain,
+  html.pcBooting .pcApp .pcMobileFixedBottom,
+  html.pcBooting .pcApp .pcMobileNav,
+  html.pcBooting .pcApp .pcBackdrop {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  html.pcBootComplete .pcApp .pcHeader,
+  html.pcBootComplete .pcApp .pcMobileStatus,
+  html.pcBootComplete .pcApp .pcShell > .pcSidebar,
+  html.pcBootComplete .pcApp .pcMain,
+  html.pcBootComplete .pcApp .pcMobileFixedBottom,
+  html.pcBootComplete .pcApp .pcMobileNav,
+  html.pcBootComplete .pcApp .pcBackdrop {
+    animation: none !important;
+  }
+
+  html.pcBootComplete .pcApp::after {
+    display: none !important;
+    animation: none !important;
+  }
+}

@@ -1,6 +1,13 @@
-import { memo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import {
+  memo,
+  type CSSProperties,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react'
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
 import type { LibraryFeedViewItem } from '../feeds/useFeedPresentationModel'
+import { ScrambleText } from '../system/ScrambleText'
 
 type LibrarySortMode = 'updated' | 'alpha' | 'count'
 
@@ -30,15 +37,23 @@ export const LibraryMainView = memo(function LibraryMainView({
   if (!isVisible) return null
 
   return (
-    <div className="pcLibraryScreen">
+    <div className="pcLibraryScreen pcViewSurface pcViewSurfaceLibrary">
       <div className="pcLibraryHeader">
         <div className="pcLibraryHeaderContent">
           <div className="pcLibraryHeaderBadges">
-            <span className="pcLibraryBadge">Archive Node</span>
-            <span className="pcLibraryId">/// USER_COLLECTION_001</span>
+            <span className="pcLibraryBadge">
+              <ScrambleText text="Archive Node" durationMs={820} />
+            </span>
+            <span className="pcLibraryId">
+              <ScrambleText text="/// USER_COLLECTION_001" durationMs={860} delayMs={70} />
+            </span>
           </div>
           <p className="pcLibrarySubtitle">
-            Synchronized Database / {libraryFeedsCount} Active Subscriptions
+            <ScrambleText
+              text={`Synchronized Database / ${libraryFeedsCount} Active Subscriptions`}
+              durationMs={900}
+              delayMs={120}
+            />
           </p>
         </div>
       </div>
@@ -84,14 +99,19 @@ export const LibraryMainView = memo(function LibraryMainView({
         </div>
       </div>
 
-      <div className="pcLibraryGrid" ref={libraryGridRef}>
+      <div className="pcLibraryGrid pcStaggerList" ref={libraryGridRef}>
         {libraryFeedsView.length > 0 ? (
-          libraryFeedsView.map((feed) => {
+          libraryFeedsView.map((feed, index) => {
             return (
               <div
                 key={feed.rssUrl}
-                className="pcLibraryCard"
+                className="pcLibraryCard pcStaggerItem"
                 data-rss-url={feed.rssUrl}
+                style={
+                  {
+                    '--pc-stagger-index': `${index}`,
+                  } as CSSProperties
+                }
                 onClick={() => onSelectFeed(feed)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {

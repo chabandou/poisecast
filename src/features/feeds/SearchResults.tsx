@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type CSSProperties } from 'react'
 import type { ApplePodcastResult } from '../../podcasts/appleSearch'
 
 type SearchResultsProps = {
@@ -16,14 +16,19 @@ export const SearchResults = memo(function SearchResults({
 }: SearchResultsProps) {
   if (!results.length) return null
   return (
-    <div className="pcSearchResults">
-      {results.map((result) => {
+    <div className="pcSearchResults pcStaggerList">
+      {results.map((result, index) => {
         const isLoading = Boolean(loadingFeedUrl) && result.feedUrl === loadingFeedUrl
         return (
           <button
             key={result.collectionId}
-            className={`pcSearchItem pcChamfer ${isLoading ? 'isLoading' : ''}`}
+            className={`pcSearchItem pcChamfer pcStaggerItem ${isLoading ? 'isLoading' : ''}`}
             disabled={!result.feedUrl || rssLoading || isLoading}
+            style={
+              {
+                '--pc-stagger-index': `${index}`,
+              } as CSSProperties
+            }
             title={result.feedUrl ? result.feedUrl : 'No RSS URL provided by Apple for this result'}
             onClick={() => {
               if (!result.feedUrl) return

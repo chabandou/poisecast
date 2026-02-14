@@ -44,6 +44,6 @@ fi
 "${PW[@]}" run-code "async (page) => { await page.route('**/*.css', (route) => route.abort()); }" >/dev/null
 "${PW[@]}" goto "$BASE_URL" >/dev/null
 "${PW[@]}" run-code "async (page) => { const bg = await page.evaluate(() => (document.body ? getComputedStyle(document.body).backgroundColor : 'no-body')); if (bg !== 'rgb(18, 18, 18)') throw new Error('Expected body background rgb(18, 18, 18), got ' + bg); await page.screenshot({ path: 'output/playwright/first-paint-no-css.png', fullPage: true }); }"
-"${PW[@]}" run-code "async (page) => { await page.unroute('**/*.css'); await page.reload(); await page.waitForSelector('.pcApp'); await page.screenshot({ path: 'output/playwright/first-paint-normal.png', fullPage: true }); }"
+"${PW[@]}" run-code "async (page) => { await page.unroute('**/*.css'); await page.reload(); await page.waitForSelector('.pcApp'); await page.screenshot({ path: 'output/playwright/first-paint-normal.png', fullPage: true }); await page.waitForFunction(() => document.documentElement.classList.contains('pcBootComplete'), { timeout: 4500 }).catch(() => undefined); await page.screenshot({ path: 'output/playwright/first-paint-boot-complete.png', fullPage: true }); }"
 
 echo "First-paint visual check passed: $BASE_URL"

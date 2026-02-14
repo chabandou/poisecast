@@ -9,7 +9,7 @@ export const EpisodeList = memo(function EpisodeList({ items, hasEpisodes }: Epi
   return (
     <div className="pcEpisodeList">
       <table>
-        <tbody>{items}</tbody>
+        <tbody className="pcStaggerList">{items}</tbody>
       </table>
       {!hasEpisodes ? <div className="pcEmpty">No episodes. Load a feed.</div> : null}
     </div>

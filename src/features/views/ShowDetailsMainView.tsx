@@ -1,4 +1,10 @@
-import { memo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import {
+  memo,
+  type CSSProperties,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
 import { ScrambleText } from '../system/ScrambleText'
 import { EpisodeList } from '../player/EpisodeList'
@@ -69,11 +75,64 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
   rssError,
 }: ShowDetailsMainViewProps) {
   if (!isMobileShowDetailsView && !isDesktopShowDetailsView) return null
+  const desktopEpisodeSkeletonRows = Array.from({ length: 6 }, (_, index) => (
+    <tr
+      key={`desktop-episode-skeleton-${index}`}
+      className="pcEpisodeItem pcEpisodeItemSkeleton pcStaggerItem"
+      style={
+        {
+          '--pc-stagger-index': `${index}`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <td>
+        <div className="pcEpisodeIcon pcSkeletonBlock" />
+      </td>
+      <td>
+        <div className="pcEpisodeBody">
+          <div className="pcEpisodeTitle pcSkeletonLine pcSkeletonW70" />
+          <div className="pcEpisodeMeta">
+            <span className="pcSkeletonLine pcSkeletonW22" />
+            <span className="pcMetaSeparator">|</span>
+            <span className="pcSkeletonLine pcSkeletonW18" />
+          </div>
+        </div>
+      </td>
+      <td style={{ textAlign: 'right' }}>
+        <span className="pcEpisodeSize pcSkeletonLine pcSkeletonW25" />
+      </td>
+    </tr>
+  ))
+
+  const mobileEpisodeSkeletonCards = Array.from({ length: 4 }, (_, index) => (
+    <div
+      key={`mobile-episode-skeleton-${index}`}
+      className="pcMobileEpisodeCard pcMobileEpisodeCardSkeleton pcStaggerItem"
+      style={
+        {
+          '--pc-stagger-index': `${index}`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <div className="pcMobileEpisodeContent">
+        <span className="pcMobileEpisodeNumber pcSkeletonLine pcSkeletonW24" />
+        <h4 className="pcMobileEpisodeTitle pcSkeletonLine pcSkeletonW78" />
+        <p className="pcMobileEpisodeDescription pcSkeletonLine pcSkeletonW92" />
+        <div className="pcMobileEpisodeMeta">
+          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonW18" />
+          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonW24" />
+        </div>
+      </div>
+      <span className="pcMobileEpisodePlayButton pcSkeletonBlock" />
+    </div>
+  ))
 
   return (
     <>
       {isMobileShowDetailsView ? (
-        <>
+        <div className="pcViewSurface pcViewSurfaceShowDetails">
           <header className="pcMobileShowDetailsHeader">
             <button
               type="button"
@@ -82,7 +141,9 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
-            <h1 className="pcMobileHeaderTitle">Show Details</h1>
+            <h1 className="pcMobileHeaderTitle">
+              <ScrambleText text="Show Details" durationMs={800} />
+            </h1>
             <button type="button" className="pcMobileHeaderButton">
               <span className="material-symbols-outlined">share</span>
             </button>
@@ -211,12 +272,20 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                   SORT: {episodeReverse ? 'OLDEST_FIRST' : 'NEWEST_FIRST'}
                 </span>
               </div>
-              <div className="pcMobileEpisodeList">
+              <div className="pcMobileEpisodeList pcStaggerList">
                 {isShowInfoLoading ? (
-                  <div className="pcItemStatus pcLoadingText">LOADING EPISODES...</div>
+                  <div className="pcStaggerList">{mobileEpisodeSkeletonCards}</div>
                 ) : (
                   mobileVisibleEpisodes.map((episode, index) => (
-                    <div key={episode.guid} className="pcMobileEpisodeCard">
+                    <div
+                      key={episode.guid}
+                      className="pcMobileEpisodeCard pcStaggerItem"
+                      style={
+                        {
+                          '--pc-stagger-index': `${index}`,
+                        } as CSSProperties
+                      }
+                    >
                       <div className="pcMobileEpisodeContent">
                         <span className="pcMobileEpisodeNumber">EP_{episodes.length - index}</span>
                         <h4 className="pcMobileEpisodeTitle">{episode.title}</h4>
@@ -262,11 +331,11 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               ) : null}
             </section>
           </div>
-        </>
+        </div>
       ) : null}
 
       {isDesktopShowDetailsView ? (
-        <>
+        <div className="pcViewSurface pcViewSurfaceShowDetails">
           <section className="pcShowDetails">
             <div className="pcShowDetailsInner">
               <div className="pcShowArtwork">
@@ -342,7 +411,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
             <section className="pcEpisodes pcChamfer">
               <div className="pcSectionHead">
                 <div className="pcSectionTitle">
-                  Archive Records
+                  <ScrambleText text="Archive Records" durationMs={840} />
                   <span className="pcSectionTag">
                     <ScrambleText text={sectionTagLabel} durationMs={850} delayMs={260} />
                   </span>
@@ -385,15 +454,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               <EpisodeList
                 items={
                   isShowInfoLoading ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="pcItemStatus pcLoadingText"
-                        style={{ padding: '20px' }}
-                      >
-                        LOADING EPISODES...
-                      </td>
-                    </tr>
+                    desktopEpisodeSkeletonRows
                   ) : (
                     <EpisodeRows
                       episodes={episodes}
@@ -408,7 +469,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               {!isShowInfoLoading && rssError ? <div className="pcError">{rssError}</div> : null}
             </section>
           ) : null}
-        </>
+        </div>
       ) : null}
     </>
   )

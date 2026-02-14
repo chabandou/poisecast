@@ -1,6 +1,7 @@
-import { memo, type MutableRefObject } from 'react'
+import { memo, type CSSProperties, type MutableRefObject } from 'react'
 import type { ApplePodcastResult } from '../../podcasts/appleSearch'
 import { SearchResults } from '../feeds/SearchResults'
+import { ScrambleText } from '../system/ScrambleText'
 
 export type DiscoverMainViewProps = {
   isVisible: boolean
@@ -33,8 +34,28 @@ export const DiscoverMainView = memo(function DiscoverMainView({
 }: DiscoverMainViewProps) {
   if (!isVisible) return null
 
+  const loadingSkeletonCards = Array.from({ length: 5 }, (_, index) => (
+    <div
+      key={`discover-skeleton-${index}`}
+      className="pcSearchItem pcSearchItemSkeleton pcChamfer pcStaggerItem"
+      style={
+        {
+          '--pc-stagger-index': `${index}`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <div className="pcSearchItemTitle pcSkeletonLine pcSkeletonW70" />
+      <div className="pcSearchItemMeta">
+        <span className="pcPill pcSkeletonLine pcSkeletonW30" />
+        <span className="pcPill pcSkeletonLine pcSkeletonW20" />
+      </div>
+      <div className="pcMonoUrl pcSkeletonLine pcSkeletonW90" />
+    </div>
+  ))
+
   return (
-            <div className="pcDiscoverScreen">
+            <div className="pcDiscoverScreen pcViewSurface pcViewSurfaceDiscover">
               <div className="pcDiscoverSearch">
                 <div className="pcDiscoverSearchInner">
                   <span className="material-symbols-outlined pcDiscoverSearchIcon">
@@ -53,15 +74,11 @@ export const DiscoverMainView = memo(function DiscoverMainView({
 
               {hasSearchQuery ? (
                 <div className="pcDiscoverContent">
-                  {searchLoading ? (
-                    <div className="pcItemStatus pcLoadingText">
-                      SEARCHING PODCASTS…
-                    </div>
-                  ) : null}
+                  {searchLoading ? <div className="pcSearchResults pcStaggerList">{loadingSkeletonCards}</div> : null}
                   {searchError ? (
                     <div className="pcInlineError">{searchError}</div>
                   ) : null}
-                  {!searchError ? (
+                  {!searchLoading && !searchError ? (
                     <SearchResults
                       results={searchResults}
                       rssLoading={rssLoading}
@@ -89,16 +106,20 @@ export const DiscoverMainView = memo(function DiscoverMainView({
                   <div className="pcDiscoverHeroContent">
                     <div className="pcDiscoverHeroHeader">
                       <span className="pcDiscoverHeroBadge">
-                        Featured Intel
+                        <ScrambleText text="Featured Intel" durationMs={820} />
                       </span>
                       <span className="pcDiscoverHeroPriority">
-                        /// PRIORITY_STREAM: 098
+                        <ScrambleText
+                          text="/// PRIORITY_STREAM: 098"
+                          durationMs={850}
+                          delayMs={80}
+                        />
                       </span>
                     </div>
                     <h2 className="pcDiscoverHeroTitle">
-                      NEURAL{" "}
+                      <ScrambleText text="NEURAL" durationMs={900} />{" "}
                       <span className="pcDiscoverHeroTitleAccent">
-                        OVERRIDE
+                        <ScrambleText text="OVERRIDE" durationMs={900} delayMs={120} />
                       </span>
                     </h2>
                     <p className="pcDiscoverHeroDesc">
@@ -125,7 +146,9 @@ export const DiscoverMainView = memo(function DiscoverMainView({
                 <div className="pcDiscoverSection">
                   <div className="pcDiscoverSectionHeader">
                     <div className="pcDiscoverSectionTitle">
-                      <span>Trending Data</span>
+                      <span>
+                        <ScrambleText text="Trending Data" durationMs={760} />
+                      </span>
                       <span className="pcDiscoverSectionLive">
                         LIVE_TRAFFIC
                       </span>
@@ -291,7 +314,9 @@ export const DiscoverMainView = memo(function DiscoverMainView({
                 <div className="pcDiscoverSection">
                   <div className="pcDiscoverSectionHeader">
                     <div className="pcDiscoverSectionTitle">
-                      <span>New Signals</span>
+                      <span>
+                        <ScrambleText text="New Signals" durationMs={760} delayMs={60} />
+                      </span>
                       <span className="pcDiscoverSectionTag">
                         RECENT_UPLINK
                       </span>

@@ -1,0 +1,253 @@
+/* View transitions */
+.pcViewHost {
+  position: relative;
+}
+
+.pcViewSurface {
+  animation: pcViewInUp var(--pc-motion-slow) var(--pc-ease-standard) both;
+  will-change: transform, opacity;
+}
+
+.pcViewSurfaceLibrary {
+  animation-name: pcViewInLeft;
+}
+
+.pcViewSurfaceDiscover {
+  animation-name: pcViewInRight;
+}
+
+@keyframes pcViewInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pcViewInLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pcViewInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Staggered list reveal */
+.pcStaggerList .pcStaggerItem {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  animation: pcStaggerItemIn var(--pc-motion-slow) var(--pc-ease-standard) both;
+  animation-delay: calc(var(--pc-stagger-index, 0) * 34ms);
+}
+
+@keyframes pcStaggerItemIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Skeletons */
+.pcSourceItemSkeleton,
+.pcSearchItemSkeleton,
+.pcEpisodeItemSkeleton,
+.pcMobileEpisodeCardSkeleton {
+  pointer-events: none;
+  cursor: default;
+}
+
+.pcSkeletonLine,
+.pcSkeletonBlock {
+  display: inline-block;
+  color: transparent !important;
+  background: rgba(148, 163, 184, 0.16);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  min-height: 0.9em;
+}
+
+.pcSkeletonBlock {
+  min-height: 24px;
+}
+
+.pcSkeletonLine::after,
+.pcSkeletonBlock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.24) 50%,
+    transparent 100%
+  );
+  animation: pcSkeletonSweep 1.2s linear infinite;
+}
+
+.pcSkeletonW18 {
+  width: 18%;
+}
+
+.pcSkeletonW20 {
+  width: 20%;
+}
+
+.pcSkeletonW22 {
+  width: 22%;
+}
+
+.pcSkeletonW24 {
+  width: 24%;
+}
+
+.pcSkeletonW25 {
+  width: 25%;
+}
+
+.pcSkeletonW30 {
+  width: 30%;
+}
+
+.pcSkeletonW70 {
+  width: 70%;
+}
+
+.pcSkeletonW78 {
+  width: 78%;
+}
+
+.pcSkeletonW85 {
+  width: 85%;
+}
+
+.pcSkeletonW90 {
+  width: 90%;
+}
+
+.pcSkeletonW92 {
+  width: 92%;
+}
+
+.pcEpisodeItemSkeleton .pcEpisodeIcon {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: transparent;
+}
+
+.pcEpisodeItemSkeleton .pcEpisodeMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcSearchItemSkeleton .pcPill {
+  border-color: transparent;
+}
+
+.pcMobileEpisodeCardSkeleton .pcMobileEpisodePlayButton {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(8, 10, 14, 0.45);
+}
+
+.pcMobileEpisodeCardSkeleton .pcMobileEpisodeDescription {
+  min-height: 2.2em;
+}
+
+@keyframes pcSkeletonSweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Micro interactions */
+.pcSortBtn {
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease,
+    transform var(--pc-motion-fast) var(--pc-ease-soft);
+}
+
+.pcApp.isMobile .pcMobileMiniPlayerControlButton {
+  transition:
+    transform var(--pc-motion-fast) var(--pc-ease-soft),
+    color var(--pc-motion-fast) var(--pc-ease-soft),
+    opacity var(--pc-motion-fast) var(--pc-ease-soft);
+}
+
+.pcAddSourceBtn,
+.pcSortBtn,
+.pcDiscoverHeroBtn,
+.pcDiscoverHeroBtnSecondary,
+.pcNavigationItem,
+.pcSourceItem,
+.pcSearchItem,
+.pcFooterControlBtn,
+.pcFooterPlayBtn,
+.pcPlay,
+.pcSkip,
+.pcBtn,
+.pcApp.isMobile .pcMobileEpisodePlayButton,
+.pcApp.isMobile .pcMobileFollowButton,
+.pcApp.isMobile .pcMobileDownloadButton,
+.pcApp.isMobile .pcMobileMiniPlayerControlButton,
+.pcApp.isMobile .pcMobileLoadMoreButton {
+  will-change: transform;
+}
+
+.pcAddSourceBtn:active:not(:disabled),
+.pcSortBtn:active:not(:disabled),
+.pcDiscoverHeroBtn:active:not(:disabled),
+.pcDiscoverHeroBtnSecondary:active:not(:disabled),
+.pcNavigationItem:active:not(:disabled),
+.pcSourceItem:active:not(:disabled),
+.pcSearchItem:active:not(:disabled),
+.pcFooterControlBtn:active:not(:disabled),
+.pcFooterPlayBtn:active:not(:disabled),
+.pcPlay:active:not(:disabled),
+.pcSkip:active:not(:disabled),
+.pcBtn:active:not(:disabled),
+.pcApp.isMobile .pcMobileEpisodePlayButton:active:not(:disabled),
+.pcApp.isMobile .pcMobileFollowButton:active:not(:disabled),
+.pcApp.isMobile .pcMobileDownloadButton:active:not(:disabled),
+.pcApp.isMobile .pcMobileMiniPlayerControlButton:active:not(:disabled),
+.pcApp.isMobile .pcMobileLoadMoreButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcViewSurface,
+  .pcStaggerList .pcStaggerItem,
+  .pcSkeletonLine::after,
+  .pcSkeletonBlock::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

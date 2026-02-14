@@ -23,6 +23,13 @@
   --pc-status-h: 36px;
   --pc-nav-h: 66px;
   --pc-section-top: 12px;
+  --pc-motion-fast: 140ms;
+  --pc-motion-base: 220ms;
+  --pc-motion-slow: 360ms;
+  --pc-motion-progress: 220ms;
+  --pc-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --pc-ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --pc-ease-spring-soft: cubic-bezier(0.34, 1.56, 0.64, 1);
   --pc-font-display: "Inter", sans-serif;
   --pc-font-body: "Inter", sans-serif;
   --pc-font-mono:

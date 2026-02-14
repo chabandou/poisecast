@@ -20,7 +20,7 @@ export function AppMainContent({
   desktopFooterProps,
 }: AppMainContentProps) {
   return (
-    <main className="pcMain">
+    <main className="pcMain pcViewHost">
       <ShowDetailsMainView {...showDetailsProps} />
       <LibraryMainView {...libraryProps} />
       <DiscoverMainView {...discoverProps} />

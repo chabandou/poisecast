@@ -8,3 +8,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 )
+
+if (typeof window !== 'undefined') {
+  window.requestAnimationFrame(() => {
+    window.dispatchEvent(new CustomEvent('pc:react-mounted'))
+  })
+}

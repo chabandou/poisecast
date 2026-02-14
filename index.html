@@ -20,6 +20,145 @@
         background: #121212;
         color: #f8fafc;
       }
+
+      .pcBootLoader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        padding: 12px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.08), transparent 42%),
+          radial-gradient(circle at 78% 82%, rgba(255, 255, 255, 0.06), transparent 48%),
+          #050505;
+        color: #8ce8f2;
+        font-family:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-variant-ligatures: none;
+        font-feature-settings: "liga" 0;
+        letter-spacing: 0.07em;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition:
+          opacity 280ms ease,
+          visibility 280ms ease;
+      }
+
+      .pcBootLoader.isExiting {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .pcBootLoader::before,
+      .pcBootLoader::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .pcBootLoader::before {
+        background:
+          repeating-linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.075) 0,
+            rgba(255, 255, 255, 0.075) 1px,
+            transparent 1px,
+            transparent 3px
+          );
+        mix-blend-mode: screen;
+        opacity: 0.14;
+      }
+
+      .pcBootLoader::after {
+        background:
+          linear-gradient(
+            114deg,
+            transparent 0%,
+            transparent 42%,
+            rgba(0, 229, 255, 0.16) 50%,
+            transparent 58%,
+            transparent 100%
+          );
+        transform: translateX(-90%);
+        animation: pcBootSweep 1700ms linear infinite;
+        opacity: 0.35;
+      }
+
+      .pcBootLoaderCore {
+        position: relative;
+        z-index: 1;
+        box-sizing: border-box;
+        width: min(620px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+        padding: clamp(14px, 3.8vw, 20px) clamp(14px, 4.5vw, 24px);
+        border: 1px solid rgba(140, 232, 242, 0.26);
+        border-radius: 2px;
+        background: rgba(4, 10, 14, 0.62);
+        box-shadow: 0 0 26px rgba(0, 229, 255, 0.15);
+        overflow: hidden;
+      }
+
+      .pcBootLoaderLine {
+        margin: 0;
+        font-size: clamp(9px, 2.7vw, 11px);
+        text-transform: uppercase;
+        color: rgba(140, 232, 242, 0.74);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pcBootLoaderAscii {
+        margin: 12px 0 0;
+        min-height: 1.4em;
+        font-size: clamp(10px, 3vw, 12px);
+        color: #f8fafc;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pcBootLoaderCursor {
+        display: inline-block;
+        margin-left: 6px;
+        animation: pcBootCursorBlink 760ms steps(1, end) infinite;
+      }
+
+      @keyframes pcBootCursorBlink {
+        0%,
+        48% {
+          opacity: 1;
+        }
+        49%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pcBootSweep {
+        from {
+          transform: translateX(-90%);
+        }
+        to {
+          transform: translateX(90%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .pcBootLoader,
+        .pcBootLoader::after,
+        .pcBootLoaderCursor {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -33,7 +172,177 @@
     />
   </head>
   <body>
+    <div id="pcBootLoader" class="pcBootLoader" aria-hidden="true">
+      <div class="pcBootLoaderCore">
+        <p class="pcBootLoaderLine">POISECAST BOOTSTRAP // SYNCHRONIZING SHELL</p>
+        <p id="pcBootText" class="pcBootLoaderAscii">
+          <span id="pcBootTextContent">[ INIT ] LINKING AUDIO MATRIX ...</span
+          ><span class="pcBootLoaderCursor">_</span>
+        </p>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      ;(() => {
+        const bootRoot = document.documentElement
+        bootRoot.classList.add('pcBooting')
+
+        const prefersReducedMotion = window.matchMedia(
+          '(prefers-reduced-motion: reduce)',
+        ).matches
+        const frames = [
+          '[ INIT ] LINKING AUDIO MATRIX ...',
+          '[ INIT ] CHECKING WASM NODES .....',
+          '[ INIT ] STAGING DSP THREADS .....',
+          '[ INIT ] BRINGING UI SHELL ONLINE ',
+          '[ INIT ] CALIBRATING FEED CHANNELS ',
+          '[ INIT ] HANDSHAKE AWAITING RENDER ',
+        ]
+        const scrambleCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&'
+        const scrambleDurationMs = 700
+        const frameIntervalMs = 860
+
+        let frameIndex = 0
+        let frameTimer = null
+        let scrambleRaf = null
+        let scrambleToken = 0
+        let fallbackTimer = null
+        let didFinish = false
+        let didCleanup = false
+        let hasWindowLoaded = document.readyState === 'complete'
+        let hasReactMounted = false
+
+        const markBootComplete = () => {
+          bootRoot.classList.remove('pcBooting')
+          bootRoot.classList.add('pcBootComplete')
+        }
+
+        const cleanupLoader = () => {
+          if (didCleanup) return
+          didCleanup = true
+          const loader = document.getElementById('pcBootLoader')
+          loader?.remove()
+          markBootComplete()
+        }
+
+        const stopAsciiLoop = () => {
+          scrambleToken += 1
+          if (scrambleRaf !== null) {
+            window.cancelAnimationFrame(scrambleRaf)
+            scrambleRaf = null
+          }
+          if (frameTimer !== null) {
+            window.clearTimeout(frameTimer)
+            frameTimer = null
+          }
+        }
+
+        const scrambleToText = (target, nextText) => {
+          const chars = nextText.split('')
+          const reveals = chars.map((ch, i) => {
+            if (!/[A-Za-z0-9]/.test(ch)) return 0
+            const base = i / Math.max(1, chars.length - 1)
+            return Math.min(1, base * 0.65 + Math.random() * 0.35)
+          })
+
+          const token = ++scrambleToken
+          const start = performance.now()
+
+          const tick = (now) => {
+            if (token !== scrambleToken || didFinish || didCleanup) return
+
+            const progress = Math.min(1, (now - start) / scrambleDurationMs)
+            const scrambled = chars
+              .map((ch, i) => {
+                if (!/[A-Za-z0-9]/.test(ch)) return ch
+                if (progress >= (reveals[i] ?? 0)) return ch
+                return scrambleCharset[Math.floor(Math.random() * scrambleCharset.length)]
+              })
+              .join('')
+
+            target.textContent = scrambled
+
+            if (progress < 1) {
+              scrambleRaf = window.requestAnimationFrame(tick)
+              return
+            }
+
+            target.textContent = nextText
+            scrambleRaf = null
+          }
+
+          scrambleRaf = window.requestAnimationFrame(tick)
+        }
+
+        const startAsciiLoop = () => {
+          if (prefersReducedMotion) return
+          const text = document.getElementById('pcBootTextContent')
+          if (!text) return
+
+          text.textContent = ''
+
+          const runFrame = () => {
+            if (didFinish || didCleanup) return
+            const frame = frames[frameIndex]
+            frameIndex = (frameIndex + 1) % frames.length
+            scrambleToText(text, frame)
+            frameTimer = window.setTimeout(runFrame, frameIntervalMs)
+          }
+
+          runFrame()
+        }
+
+        const finishBoot = () => {
+          if (didFinish) return
+          didFinish = true
+          stopAsciiLoop()
+          if (fallbackTimer !== null) {
+            window.clearTimeout(fallbackTimer)
+            fallbackTimer = null
+          }
+
+          const loader = document.getElementById('pcBootLoader')
+          if (!loader) {
+            cleanupLoader()
+            return
+          }
+
+          loader.classList.add('isExiting')
+          loader.addEventListener('transitionend', cleanupLoader, { once: true })
+          window.setTimeout(cleanupLoader, 420)
+        }
+
+        const maybeFinish = () => {
+          if (hasWindowLoaded && hasReactMounted) finishBoot()
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', startAsciiLoop, {
+            once: true,
+          })
+        } else {
+          startAsciiLoop()
+        }
+
+        if (!hasWindowLoaded) {
+          window.addEventListener(
+            'load',
+            () => {
+              hasWindowLoaded = true
+              maybeFinish()
+            },
+            { once: true },
+          )
+        }
+
+        window.addEventListener('pc:react-mounted', () => {
+          hasReactMounted = true
+          maybeFinish()
+        })
+
+        fallbackTimer = window.setTimeout(finishBoot, 4000)
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

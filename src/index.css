@@ -1,6 +1,8 @@
 @import './styles/base.css';
+@import './styles/startup.css';
 @import './styles/header.css';
 @import './styles/shell.css';
 @import './styles/content.css';
 @import './styles/footer.css';
 @import './styles/mobile.css';
+@import './styles/polish.css';

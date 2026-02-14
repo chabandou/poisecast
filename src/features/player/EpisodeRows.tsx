@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type CSSProperties } from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
 
 type EpisodeRowsProps = {
@@ -19,9 +19,14 @@ export const EpisodeRows = memo(function EpisodeRows({
       {episodes.map((episode, index) => (
         <tr
           key={episode.guid}
-          className={`pcEpisodeItem ${activeEpisodeGuid === episode.guid ? 'active' : ''}`}
+          className={`pcEpisodeItem pcStaggerItem ${activeEpisodeGuid === episode.guid ? 'active' : ''}`}
           role="button"
           tabIndex={0}
+          style={
+            {
+              '--pc-stagger-index': `${index}`,
+            } as CSSProperties
+          }
           onClick={() => void onStartEpisode(episode)}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return

@@ -39,4 +39,5 @@ jobs:
           path: |
             output/playwright/first-paint-no-css.png
             output/playwright/first-paint-normal.png
+            output/playwright/first-paint-boot-complete.png
             output/playwright/preview-server.log
