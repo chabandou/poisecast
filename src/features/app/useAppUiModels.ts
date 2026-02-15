@@ -1,4 +1,5 @@
 import {
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -13,6 +14,7 @@ import { useFollowCurrentShowAction } from '../feeds/useFollowCurrentShowAction'
 import type { LibraryFeedStats } from '../feeds/feedUtils'
 import { useLibraryArtworkPrefetch } from '../feeds/useLibraryArtworkPrefetch'
 import { useFooterPresentationModel } from '../player/useFooterPresentationModel'
+import { useMainStartupReady } from '../system/useMainStartupReady'
 
 type UseAppUiModelsOptions = {
   isMobile: boolean
@@ -32,6 +34,7 @@ type UseAppUiModelsOptions = {
   episodesAllCount: number
   episodes: PodcastEpisode[]
   feedImages: Record<string, string>
+  libraryArtworkLoadingByUrl: Record<string, boolean>
   libraryQuery: string
   librarySortMode: LibrarySortMode
   libraryStatsByUrl: Record<string, LibraryFeedStats>
@@ -60,6 +63,7 @@ export function useAppUiModels({
   episodesAllCount,
   episodes,
   feedImages,
+  libraryArtworkLoadingByUrl,
   libraryQuery,
   librarySortMode,
   libraryStatsByUrl,
@@ -69,9 +73,11 @@ export function useAppUiModels({
   commitFollowState,
   setLibraryFeeds,
 }: UseAppUiModelsOptions) {
+  const isMainStartupReady = useMainStartupReady()
   const isShowInfoLoading = !podcast && (rssLoading || Boolean(loadingFeedUrl))
   const searchQuery = searchTerm.trim()
   const hasSearchQuery = searchQuery.length > 0
+  const deferredLibraryQuery = useDeferredValue(libraryQuery)
 
   const {
     footerVolumePct,
@@ -118,7 +124,8 @@ export function useAppUiModels({
     episodesAllCount,
     episodesCount: episodes.length,
     feedImages,
-    libraryQuery,
+    libraryArtworkLoadingByUrl,
+    libraryQuery: deferredLibraryQuery,
     librarySortMode,
     libraryStatsByUrl,
     loadingFeedUrl,
@@ -128,7 +135,8 @@ export function useAppUiModels({
   const libraryGridRef = useRef<HTMLDivElement | null>(null)
   useLibraryArtworkPrefetch({
     libraryGridRef,
-    isLibraryViewActive: isDesktopLibraryView || isMobileLibraryView,
+    isLibraryViewActive:
+      (isDesktopLibraryView || isMobileLibraryView) && isMainStartupReady,
     libraryFeedsView,
     fetchLibraryFeedArtwork,
   })
@@ -208,5 +216,6 @@ export function useAppUiModels({
     nowTitleRef,
     libraryGridRef,
     isSidebarCollapsed,
+    isMainStartupReady,
   }
 }

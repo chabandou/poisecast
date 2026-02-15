@@ -297,8 +297,8 @@
   cursor: pointer;
 }
 .pcInlineSelect:focus {
-  border-color: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+  border-color: var(--pc-primary);
+  box-shadow: none;
 }
 
 .pcSearchBox {
@@ -342,8 +342,8 @@
   outline: none;
 }
 .pcInput:focus {
-  border-color: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+  border-color: var(--pc-primary);
+  box-shadow: none;
 }
 
 .pcInlineError {
@@ -484,7 +484,7 @@
 .pcNavigationItem.active {
   background: var(--pc-primary-dim);
   border-left-color: var(--pc-primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .pcNavigationIcon {
@@ -589,7 +589,7 @@
 .pcSourceItem.active {
   background: var(--pc-primary-dim);
   border-left-color: var(--pc-primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 .pcSourceItemTitle {
   font-weight: 700;
@@ -699,4 +699,3 @@
   font-size: 12px;
   line-height: 1.25;
 }
-

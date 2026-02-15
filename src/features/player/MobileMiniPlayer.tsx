@@ -86,7 +86,7 @@ export const MobileMiniPlayer = memo(function MobileMiniPlayer({
                 className="material-symbols-outlined"
                 style={{ color: 'var(--pc-muted)' }}
               >
-                history_edu
+                podcasts
               </span>
             </div>
           )}

@@ -7,6 +7,7 @@ export type LibrarySortMode = 'updated' | 'alpha' | 'count'
 
 export type LibraryFeedViewItem = DefaultFeed & {
   imageUrl: string | null
+  isArtworkLoading: boolean
   episodeCount: number
   latestPubMs: number | null
   isActive: boolean
@@ -21,6 +22,7 @@ type UseFeedPresentationModelOptions = {
   episodesAllCount: number
   episodesCount: number
   feedImages: Record<string, string>
+  libraryArtworkLoadingByUrl: Record<string, boolean>
   libraryQuery: string
   librarySortMode: LibrarySortMode
   libraryStatsByUrl: Record<string, LibraryFeedStats>
@@ -29,6 +31,12 @@ type UseFeedPresentationModelOptions = {
 }
 
 type TitleParts = { head: string; accent?: string }
+type FeedViewIndex = {
+  feed: DefaultFeed
+  normalizedRssUrl: string
+  rssLower: string
+  titleLower: string
+}
 
 function normalizeFeedDescription(value?: string, maxLen = 420): string | null {
   if (!value) return null
@@ -73,16 +81,38 @@ export function useFeedPresentationModel({
   episodesAllCount,
   episodesCount,
   feedImages,
+  libraryArtworkLoadingByUrl,
   libraryQuery,
   librarySortMode,
   libraryStatsByUrl,
   loadingFeedUrl,
   sourceKind,
 }: UseFeedPresentationModelOptions) {
-  const activeSource = useMemo(
+  const titleCollator = useMemo(
     () =>
-      libraryFeeds.find((feed) => normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(rssUrl)),
-    [libraryFeeds, rssUrl],
+      new Intl.Collator(undefined, {
+        sensitivity: 'base',
+      }),
+    [],
+  )
+  const normalizedRssUrl = useMemo(() => normalizeFeedUrlKey(rssUrl), [rssUrl])
+  const normalizedLoadingFeedUrl = useMemo(
+    () => (loadingFeedUrl ? normalizeFeedUrlKey(loadingFeedUrl) : null),
+    [loadingFeedUrl],
+  )
+  const feedViewIndex = useMemo<FeedViewIndex[]>(
+    () =>
+      libraryFeeds.map((feed) => ({
+        feed,
+        normalizedRssUrl: normalizeFeedUrlKey(feed.rssUrl),
+        rssLower: feed.rssUrl.toLowerCase(),
+        titleLower: feed.title.toLowerCase(),
+      })),
+    [libraryFeeds],
+  )
+  const activeSource = useMemo(
+    () => feedViewIndex.find((item) => item.normalizedRssUrl === normalizedRssUrl)?.feed,
+    [feedViewIndex, normalizedRssUrl],
   )
 
   const showHost = useMemo(() => feedHostFromUrl(rssUrl), [rssUrl])
@@ -113,37 +143,39 @@ export function useFeedPresentationModel({
 
   const libraryFeedsView = useMemo(() => {
     const normalizedQuery = libraryQuery.trim().toLowerCase()
-    const filtered = libraryFeeds
-      .filter((feed) => {
+    const filtered = feedViewIndex
+      .filter((entry) => {
         if (!normalizedQuery) return true
         return (
-          feed.title.toLowerCase().includes(normalizedQuery) ||
-          feed.rssUrl.toLowerCase().includes(normalizedQuery)
+          entry.titleLower.includes(normalizedQuery) ||
+          entry.rssLower.includes(normalizedQuery)
         )
       })
-      .map((feed) => {
+      .map((entry) => {
+        const { feed, normalizedRssUrl: normalizedFeedRssUrl } = entry
         const stats = libraryStatsByUrl[feed.rssUrl]
         return {
           ...feed,
           imageUrl: libraryImageByUrl[feed.rssUrl] ?? null,
+          isArtworkLoading: Boolean(libraryArtworkLoadingByUrl[feed.rssUrl]),
           episodeCount: stats?.episodeCount ?? 0,
           latestPubMs: stats?.latestPubMs ?? null,
-          isActive: normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(rssUrl),
+          isActive: normalizedFeedRssUrl === normalizedRssUrl,
           isLoading:
-            loadingFeedUrl !== null &&
-            normalizeFeedUrlKey(feed.rssUrl) === normalizeFeedUrlKey(loadingFeedUrl),
+            normalizedLoadingFeedUrl !== null &&
+            normalizedFeedRssUrl === normalizedLoadingFeedUrl,
         }
       })
 
     filtered.sort((a, b) => {
       if (librarySortMode === 'alpha') {
-        return a.title.localeCompare(b.title)
+        return titleCollator.compare(a.title, b.title)
       }
       if (librarySortMode === 'count') {
         if (a.episodeCount !== b.episodeCount) {
           return b.episodeCount - a.episodeCount
         }
-        return a.title.localeCompare(b.title)
+        return titleCollator.compare(a.title, b.title)
       }
       const aLatest = a.latestPubMs
       const bLatest = b.latestPubMs
@@ -152,18 +184,20 @@ export function useFeedPresentationModel({
       if (aLatest !== null && bLatest !== null && aLatest !== bLatest) {
         return bLatest - aLatest
       }
-      return a.title.localeCompare(b.title)
+      return titleCollator.compare(a.title, b.title)
     })
 
     return filtered
   }, [
-    libraryFeeds,
+    feedViewIndex,
     libraryImageByUrl,
+    libraryArtworkLoadingByUrl,
     libraryQuery,
     librarySortMode,
     libraryStatsByUrl,
-    loadingFeedUrl,
-    rssUrl,
+    normalizedLoadingFeedUrl,
+    normalizedRssUrl,
+    titleCollator,
   ])
 
   const showDescription = useMemo(() => {

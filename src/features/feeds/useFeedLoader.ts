@@ -55,6 +55,7 @@ type UseFeedLoaderResult = {
   podcast: ParsedPodcast | null
   loadingFeedUrl: string | null
   feedImages: Record<string, string>
+  libraryArtworkLoadingByUrl: Record<string, boolean>
   libraryStatsByUrl: Record<string, LibraryFeedStats>
   loadFeed: (url: string) => Promise<void>
   initializeFeedCaches: () => void
@@ -82,6 +83,7 @@ export function useFeedLoader({
 }: UseFeedLoaderOptions): UseFeedLoaderResult {
   const feedCacheRef = useRef<Map<string, ParsedPodcast>>(new Map())
   const feedImageFetchRef = useRef<Set<string>>(new Set())
+  const feedImagesRef = useRef<Record<string, string>>({})
   const loadFeedTaskRef = useRef(createLatestAsyncState())
   const repositoryRef = useRef<IFeedRepository | null>(null)
 
@@ -102,7 +104,14 @@ export function useFeedLoader({
   const [podcast, setPodcast] = useState<ParsedPodcast | null>(null)
   const [loadingFeedUrl, setLoadingFeedUrl] = useState<string | null>(null)
   const [feedImages, setFeedImages] = useState<Record<string, string>>({})
+  const [libraryArtworkLoadingByUrl, setLibraryArtworkLoadingByUrl] = useState<
+    Record<string, boolean>
+  >({})
   const [libraryStatsByUrl, setLibraryStatsByUrl] = useState<Record<string, LibraryFeedStats>>({})
+
+  useEffect(() => {
+    feedImagesRef.current = feedImages
+  }, [feedImages])
 
   const fetchFeedLookupMeta = useCallback(async (rssUrl: string, signal?: AbortSignal): Promise<FeedLookupMeta | null> => {
     return repositoryImpl.loadLookupMeta(rssUrl, { signal })
@@ -282,8 +291,12 @@ export function useFeedLoader({
   ])
 
   const fetchLibraryFeedArtwork = useCallback(async (url: string) => {
-    if (!url || feedImages[url] || feedImageFetchRef.current.has(url)) return
+    if (!url || feedImagesRef.current[url] || feedImageFetchRef.current.has(url)) return
     feedImageFetchRef.current.add(url)
+    setLibraryArtworkLoadingByUrl((prev) => {
+      if (prev[url]) return prev
+      return { ...prev, [url]: true }
+    })
     try {
       const artwork = await fetchFeedArtwork(url)
       if (!artwork) return
@@ -299,8 +312,14 @@ export function useFeedLoader({
       })
     } finally {
       feedImageFetchRef.current.delete(url)
+      setLibraryArtworkLoadingByUrl((prev) => {
+        if (!prev[url]) return prev
+        const next = { ...prev }
+        delete next[url]
+        return next
+      })
     }
-  }, [feedImageCacheKey, feedImages, fetchFeedArtwork])
+  }, [feedImageCacheKey, fetchFeedArtwork])
 
   useEffect(() => {
     const loadFeedTaskState = loadFeedTaskRef.current
@@ -315,6 +334,7 @@ export function useFeedLoader({
     podcast,
     loadingFeedUrl,
     feedImages,
+    libraryArtworkLoadingByUrl,
     libraryStatsByUrl,
     loadFeed,
     initializeFeedCaches,

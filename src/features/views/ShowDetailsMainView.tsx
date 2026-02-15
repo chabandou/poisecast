@@ -155,23 +155,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
               <div className="pcMobileArtworkContainer">
                 <div className="pcMobileArtworkGlow"></div>
                 <div className="pcMobileArtworkCard">
-                  {isShowInfoLoading ? (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        background: 'var(--pc-surface)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <span
-                        className="pcSpinner"
-                        aria-label="Loading show artwork"
-                      />
-                    </div>
-                  ) : showArtwork ? (
+                  {showArtwork ? (
                     <GlitchImage
                       variant="artwork"
                       wrapperClassName="pcGlitchImage--outsideFx"
@@ -188,7 +172,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                         color: 'rgba(255, 255, 255, 0.05)',
                       }}
                     >
-                      history_edu
+                      podcasts
                     </span>
                   )}
                 </div>
@@ -379,23 +363,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
             <div className="pcShowDetailsInner">
               <div className="pcShowArtwork">
                 <div className="pcShowArtworkCard">
-                  {isShowInfoLoading ? (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        background: 'var(--pc-surface)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <span
-                        className="pcSpinner"
-                        aria-label="Loading show artwork"
-                      />
-                    </div>
-                  ) : showArtwork ? (
+                  {showArtwork ? (
                     <GlitchImage
                       variant="artwork"
                       wrapperClassName="pcGlitchImage--outsideFx"
@@ -406,7 +374,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                     />
                   ) : (
                     <span className="material-symbols-outlined pcShowArtworkIcon">
-                      history_edu
+                      podcasts
                     </span>
                   )}
                 </div>

@@ -78,14 +78,14 @@
       .pcBootLoader::after {
         background:
           linear-gradient(
-            114deg,
+            to bottom,
             transparent 0%,
             transparent 42%,
             rgba(0, 229, 255, 0.16) 50%,
             transparent 58%,
             transparent 100%
           );
-        transform: translateX(-90%);
+        transform: translateY(90%);
         animation: pcBootSweep 1700ms linear infinite;
         opacity: 0.35;
       }
@@ -144,10 +144,10 @@
 
       @keyframes pcBootSweep {
         from {
-          transform: translateX(-90%);
+          transform: translateY(90%);
         }
         to {
-          transform: translateX(90%);
+          transform: translateY(-90%);
         }
       }
 
@@ -213,8 +213,15 @@
         let hasReactMounted = false
 
         const markBootComplete = () => {
+          const completedAt = performance.now()
+          window.__pcBootCompleteAt = completedAt
           bootRoot.classList.remove('pcBooting')
           bootRoot.classList.add('pcBootComplete')
+          window.dispatchEvent(
+            new CustomEvent('pc:boot-complete', {
+              detail: { completedAt },
+            }),
+          )
         }
 
         const cleanupLoader = () => {

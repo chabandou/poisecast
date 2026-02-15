@@ -75,7 +75,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
       manifest: {
         name: 'Poisecast',

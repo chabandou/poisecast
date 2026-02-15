@@ -92,7 +92,7 @@
   line-height: 0.95;
   font-size: clamp(28px, 3.4vw, 54px);
   color: var(--pc-text);
-  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -156,7 +156,7 @@
 .pcProgressFill {
   height: 100%;
   background: linear-gradient(90deg, var(--pc-primary), #dfe5ec);
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.35);
+  box-shadow: none;
 }
 .pcProgressMark {
   position: absolute;
@@ -323,7 +323,7 @@
   justify-content: center;
   position: relative;
   cursor: pointer;
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.12);
+  box-shadow: none;
   transition:
     background 140ms ease,
     color 140ms ease,
@@ -437,11 +437,12 @@
 }
 
 .pcShowArtworkCard {
+  --pc-tile-void-bg: transparent;
   width: 192px;
   height: 192px;
-  background: var(--pc-surface);
-  border: 2px solid var(--pc-border-active);
-  box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.5);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -451,7 +452,7 @@
 }
 
 .pcShowArtworkCard:hover {
-  border-color: rgba(0, 229, 255, 0.5);
+  border-color: transparent;
 }
 
 .pcShowArtworkCover {
@@ -481,6 +482,27 @@
     rgba(0, 229, 255, 0.1),
     transparent
   );
+}
+
+/* Force full transparency for show-artwork image stack. */
+.pcShowArtwork,
+.pcShowArtworkCard,
+.pcShowArtworkCard::before,
+.pcShowArtworkCard .pcGlitchImage,
+.pcShowArtworkCard .pcGlitchImageClip,
+.pcShowArtworkCard .pcTileRevealLayer,
+.pcShowArtworkCard .pcTileRevealLayer::before,
+.pcShowArtworkCard .pcGlitchImageClip::before,
+.pcShowArtworkCard .pcGlitchImageClip::after {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.pcShowArtworkCard .pcGlitchImageClip::before,
+.pcShowArtworkCard .pcGlitchImageClip::after {
+  background-image: none !important;
 }
 
 .pcShowInfo {
@@ -862,10 +884,11 @@
 }
 
 .pcDiscoverCardImageContainer {
+  --pc-tile-void-bg: transparent;
   position: relative;
   aspect-ratio: 1;
   border: 1px solid var(--pc-border-active);
-  background: var(--pc-surface);
+  background: transparent;
   overflow: visible;
   transition: all 120ms ease;
 }

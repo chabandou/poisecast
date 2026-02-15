@@ -176,7 +176,7 @@ export const DesktopFooter = memo(function DesktopFooter({
                     <div className="pcFooterEpisodeInfo">
                       <div className="pcFooterEpisodeArtwork">
                         <span className="material-symbols-outlined">
-                          history_edu
+                          podcasts
                         </span>
                       </div>
                       <div className="pcFooterEpisodeDetails">
