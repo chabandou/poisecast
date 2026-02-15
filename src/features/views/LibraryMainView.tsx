@@ -155,6 +155,7 @@ export type LibraryMainViewProps = {
   libraryGridRef: MutableRefObject<HTMLDivElement | null>
   isMainStartupReady: boolean
   libraryFeedsView: LibraryFeedViewItem[]
+  fetchLibraryFeedArtwork: (url: string) => Promise<void>
   onSelectFeed: (feed: DefaultFeed) => void
 }
 
@@ -168,6 +169,7 @@ export const LibraryMainView = memo(function LibraryMainView({
   libraryGridRef,
   isMainStartupReady,
   libraryFeedsView,
+  fetchLibraryFeedArtwork,
   onSelectFeed,
 }: LibraryMainViewProps) {
   const [revealedCardUrls, setRevealedCardUrls] = useState<Set<string>>(
@@ -448,7 +450,7 @@ export const LibraryMainView = memo(function LibraryMainView({
     const feedIndexByUrl = new Map(feedOrder.map((rssUrl, index) => [rssUrl, index]))
     const observedCards = new WeakSet<HTMLElement>()
 
-    const queueRevealed = (urls: string[]): void => {
+    const processIntersectingUrls = (urls: string[]): void => {
       if (!urls.length) return
       const uniqueSorted = Array.from(new Set(urls)).sort((a, b) => {
         const aIndex = feedIndexByUrl.get(a) ?? Number.MAX_SAFE_INTEGER
@@ -457,6 +459,7 @@ export const LibraryMainView = memo(function LibraryMainView({
       })
 
       uniqueSorted.forEach((url) => {
+        void fetchLibraryFeedArtwork(url)
         if (queuedRevealUrlsRef.current.has(url)) return
         queuedRevealUrlsRef.current.add(url)
         const revealSlot = revealSequenceRef.current
@@ -478,7 +481,7 @@ export const LibraryMainView = memo(function LibraryMainView({
       )
         .map((card) => card.dataset.rssUrl)
         .filter((url): url is string => Boolean(url))
-      queueRevealed(allUrls)
+      processIntersectingUrls(allUrls)
       return
     }
 
@@ -490,10 +493,11 @@ export const LibraryMainView = memo(function LibraryMainView({
           const url = card.dataset.rssUrl
           if (!url) continue
           if (entry.isIntersecting) {
+            observer.unobserve(card)
             intersectingUrls.push(url)
           }
         }
-        queueRevealed(intersectingUrls)
+        processIntersectingUrls(intersectingUrls)
       },
       { root: gridElement, rootMargin: '120px 0px', threshold: 0.01 },
     )
@@ -556,7 +560,14 @@ export const LibraryMainView = memo(function LibraryMainView({
       }
       revealSequenceRef.current = 0
     }
-  }, [feedOrderKey, isMainStartupReady, isVisible, libraryGridRef, scheduleRevealFlush])
+  }, [
+    feedOrderKey,
+    fetchLibraryFeedArtwork,
+    isMainStartupReady,
+    isVisible,
+    libraryGridRef,
+    scheduleRevealFlush,
+  ])
 
   if (!isVisible) return null
 

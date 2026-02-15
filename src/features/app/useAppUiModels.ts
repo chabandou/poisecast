@@ -12,15 +12,12 @@ import { useFeedPresentationModel } from '../feeds/useFeedPresentationModel'
 import type { LibrarySortMode } from '../feeds/useFeedPresentationModel'
 import { useFollowCurrentShowAction } from '../feeds/useFollowCurrentShowAction'
 import type { LibraryFeedStats } from '../feeds/feedUtils'
-import { useLibraryArtworkPrefetch } from '../feeds/useLibraryArtworkPrefetch'
 import { useFooterPresentationModel } from '../player/useFooterPresentationModel'
 import { useMainStartupReady } from '../system/useMainStartupReady'
 
 type UseAppUiModelsOptions = {
   isMobile: boolean
   isSidebarCompact: boolean
-  isDesktopLibraryView: boolean
-  isMobileLibraryView: boolean
   podcast: ParsedPodcast | null
   rssLoading: boolean
   loadingFeedUrl: string | null
@@ -39,7 +36,6 @@ type UseAppUiModelsOptions = {
   librarySortMode: LibrarySortMode
   libraryStatsByUrl: Record<string, LibraryFeedStats>
   mobileEpisodeLimit: number
-  fetchLibraryFeedArtwork: (url: string) => Promise<void>
   isCurrentShowFollowed: boolean
   commitFollowState: (nextFollowed: boolean) => void
   setLibraryFeeds: Dispatch<SetStateAction<DefaultFeed[]>>
@@ -48,8 +44,6 @@ type UseAppUiModelsOptions = {
 export function useAppUiModels({
   isMobile,
   isSidebarCompact,
-  isDesktopLibraryView,
-  isMobileLibraryView,
   podcast,
   rssLoading,
   loadingFeedUrl,
@@ -68,7 +62,6 @@ export function useAppUiModels({
   librarySortMode,
   libraryStatsByUrl,
   mobileEpisodeLimit,
-  fetchLibraryFeedArtwork,
   isCurrentShowFollowed,
   commitFollowState,
   setLibraryFeeds,
@@ -133,13 +126,6 @@ export function useAppUiModels({
   })
 
   const libraryGridRef = useRef<HTMLDivElement | null>(null)
-  useLibraryArtworkPrefetch({
-    libraryGridRef,
-    isLibraryViewActive:
-      (isDesktopLibraryView || isMobileLibraryView) && isMainStartupReady,
-    libraryFeedsView,
-    fetchLibraryFeedArtwork,
-  })
 
   const followCurrentShow = useFollowCurrentShowAction({
     rssUrl,
