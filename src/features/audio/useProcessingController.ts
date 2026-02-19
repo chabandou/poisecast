@@ -21,6 +21,7 @@ import {
   type ResolveModelHooks,
   type ResolveOrtHooks,
 } from './processingBootstrapService'
+import { buildStreamProxyUrl } from './audioPlaybackNetwork'
 
 export type AssetDownloadUiState = {
   assetLabel: string
@@ -47,6 +48,10 @@ type UseProcessingControllerOptions = {
   reportIssue: (source: IssueSource, summary: string, detail: unknown) => void
   setCanDenoise?: (next: boolean | null) => void
   corsProbe: (url: string, options?: { signal?: AbortSignal }) => Promise<boolean>
+  probeStreamProxy: (
+    proxyUrl: string,
+    options?: { signal?: AbortSignal; timeoutMs?: number },
+  ) => Promise<boolean>
   waitForAudioMetadata: (audioEl: HTMLAudioElement, timeoutMs?: number, signal?: AbortSignal) => Promise<void>
   engineInitTimeoutMs?: number
 }
@@ -102,6 +107,7 @@ export function useProcessingController({
   reportIssue,
   setCanDenoise,
   corsProbe,
+  probeStreamProxy,
   waitForAudioMetadata,
   engineInitTimeoutMs = 90_000,
 }: UseProcessingControllerOptions): UseProcessingControllerResult {
@@ -393,9 +399,6 @@ export function useProcessingController({
     try {
       if (!audioEl || !episode) return
 
-      const remotePlaybackUrl = sourceKind === 'remote' ? getRemotePlaybackUrl(episode) : episode.enclosureUrl
-      const remoteNeedsCors = sourceKind === 'remote' && !isSameOriginUrl(remotePlaybackUrl)
-
       if (!next) {
         resetProcessingState()
         audioEl.removeAttribute('crossorigin')
@@ -405,6 +408,23 @@ export function useProcessingController({
       setIsProcessingStarting(true)
       setEngineDetail('')
       setEngineState(engineRef.current?.status.state ?? 'idle')
+
+      let remotePlaybackUrl = sourceKind === 'remote' ? getRemotePlaybackUrl(episode) : episode.enclosureUrl
+      if (sourceKind === 'remote') {
+        const directUrl = episode.enclosureUrl
+        const proxyUrl = buildStreamProxyUrl(directUrl)
+        const usingDirectCrossOrigin = remotePlaybackUrl === directUrl && !isSameOriginUrl(directUrl)
+        if (usingDirectCrossOrigin && proxyUrl !== remotePlaybackUrl) {
+          const proxyRecovered = await probeStreamProxy(proxyUrl, {
+            signal: run.signal,
+            timeoutMs: 12_000,
+          })
+          if (!isActive()) return
+          if (proxyRecovered) remotePlaybackUrl = proxyUrl
+        }
+      }
+
+      const remoteNeedsCors = sourceKind === 'remote' && !isSameOriginUrl(remotePlaybackUrl)
 
       const canEnable =
         sourceKind === 'local'
@@ -475,6 +495,7 @@ export function useProcessingController({
     ensureEngine,
     episode,
     getRemotePlaybackUrl,
+    probeStreamProxy,
     reportIssue,
     resetProcessingState,
     setCanDenoise,

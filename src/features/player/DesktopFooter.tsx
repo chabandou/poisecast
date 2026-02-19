@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
 import { IconNext, IconPause, IconPlay, IconPrev } from '../../ui/icons'
+import { ScrambleText } from '../system/ScrambleText'
 import { formatClock } from './playbackMath'
 import { useAudioTimeline } from './useAudioTimeline'
 
@@ -522,23 +523,67 @@ export const DesktopFooter = memo(function DesktopFooter({
                           Collapse View
                         </button>
                         <div className="pcFooterExpandedTrayMeta">
+                          <div className="pcFooterVolume" onWheel={onVolumeWheel}>
+                            <button
+                              type="button"
+                              className="pcFooterControlBtn"
+                              onClick={toggleMute}
+                              title={volume === 0 ? "Unmute" : "Mute"}
+                            >
+                              <span className="material-symbols-outlined">
+                                {footerVolumeIcon}
+                              </span>
+                            </button>
+                            <div
+                              className="pcFooterVolumeTrack"
+                              role="slider"
+                              tabIndex={0}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={footerVolumePct}
+                              aria-label="Volume"
+                              onPointerDown={onVolumePointerDown}
+                              onKeyDown={onVolumeKeyDown}
+                            >
+                              <div
+                                className="pcFooterVolumeFill"
+                                style={{ width: `${footerVolumePct}%` }}
+                              ></div>
+                              <div
+                                className="pcFooterVolumeHandle"
+                                style={{ left: `calc(${footerVolumePct}% - 5px)` }}
+                              ></div>
+                            </div>
+                          </div>
                           <button className="pcFooterExpandedTrayBtn">
                             <span className="material-symbols-outlined">
                               closed_caption
                             </span>
                             Subtitles
                           </button>
-                          <button className="pcFooterExpandedTrayBtn">
+                          <button
+                            type="button"
+                            className={`pcFooterExpandedTrayBtn ${denoiseEnabled ? "pcFooterExpandedTrayBtnIsActive" : ""}`}
+                            disabled={!episode || !modelSupported || isProcessingStarting}
+                            aria-label={
+                              denoiseEnabled
+                                ? "Stop processing"
+                                : "Start processing"
+                            }
+                            title={footerProcessTooltip}
+                            onClick={() => void toggleDenoise(!denoiseEnabled)}
+                          >
                             <span className="material-symbols-outlined">
-                              list
+                              replace_audio
                             </span>
-                            Chapters
-                          </button>
-                          <button className="pcFooterExpandedTrayBtn pcFooterExpandedTrayBtnPrimary">
-                            <span className="material-symbols-outlined">
-                              equalizer
-                            </span>
-                            DSP Control
+                            <ScrambleText
+                              text={
+                                denoiseEnabled
+                                  ? "Stop Processing"
+                                  : "Start Processing"
+                              }
+                              durationMs={520}
+                            />
                           </button>
                         </div>
                       </div>

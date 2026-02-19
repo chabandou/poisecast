@@ -22,7 +22,14 @@ import { useAppViewModel } from './useAppViewModel'
 import {
   LIBRARY_FEEDS_STORAGE_KEY as LIBRARY_FEEDS_STORAGE_KEY_VALUE,
   loadPersistedLibraryFeeds as loadPersistedLibraryFeedsUtil,
+  normalizeFeedUrlKey,
 } from '../feeds/feedUtils'
+import {
+  RECENT_FEED_PLAYS_STORAGE_KEY as RECENT_FEED_PLAYS_STORAGE_KEY_VALUE,
+  loadPersistedRecentFeedPlays as loadPersistedRecentFeedPlaysUtil,
+  upsertRecentFeedPlay,
+  type RecentFeedPlay,
+} from '../feeds/recentFeedPlays'
 import { useDiscoverSearchFocus } from '../feeds/useDiscoverSearchFocus'
 import { useEpisodePlaybackActions } from '../player/useEpisodePlaybackActions'
 import { useMediaSessionController } from '../player/useMediaSessionController'
@@ -36,19 +43,26 @@ import { useIssueLog } from '../system/useIssueLog'
 type LibrarySortMode = 'updated' | 'alpha' | 'count'
 
 const LIBRARY_FEEDS_STORAGE_KEY = LIBRARY_FEEDS_STORAGE_KEY_VALUE
+const RECENT_FEED_PLAYS_STORAGE_KEY = RECENT_FEED_PLAYS_STORAGE_KEY_VALUE
 
 const AUDIO_FILE_ACCEPT =
   'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
 const FOOTER_SLIDE_MS = 500
 const FOOTER_EXPAND_REVEAL_MS = 600
+const RECENT_SIDEBAR_FEEDS_LIMIT = 10
 
 function loadPersistedLibraryFeeds(): DefaultFeed[] {
   return loadPersistedLibraryFeedsUtil(localStorage)
 }
 
+function loadPersistedRecentFeedPlays(): RecentFeedPlay[] {
+  return loadPersistedRecentFeedPlaysUtil(localStorage)
+}
+
 export function useAppOrchestrator() {
   const isMobile = useIsMobile(980)
   const initialLibraryFeeds = useMemo(() => loadPersistedLibraryFeeds(), [])
+  const initialRecentFeedPlays = useMemo(() => loadPersistedRecentFeedPlays(), [])
   const initialRssUrl =
     initialLibraryFeeds[0]?.rssUrl ?? DEFAULT_FEEDS[0]?.rssUrl ?? ''
 
@@ -115,6 +129,9 @@ export function useAppOrchestrator() {
 
   const [libraryFeeds, setLibraryFeeds] = useState<DefaultFeed[]>(
     initialLibraryFeeds,
+  )
+  const [recentFeedPlays, setRecentFeedPlays] = useState<RecentFeedPlay[]>(
+    initialRecentFeedPlays,
   )
   const [rssUrl, setRssUrl] = useState(initialRssUrl)
   const [episode, setEpisode] = useState<PodcastEpisode | null>(null)
@@ -234,6 +251,42 @@ export function useAppOrchestrator() {
     openMobileShowDetailsView()
   }, [isMobile, openMobileShowDetailsView])
 
+  const recordRemoteEpisodeStart = useCallback(
+    (event: { rssUrl: string; episodeTitle: string; feedTitle?: string }) => {
+      const rssUrlTrimmed = event.rssUrl.trim()
+      const episodeTitleTrimmed = event.episodeTitle.trim()
+      const feedTitleTrimmed = event.feedTitle?.trim()
+      if (!rssUrlTrimmed || !episodeTitleTrimmed) return
+      setRecentFeedPlays((prev) =>
+        upsertRecentFeedPlay(prev, {
+          rssUrl: rssUrlTrimmed,
+          episodeTitle: episodeTitleTrimmed,
+          playedAt: Date.now(),
+          ...(feedTitleTrimmed ? { feedTitle: feedTitleTrimmed } : {}),
+        }),
+      )
+    },
+    [],
+  )
+
+  const recentSidebarFeeds = useMemo(() => {
+    if (recentFeedPlays.length === 0) return []
+    const libraryFeedByUrl = new Map<string, DefaultFeed>(
+      libraryFeeds.map((feed) => [normalizeFeedUrlKey(feed.rssUrl), feed]),
+    )
+    return recentFeedPlays.slice(0, RECENT_SIDEBAR_FEEDS_LIMIT).map((recentPlay) => {
+      const libraryFeed = libraryFeedByUrl.get(normalizeFeedUrlKey(recentPlay.rssUrl))
+      const feedTitle = libraryFeed?.title || recentPlay.feedTitle || recentPlay.rssUrl
+      return {
+        title: feedTitle,
+        rssUrl: libraryFeed?.rssUrl ?? recentPlay.rssUrl,
+        category: libraryFeed?.category,
+        lastEpisodeTitle: recentPlay.episodeTitle,
+        lastPlayedAt: recentPlay.playedAt,
+      }
+    })
+  }, [libraryFeeds, recentFeedPlays])
+
   const episodes = useMemo(() => {
     const q = deferredEpisodeQuery.trim().toLowerCase()
     const filtered = !q
@@ -288,6 +341,12 @@ export function useAppOrchestrator() {
     setIsFooterCollapsing,
     setIsSidebarCompact,
     onRequestShowDetails: requestShowDetailsIfMobile,
+    onRemoteEpisodeStart: ({ rssUrl: recentRssUrl, episodeTitle }) =>
+      recordRemoteEpisodeStart({
+        rssUrl: recentRssUrl,
+        episodeTitle,
+        feedTitle: podcast?.feed.title,
+      }),
     footerSlideMs: FOOTER_SLIDE_MS,
   })
 
@@ -311,6 +370,8 @@ export function useAppOrchestrator() {
     objectUrlRef,
     libraryFeeds,
     storageKey: LIBRARY_FEEDS_STORAGE_KEY,
+    recentFeedPlays,
+    recentFeedPlaysStorageKey: RECENT_FEED_PLAYS_STORAGE_KEY,
     episodeGuid: episode?.guid,
     isMobile,
     isFooterExpanded,
@@ -419,6 +480,7 @@ export function useAppOrchestrator() {
     isSidebarCollapsed,
     isMainStartupReady,
   } = useAppUiModels({
+    audioRef,
     isMobile,
     isSidebarCompact,
     podcast,
@@ -586,7 +648,7 @@ export function useAppOrchestrator() {
       desktopView,
       openLibraryView,
       openDiscoverView,
-      libraryFeeds,
+      recentFeeds: recentSidebarFeeds,
       rssUrl,
       rssLoading,
       loadingFeedUrl,

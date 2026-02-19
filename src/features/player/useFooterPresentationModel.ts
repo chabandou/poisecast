@@ -1,9 +1,11 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo, type CSSProperties, type RefObject } from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
 import { useOverflowPanText } from '../system/useOverflowPanText'
 import { useFooterDescriptionController } from './useFooterDescriptionController'
+import { useEpisodeWaveform } from './useEpisodeWaveform'
 
 type UseFooterPresentationModelOptions = {
+  audioRef: RefObject<HTMLAudioElement | null>
   volume: number
   episode: PodcastEpisode | null
   sourceKind: 'remote' | 'local'
@@ -12,6 +14,7 @@ type UseFooterPresentationModelOptions = {
 }
 
 export function useFooterPresentationModel({
+  audioRef,
   volume,
   episode,
   sourceKind,
@@ -62,15 +65,11 @@ export function useFooterPresentationModel({
     [footerPanDuration],
   )
 
-  const waveformHeights = useMemo(
-    () =>
-      Array.from({ length: 64 }, (_, index) => {
-        if (index % 5 === 0) return '75%'
-        if (index % 3 === 0) return '50%'
-        return '25%'
-      }),
-    [],
-  )
+  const waveformHeights = useEpisodeWaveform({
+    audioRef,
+    episodeGuid: episode?.guid ?? null,
+    barCount: 64,
+  })
 
   return {
     footerVolumePct,

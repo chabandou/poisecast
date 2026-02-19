@@ -53,6 +53,11 @@ type UseEpisodePlaybackActionsOptions = {
   setIsFooterCollapsing: Dispatch<SetStateAction<boolean>>
   setIsSidebarCompact: Dispatch<SetStateAction<boolean>>
   onRequestShowDetails: () => void
+  onRemoteEpisodeStart?: (event: {
+    rssUrl: string
+    episodeTitle: string
+    feedTitle?: string
+  }) => void
   footerSlideMs?: number
 }
 
@@ -100,6 +105,7 @@ export function useEpisodePlaybackActions({
   setIsFooterCollapsing,
   setIsSidebarCompact,
   onRequestShowDetails,
+  onRemoteEpisodeStart,
   footerSlideMs = 500,
 }: UseEpisodePlaybackActionsOptions): UseEpisodePlaybackActionsResult {
   const startEpisodeTaskRef = useRef(createLatestAsyncState())
@@ -171,6 +177,10 @@ export function useEpisodePlaybackActions({
         setNowPlayingArtworkUrl(podcastImageUrl || feedImages[rssUrl] || null)
         setSourceKind('remote')
         resetProcessingState({ canDenoise: null })
+        onRemoteEpisodeStart?.({
+          rssUrl,
+          episodeTitle: nextEpisode.title,
+        })
 
         if (objectUrlRef.current) {
           URL.revokeObjectURL(objectUrlRef.current)
@@ -218,6 +228,7 @@ export function useEpisodePlaybackActions({
       getRemotePlaybackUrl,
       objectUrlRef,
       onRequestShowDetails,
+      onRemoteEpisodeStart,
       podcastImageUrl,
       probeStreamProxy,
       proxyBypassRef,

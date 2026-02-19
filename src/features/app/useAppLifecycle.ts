@@ -1,6 +1,8 @@
 import { useEffect, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
 import { usePersistLibraryFeeds } from '../feeds/usePersistLibraryFeeds'
+import type { RecentFeedPlay } from '../feeds/recentFeedPlays'
+import { usePersistRecentFeedPlays } from '../feeds/usePersistRecentFeedPlays'
 import { useAudioReadyLoadingReset } from '../player/useAudioReadyLoadingReset'
 import { useFooterLayoutSync } from '../player/useFooterLayoutSync'
 import { useAppDiagnostics } from '../system/useAppDiagnostics'
@@ -29,6 +31,8 @@ type UseAppLifecycleOptions = {
   objectUrlRef: MutableRefObject<string | null>
   libraryFeeds: DefaultFeed[]
   storageKey: string
+  recentFeedPlays: RecentFeedPlay[]
+  recentFeedPlaysStorageKey: string
   episodeGuid: string | null | undefined
   isMobile: boolean
   isFooterExpanded: boolean
@@ -56,6 +60,8 @@ export function useAppLifecycle({
   objectUrlRef,
   libraryFeeds,
   storageKey,
+  recentFeedPlays,
+  recentFeedPlaysStorageKey,
   episodeGuid,
   isMobile,
   isFooterExpanded,
@@ -102,6 +108,11 @@ export function useAppLifecycle({
   usePersistLibraryFeeds({
     libraryFeeds,
     storageKey,
+  })
+
+  usePersistRecentFeedPlays({
+    recentFeedPlays,
+    storageKey: recentFeedPlaysStorageKey,
   })
 
   useFooterLayoutSync({

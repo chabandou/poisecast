@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type RefObject,
   type Dispatch,
   type SetStateAction,
 } from 'react'
@@ -16,6 +17,7 @@ import { useFooterPresentationModel } from '../player/useFooterPresentationModel
 import { useMainStartupReady } from '../system/useMainStartupReady'
 
 type UseAppUiModelsOptions = {
+  audioRef: RefObject<HTMLAudioElement | null>
   isMobile: boolean
   isSidebarCompact: boolean
   podcast: ParsedPodcast | null
@@ -42,6 +44,7 @@ type UseAppUiModelsOptions = {
 }
 
 export function useAppUiModels({
+  audioRef,
   isMobile,
   isSidebarCompact,
   podcast,
@@ -91,6 +94,7 @@ export function useAppUiModels({
     footerPanSharedStyle,
     waveformHeights,
   } = useFooterPresentationModel({
+    audioRef,
     volume,
     episode,
     sourceKind,

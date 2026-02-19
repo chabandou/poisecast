@@ -2,8 +2,13 @@ import { memo, type CSSProperties } from 'react'
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
 import { normalizeFeedUrlKey } from './feedUtils'
 
+export type SourceListFeed = DefaultFeed & {
+  lastEpisodeTitle: string
+  lastPlayedAt: number
+}
+
 type SourceListProps = {
-  feeds: DefaultFeed[]
+  feeds: SourceListFeed[]
   activeUrl: string
   rssLoading: boolean
   loadingFeedUrl: string | null
@@ -33,7 +38,7 @@ export const SourceList = memo(function SourceList({
           >
             <div className="pcSourceItemTitle pcSkeletonLine pcSkeletonW70" />
             <div className="pcSourceItemMeta">
-              <span className="pcSourceUrl pcSkeletonLine pcSkeletonW85" />
+              <span className="pcSourceLastEpisode pcSkeletonLine pcSkeletonW85" />
             </div>
           </button>
         ))}
@@ -43,6 +48,7 @@ export const SourceList = memo(function SourceList({
 
   return (
     <div className="pcSourceList pcListStack pcStaggerList">
+      {feeds.length === 0 ? <div className="pcEmpty">No recently played shows yet.</div> : null}
       {feeds.map((feed, index) => {
         const isActive = normalizeFeedUrlKey(activeUrl) === normalizeFeedUrlKey(feed.rssUrl)
         const isLoading =
@@ -61,7 +67,7 @@ export const SourceList = memo(function SourceList({
           >
             <div className="pcSourceItemTitle">{feed.title}</div>
             <div className="pcSourceItemMeta">
-              <span className="pcSourceUrl">{feed.rssUrl}</span>
+              <span className="pcSourceLastEpisode">{feed.lastEpisodeTitle}</span>
               {isActive ? <span className="pcActiveIndicator"></span> : null}
             </div>
           </button>

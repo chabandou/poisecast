@@ -38,7 +38,10 @@ html.pcBootComplete .pcApp:not(.isMobile) .pcShell > .pcSidebar {
     backwards;
 }
 
-html.pcBootComplete .pcApp:not(.isMobile) .pcShell > .pcSidebar.pcSidebarCollapsed {
+html.pcBootComplete
+  .pcApp:not(.isMobile)
+  .pcShell
+  > .pcSidebar.pcSidebarCollapsed {
   --pc-sidebar-boot-target: 64px;
 }
 
@@ -93,8 +96,7 @@ html.pcBooting .pcApp.isMobile .pcMobileNav {
 }
 
 html.pcBootComplete .pcApp.isMobile .pcMobileStatus {
-  animation: pcBootMobileStatusIn 420ms cubic-bezier(0.22, 1, 0.36, 1) 90ms
-    both;
+  animation: pcBootMobileStatusIn 420ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
 }
 
 html.pcBootComplete .pcApp.isMobile .pcMain {

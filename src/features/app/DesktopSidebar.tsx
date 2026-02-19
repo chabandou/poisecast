@@ -1,5 +1,5 @@
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
-import { SourceList } from '../feeds/SourceList'
+import { SourceList, type SourceListFeed } from '../feeds/SourceList'
 import { formatIssueSource, type IssueEntry } from '../system/useIssueLog'
 
 type DesktopSidebarProps = {
@@ -8,7 +8,7 @@ type DesktopSidebarProps = {
   desktopView: 'library' | 'discover' | 'showDetails'
   openLibraryView: () => void
   openDiscoverView: () => void
-  libraryFeeds: DefaultFeed[]
+  recentFeeds: SourceListFeed[]
   rssUrl: string
   rssLoading: boolean
   loadingFeedUrl: string | null
@@ -23,7 +23,7 @@ export function DesktopSidebar({
   desktopView,
   openLibraryView,
   openDiscoverView,
-  libraryFeeds,
+  recentFeeds,
   rssUrl,
   rssLoading,
   loadingFeedUrl,
@@ -91,7 +91,7 @@ export function DesktopSidebar({
             </div>
 
             <SourceList
-              feeds={libraryFeeds}
+              feeds={recentFeeds}
               activeUrl={rssUrl}
               rssLoading={rssLoading}
               loadingFeedUrl={loadingFeedUrl}

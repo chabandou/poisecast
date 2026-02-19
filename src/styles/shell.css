@@ -629,7 +629,7 @@
   display: block;
 }
 
-.pcSourceUrl {
+.pcSourceLastEpisode {
   font-family: var(--pc-font-mono);
   font-size: 10px;
   color: var(--pc-muted);

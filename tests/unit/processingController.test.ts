@@ -53,6 +53,7 @@ describe('useProcessingController', () => {
     )
 
     const waitForAudioMetadata = vi.fn(async () => {})
+    const probeStreamProxy = vi.fn(async () => false)
 
     const { result } = renderHook(() =>
       useProcessingController({
@@ -66,6 +67,7 @@ describe('useProcessingController', () => {
         reportIssue,
         setCanDenoise,
         corsProbe,
+        probeStreamProxy,
         waitForAudioMetadata,
       }),
     )
@@ -91,5 +93,150 @@ describe('useProcessingController', () => {
     expect(result.current.isProcessingStarting).toBe(false)
     expect(reportIssue).not.toHaveBeenCalled()
     expect(audio.removeAttribute).toHaveBeenCalledWith('crossorigin')
+  })
+
+  it('recovers proxy playback for processing when direct fallback was active', async () => {
+    const audio = {
+      paused: true,
+      currentTime: 0,
+      src: '',
+      removeAttribute: vi.fn(),
+      load: vi.fn(),
+      play: vi.fn(async () => undefined),
+    } as unknown as HTMLAudioElement
+
+    const model: ModelSpec = {
+      id: 'test-model',
+      label: 'Test Model',
+      url: '/models/test.onnx',
+      kind: 'time',
+      sampleRateHz: 48_000,
+      supported: false,
+    }
+
+    const episode: PodcastEpisode = {
+      guid: 'episode-2',
+      title: 'Episode 2',
+      enclosureUrl: 'https://audio.example.com/ep2.mp3',
+    }
+    const expectedProxyUrl = `/api/stream?url=${encodeURIComponent(episode.enclosureUrl)}`
+
+    const processingBootstrap = {
+      preferredOrtBaseUrl: '/ort',
+      ensureOrtAssetsReady: vi.fn(),
+      resolveModelInitUrl: vi.fn(),
+    } as unknown as ProcessingBootstrapService
+
+    const reportIssue = vi.fn<(source: IssueSource, summary: string, detail: unknown) => void>()
+    const setCanDenoise = vi.fn<(next: boolean | null) => void>()
+    const corsProbe = vi.fn(async () => false)
+    const probeStreamProxy = vi.fn(async () => true)
+    const waitForAudioMetadata = vi.fn(async () => {})
+
+    const { result } = renderHook(() =>
+      useProcessingController({
+        audioRef: { current: audio },
+        model,
+        isPlaying: false,
+        episode,
+        sourceKind: 'remote',
+        getRemotePlaybackUrl: () => episode.enclosureUrl,
+        processingBootstrap,
+        reportIssue,
+        setCanDenoise,
+        corsProbe,
+        probeStreamProxy,
+        waitForAudioMetadata,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.toggleDenoise(true)
+    })
+
+    expect(probeStreamProxy).toHaveBeenCalledWith(
+      expectedProxyUrl,
+      expect.objectContaining({ timeoutMs: 12_000 }),
+    )
+    expect(corsProbe).not.toHaveBeenCalled()
+    expect(waitForAudioMetadata).toHaveBeenCalled()
+    expect(audio.src).toBe(expectedProxyUrl)
+    expect(setCanDenoise).toHaveBeenCalledWith(true)
+    expect(reportIssue).toHaveBeenCalledWith(
+      'processing',
+      'Failed to enable audio processing',
+      'Selected model is not supported yet',
+    )
+  })
+
+  it('keeps direct playback and surfaces CORS blocked when proxy recovery fails', async () => {
+    const audio = {
+      paused: true,
+      currentTime: 0,
+      src: '',
+      removeAttribute: vi.fn(),
+      load: vi.fn(),
+      play: vi.fn(async () => undefined),
+    } as unknown as HTMLAudioElement
+
+    const model: ModelSpec = {
+      id: 'test-model',
+      label: 'Test Model',
+      url: '/models/test.onnx',
+      kind: 'time',
+      sampleRateHz: 48_000,
+      supported: true,
+    }
+
+    const episode: PodcastEpisode = {
+      guid: 'episode-3',
+      title: 'Episode 3',
+      enclosureUrl: 'https://audio.example.com/ep3.mp3',
+    }
+    const expectedProxyUrl = `/api/stream?url=${encodeURIComponent(episode.enclosureUrl)}`
+
+    const processingBootstrap = {
+      preferredOrtBaseUrl: '/ort',
+      ensureOrtAssetsReady: vi.fn(),
+      resolveModelInitUrl: vi.fn(),
+    } as unknown as ProcessingBootstrapService
+
+    const reportIssue = vi.fn<(source: IssueSource, summary: string, detail: unknown) => void>()
+    const setCanDenoise = vi.fn<(next: boolean | null) => void>()
+    const corsProbe = vi.fn(async () => false)
+    const probeStreamProxy = vi.fn(async () => false)
+    const waitForAudioMetadata = vi.fn(async () => {})
+
+    const { result } = renderHook(() =>
+      useProcessingController({
+        audioRef: { current: audio },
+        model,
+        isPlaying: false,
+        episode,
+        sourceKind: 'remote',
+        getRemotePlaybackUrl: () => episode.enclosureUrl,
+        processingBootstrap,
+        reportIssue,
+        setCanDenoise,
+        corsProbe,
+        probeStreamProxy,
+        waitForAudioMetadata,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.toggleDenoise(true)
+    })
+
+    expect(probeStreamProxy).toHaveBeenCalledWith(
+      expectedProxyUrl,
+      expect.objectContaining({ timeoutMs: 12_000 }),
+    )
+    expect(corsProbe).toHaveBeenCalledWith(episode.enclosureUrl, expect.any(Object))
+    expect(waitForAudioMetadata).not.toHaveBeenCalled()
+    expect(audio.src).toBe('')
+    expect(setCanDenoise).toHaveBeenCalledWith(false)
+    expect(result.current.engineDetail).toBe('CORS blocked. Download + import the file to denoise.')
+    expect(reportIssue).not.toHaveBeenCalled()
   })
 })
