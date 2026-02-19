@@ -7,6 +7,11 @@ function throwIfAborted(signal?: AbortSignal): void {
   throw new DOMException('Aborted', 'AbortError')
 }
 
+function cancelBody(res: Response): void {
+  if (!res.body) return
+  void res.body.cancel().catch(() => {})
+}
+
 export async function corsProbe(url: string, options: RequestProbeOptions = {}): Promise<boolean> {
   throwIfAborted(options.signal)
   try {
@@ -17,22 +22,42 @@ export async function corsProbe(url: string, options: RequestProbeOptions = {}):
   }
 
   try {
-    const head = await fetch(url, { method: 'HEAD', mode: 'cors', signal: options.signal })
-    if (head.ok) return true
+    // Any resolved CORS-mode response proves CORS is allowed, regardless of status code.
+    await fetch(url, {
+      method: 'HEAD',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: options.signal,
+    })
+    return true
   } catch {
     throwIfAborted(options.signal)
     // Intentionally ignored; hosts often block HEAD probes.
   }
 
   try {
-    const get = await fetch(url, {
+    const ranged = await fetch(url, {
       method: 'GET',
       mode: 'cors',
       headers: { Range: 'bytes=0-0' },
       cache: 'no-store',
       signal: options.signal,
     })
-    return get.ok
+    cancelBody(ranged)
+    return true
+  } catch {
+    throwIfAborted(options.signal)
+  }
+
+  try {
+    const full = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: options.signal,
+    })
+    cancelBody(full)
+    return true
   } catch {
     throwIfAborted(options.signal)
     return false
@@ -54,16 +79,35 @@ export async function probeStreamProxy(
 
   const timer = window.setTimeout(() => ctrl.abort(), options.timeoutMs ?? 7000)
   try {
-    const res = await fetch(proxyUrl, {
+    const ranged = await fetch(proxyUrl, {
       method: 'GET',
       headers: { Range: 'bytes=0-0' },
       cache: 'no-store',
       signal: ctrl.signal,
     })
-    if (res.body) {
-      void res.body.cancel().catch(() => {})
+    cancelBody(ranged)
+    if (ranged.ok || ranged.status === 416) {
+      return true
     }
-    return res.ok
+
+    // Some upstreams reject/ignore ranged probes; fall back to a tiny HEAD check.
+    const head = await fetch(proxyUrl, {
+      method: 'HEAD',
+      cache: 'no-store',
+      signal: ctrl.signal,
+    })
+    if (head.ok) {
+      return true
+    }
+
+    // Final fallback: plain GET without Range in case Range-specific handling is broken upstream.
+    const full = await fetch(proxyUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: ctrl.signal,
+    })
+    cancelBody(full)
+    return full.ok
   } catch {
     return false
   } finally {
