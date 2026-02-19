@@ -36,22 +36,40 @@ type VirtualGridWindow = {
   rowHeight: number
 }
 
-function resolveLibraryGridSizing(viewportWidth: number): LibraryGridSizing {
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function lerp(min: number, max: number, t: number): number {
+  return min + (max - min) * t
+}
+
+function resolveLibraryGridSizing(
+  viewportWidth: number,
+  viewportHeight: number,
+): LibraryGridSizing {
   if (viewportWidth <= 768) {
     return {
       cardSize: 150,
       gap: 16,
     }
   }
-  if (viewportWidth <= 1024) {
+
+  if (viewportWidth <= 980) {
+    const compactScale = clamp01((viewportWidth - 768) / (980 - 768))
     return {
-      cardSize: 180,
-      gap: 20,
+      cardSize: Math.round(lerp(150, 178, compactScale)),
+      gap: Math.round(lerp(16, 20, compactScale)),
     }
   }
+
+  const widthScale = clamp01((viewportWidth - 980) / (1920 - 980))
+  const heightScale = clamp01((viewportHeight - 620) / (1280 - 620))
+  const scale = clamp01(widthScale * 0.68 + heightScale * 0.32)
+
   return {
-    cardSize: 200,
-    gap: 24,
+    cardSize: Math.round(lerp(170, 236, scale)),
+    gap: Math.round(lerp(16, 30, scale)),
   }
 }
 
@@ -172,6 +190,13 @@ export const LibraryMainView = memo(function LibraryMainView({
   fetchLibraryFeedArtwork,
   onSelectFeed,
 }: LibraryMainViewProps) {
+  const [libraryGridSizing, setLibraryGridSizing] = useState<LibraryGridSizing>(
+    () =>
+      resolveLibraryGridSizing(
+        typeof window === 'undefined' ? 1280 : window.innerWidth,
+        typeof window === 'undefined' ? 900 : window.innerHeight,
+      ),
+  )
   const [revealedCardUrls, setRevealedCardUrls] = useState<Set<string>>(
     () => new Set(),
   )
@@ -215,6 +240,14 @@ export const LibraryMainView = memo(function LibraryMainView({
       endIndex,
     }
   }, [libraryFeedsView.length, virtualWindow])
+  const libraryGridStyle = useMemo(
+    () =>
+      ({
+        '--pc-library-card-size': `${libraryGridSizing.cardSize}px`,
+        '--pc-library-grid-gap': `${libraryGridSizing.gap}px`,
+      }) as CSSProperties,
+    [libraryGridSizing.cardSize, libraryGridSizing.gap],
+  )
   const topSpacerHeight = useMemo(() => {
     if (virtualWindow.startRow <= 0) return 0
     return Math.max(
@@ -316,8 +349,14 @@ export const LibraryMainView = memo(function LibraryMainView({
     const TOP_SHOW_THRESHOLD_PX = 10
     const DIRECTION_THRESHOLD_PX = 6
     const measureVirtualWindow = (): void => {
-      const { cardSize, gap } = resolveLibraryGridSizing(window.innerWidth)
-      const rowHeight = cardSize + gap
+      const { cardSize: minCardSize, gap } = resolveLibraryGridSizing(
+        window.innerWidth,
+        window.innerHeight,
+      )
+      setLibraryGridSizing((prev) => {
+        if (prev.cardSize === minCardSize && prev.gap === gap) return prev
+        return { cardSize: minCardSize, gap }
+      })
       const style = window.getComputedStyle(gridElement)
       const paddingLeft = Number.parseFloat(style.paddingLeft) || 0
       const paddingRight = Number.parseFloat(style.paddingRight) || 0
@@ -327,8 +366,13 @@ export const LibraryMainView = memo(function LibraryMainView({
       )
       const columnCount = Math.max(
         1,
-        Math.floor((availableWidth + gap) / Math.max(1, cardSize + gap)),
+        Math.floor((availableWidth + gap) / Math.max(1, minCardSize + gap)),
       )
+      const resolvedCardSize =
+        columnCount <= 1
+          ? availableWidth
+          : (availableWidth - gap * (columnCount - 1)) / columnCount
+      const rowHeight = Math.max(0, resolvedCardSize) + gap
       const rowCount = Math.ceil(libraryFeedsView.length / columnCount)
 
       if (rowCount === 0) {
@@ -656,7 +700,11 @@ export const LibraryMainView = memo(function LibraryMainView({
         </div>
       </div>
 
-      <div className="pcLibraryGrid pcStaggerList" ref={libraryGridRef}>
+      <div
+        className="pcLibraryGrid pcStaggerList"
+        ref={libraryGridRef}
+        style={libraryGridStyle}
+      >
         {libraryFeedsView.length > 0 ? (
           <>
             {topSpacerHeight > 0 ? (

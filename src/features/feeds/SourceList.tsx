@@ -1,6 +1,7 @@
 import { memo, type CSSProperties } from 'react'
 import type { DefaultFeed } from '../../podcasts/defaultFeeds'
 import { normalizeFeedUrlKey } from './feedUtils'
+import { ScrambleText } from '../system/ScrambleText'
 
 export type SourceListFeed = DefaultFeed & {
   lastEpisodeTitle: string
@@ -36,9 +37,25 @@ export const SourceList = memo(function SourceList({
               } as CSSProperties
             }
           >
-            <div className="pcSourceItemTitle pcSkeletonLine pcSkeletonW70" />
+            <div className="pcSourceItemTitle pcSkeletonLine pcSkeletonScramble pcSkeletonW70">
+              <ScrambleText
+                text="INITIALIZING SOURCE"
+                durationMs={720}
+                delayMs={index * 44}
+                loop
+                loopDelayMs={120}
+              />
+            </div>
             <div className="pcSourceItemMeta">
-              <span className="pcSourceLastEpisode pcSkeletonLine pcSkeletonW85" />
+              <span className="pcSourceLastEpisode pcSkeletonLine pcSkeletonScramble pcSkeletonW85">
+                <ScrambleText
+                  text="FETCHING LATEST TRANSMISSION"
+                  durationMs={780}
+                  delayMs={index * 44 + 80}
+                  loop
+                  loopDelayMs={130}
+                />
+              </span>
             </div>
           </button>
         ))}

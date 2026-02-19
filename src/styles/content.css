@@ -19,7 +19,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 32px 48px;
+  padding: var(--pc-now-pad-y) var(--pc-now-pad-x);
   border-bottom: 1px solid var(--pc-border-subtle);
 }
 
@@ -41,7 +41,7 @@
   padding: 0;
   display: flex;
   flex-direction: row;
-  gap: 48px;
+  gap: var(--pc-now-gap);
   justify-content: flex-start;
   overflow: visible;
   position: relative;
@@ -418,7 +418,7 @@
 /* Show Details */
 .pcShowDetails {
   flex: none;
-  padding: 24px 32px;
+  padding: var(--pc-show-details-pad-y) var(--pc-show-details-pad-x);
   background: var(--pc-background-base);
   border-bottom: 1px solid var(--pc-border-subtle);
 }
@@ -426,7 +426,7 @@
 .pcShowDetailsInner {
   display: flex;
   flex-direction: row;
-  gap: 32px;
+  gap: var(--pc-show-details-inner-gap);
   max-width: 6xl;
   align-items: flex-start;
 }
@@ -438,8 +438,8 @@
 
 .pcShowArtworkCard {
   --pc-tile-void-bg: transparent;
-  width: 192px;
-  height: 192px;
+  width: var(--pc-show-artwork-size);
+  height: var(--pc-show-artwork-size);
   background: transparent;
   border: none;
   box-shadow: none;
@@ -465,11 +465,11 @@
 }
 
 .pcShowArtworkIcon {
-  font-size: 120px;
+  font-size: var(--pc-show-artwork-icon-size);
   color: rgba(255, 255, 255, 0.05);
   position: absolute;
-  right: -16px;
-  bottom: -16px;
+  right: calc(var(--pc-show-artwork-icon-offset) * -1);
+  bottom: calc(var(--pc-show-artwork-icon-offset) * -1);
   transform: rotate(12deg);
 }
 
@@ -513,8 +513,8 @@
 .pcShowMeta {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--pc-show-meta-gap);
+  margin-bottom: var(--pc-show-meta-margin-bottom);
 }
 
 .pcShowGenres {
@@ -556,7 +556,7 @@
   font-weight: 700;
   line-height: 0.95;
   color: var(--pc-text-main);
-  margin: 0 0 16px 0;
+  margin: 0 0 var(--pc-show-title-margin-bottom) 0;
   text-transform: uppercase;
   letter-spacing: 1.4px;
 }
@@ -577,8 +577,8 @@
 .pcShowStats {
   display: flex;
   flex-wrap: wrap;
-  gap: 32px;
-  padding-top: 24px;
+  gap: var(--pc-show-stats-gap);
+  padding-top: var(--pc-show-stats-pad-top);
   border-top: 1px solid rgba(39, 39, 42, 0.5);
 }
 
@@ -618,7 +618,7 @@
 
 .pcDiscoverSearch {
   flex: none;
-  padding: 24px 24px 24px;
+  padding: var(--pc-discover-search-pad-y) var(--pc-discover-search-pad-x);
   background: rgba(18, 18, 18, 0.5);
   backdrop-filter: blur(12px);
   position: sticky;
@@ -629,7 +629,7 @@
 .pcDiscoverSearchInner {
   position: relative;
   width: 100%;
-  max-width: 1280px;
+  max-width: var(--pc-discover-search-max-w);
   margin: 0 auto;
 }
 
@@ -667,9 +667,9 @@
 
 .pcDiscoverHero {
   position: relative;
-  height: 320px;
+  height: var(--pc-discover-hero-h);
   overflow: hidden;
-  margin: 0 32px;
+  margin: 0 var(--pc-discover-hero-margin-x);
   border-radius: 2px;
   border: 1px solid var(--pc-border-subtle);
 }
@@ -678,7 +678,7 @@
   position: absolute;
   right: 0;
   top: 50%;
-  width: 320px;
+  width: var(--pc-discover-hero-image-w);
   height: 170%;
   object-fit: cover;
   transform: translateY(-50%);
@@ -701,19 +701,19 @@
 .pcDiscoverHeroContent {
   position: absolute;
   inset: 0;
-  padding: 32px;
+  padding: var(--pc-discover-hero-content-pad);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  max-width: 1024px;
+  max-width: var(--pc-discover-hero-content-max-w);
   margin: 0 auto;
 }
 
 .pcDiscoverHeroHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--pc-discover-hero-header-gap);
+  margin-bottom: var(--pc-discover-hero-header-mb);
 }
 
 .pcDiscoverHeroBadge {
@@ -756,14 +756,14 @@
   font-size: 16px;
   line-height: 1.6;
   color: rgba(248, 250, 252, 0.9);
-  max-width: 768px;
-  margin-bottom: 24px;
+  max-width: var(--pc-discover-hero-desc-max-w);
+  margin-bottom: var(--pc-discover-hero-desc-mb);
 }
 
 .pcDiscoverHeroActions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--pc-discover-hero-actions-gap);
 }
 
 .pcDiscoverHeroBtn {
@@ -803,26 +803,27 @@
 }
 
 .pcDiscoverContent {
-  padding: 64px 32px 128px;
+  padding: var(--pc-discover-content-pad-top) var(--pc-discover-content-pad-x)
+    var(--pc-discover-content-pad-bottom);
 }
 
 .pcDiscoverSection {
-  margin-bottom: 96px;
+  margin-bottom: var(--pc-discover-section-gap);
 }
 
 .pcDiscoverSectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 16px;
+  padding-bottom: var(--pc-discover-section-head-pb);
   border-bottom: 1px solid var(--pc-border-subtle);
-  margin-bottom: 32px;
+  margin-bottom: var(--pc-discover-section-head-mb);
 }
 
 .pcDiscoverSectionTitle {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--pc-discover-section-title-gap);
   font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
@@ -864,7 +865,7 @@
 .pcDiscoverGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  gap: var(--pc-discover-grid-gap);
   grid-auto-rows: 1fr;
 }
 
@@ -1008,13 +1009,13 @@
   min-height: 0;
 }
 .pcSectionHead {
-  padding: 16px 24px;
+  padding: var(--pc-episodes-head-pad-y) var(--pc-episodes-head-pad-x);
   border-bottom: 1px solid var(--pc-border-subtle);
   background: var(--pc-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--pc-episodes-head-gap);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -1028,7 +1029,7 @@
   color: var(--pc-text-main);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--pc-episodes-title-gap);
 }
 .pcSectionTag {
   font-family: var(--pc-font-mono);
@@ -1040,7 +1041,7 @@
 .pcSectionTools {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--pc-episodes-tools-gap);
 }
 
 .pcSortBtn {
@@ -1051,7 +1052,7 @@
   font-size: 10px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 8px 10px;
+  padding: var(--pc-sort-btn-pad-y) var(--pc-sort-btn-pad-x);
   border-radius: 2px;
   cursor: pointer;
   transition:
@@ -1088,16 +1089,16 @@
 }
 
 .pcFilterInput {
-  padding-left: 40px;
-  padding-right: 8px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-left: var(--pc-filter-input-pad-left);
+  padding-right: var(--pc-filter-input-pad-right);
+  padding-top: var(--pc-filter-input-pad-y);
+  padding-bottom: var(--pc-filter-input-pad-y);
   font-size: 12px;
   background: transparent;
   border: none;
   color: var(--pc-text);
   font-family: var(--pc-font-mono);
-  width: 256px;
+  width: var(--pc-filter-input-w);
   border-radius: 2px;
   outline: none;
   transition: all 120ms ease;
@@ -1115,21 +1116,21 @@
 
 .pcFilter .material-symbols-outlined {
   position: absolute;
-  left: 12px;
+  left: var(--pc-filter-icon-left);
   top: 50%;
   transform: translateY(-50%);
   color: var(--pc-muted);
-  font-size: 16px;
+  font-size: var(--pc-filter-icon-size);
   pointer-events: none;
 }
 
 .pcFilter svg {
   position: absolute;
-  left: 12px;
+  left: var(--pc-filter-icon-left);
   top: 50%;
   transform: translateY(-50%);
   color: var(--pc-muted);
-  font-size: 16px;
+  font-size: var(--pc-filter-icon-size);
   pointer-events: none;
   z-index: 1;
 }
@@ -1157,13 +1158,13 @@
 }
 
 .pcEpisodeList th {
-  padding: 12px 24px;
+  padding: var(--pc-episode-th-pad-y) var(--pc-episodes-head-pad-x);
   font-weight: 500;
   letter-spacing: 1.2px;
 }
 
 .pcEpisodeList th:first-child {
-  width: 80px;
+  width: var(--pc-episode-col-icon-w);
   text-align: center;
 }
 
@@ -1193,18 +1194,18 @@
 }
 
 .pcEpisodeItem td {
-  padding: 16px 24px;
+  padding: var(--pc-episode-cell-pad-y) var(--pc-episodes-head-pad-x);
   vertical-align: top;
 }
 
 .pcEpisodeItem td:first-child {
-  width: 80px;
+  width: var(--pc-episode-col-icon-w);
   text-align: center;
 }
 
 .pcEpisodeItem td:nth-child(2) {
-  min-width: 300px;
-  max-width: 500px;
+  min-width: var(--pc-episode-col-content-min);
+  max-width: var(--pc-episode-col-content-max);
 }
 .pcEpisodeItem:hover {
   background: var(--pc-surface-hover);
@@ -1228,8 +1229,8 @@
   border-left-color: var(--pc-primary);
 }
 .pcEpisodeIcon {
-  width: 32px;
-  height: 32px;
+  width: var(--pc-episode-icon-size);
+  height: var(--pc-episode-icon-size);
   display: flex;
   align-items: center;
   justify-content: center;

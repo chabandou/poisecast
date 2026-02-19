@@ -30,13 +30,21 @@
         padding: 12px;
         overflow: hidden;
         background:
-          radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.08), transparent 42%),
-          radial-gradient(circle at 78% 82%, rgba(255, 255, 255, 0.06), transparent 48%),
+          radial-gradient(
+            circle at 22% 18%,
+            rgba(255, 255, 255, 0.08),
+            transparent 42%
+          ),
+          radial-gradient(
+            circle at 78% 82%,
+            rgba(255, 255, 255, 0.06),
+            transparent 48%
+          ),
           #050505;
         color: #8ce8f2;
         font-family:
-          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+          Consolas, "Liberation Mono", "Courier New", monospace;
         font-variant-ligatures: none;
         font-feature-settings: "liga" 0;
         letter-spacing: 0.07em;
@@ -63,45 +71,58 @@
       }
 
       .pcBootLoader::before {
-        background:
-          repeating-linear-gradient(
-            to bottom,
-            rgba(255, 255, 255, 0.075) 0,
-            rgba(255, 255, 255, 0.075) 1px,
-            transparent 1px,
-            transparent 3px
-          );
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.075) 0,
+          rgba(255, 255, 255, 0.075) 1px,
+          transparent 1px,
+          transparent 3px
+        );
         mix-blend-mode: screen;
         opacity: 0.14;
       }
 
       .pcBootLoader::after {
-        background:
-          linear-gradient(
-            to bottom,
-            transparent 0%,
-            transparent 42%,
-            rgba(0, 229, 255, 0.16) 50%,
-            transparent 58%,
-            transparent 100%
-          );
+        background: linear-gradient(
+          to bottom,
+          transparent 0%,
+          transparent 42%,
+          rgba(0, 229, 255, 0.16) 50%,
+          transparent 58%,
+          transparent 100%
+        );
         transform: translateY(90%);
         animation: pcBootSweep 1700ms linear infinite;
         opacity: 0.35;
       }
 
       .pcBootLoaderCore {
-        position: relative;
+        position: absolute;
         z-index: 1;
         box-sizing: border-box;
+        --pc-boot-core-shadow: 0 0 26px rgba(0, 229, 255, 0.15);
+        --pc-boot-core-collapsed-width: 54px;
+        --pc-boot-core-collapsed-height: 20px;
         width: min(620px, calc(100vw - 24px));
         max-width: calc(100vw - 24px);
         padding: clamp(14px, 3.8vw, 20px) clamp(14px, 4.5vw, 24px);
         border: 1px solid rgba(140, 232, 242, 0.26);
         border-radius: 2px;
         background: rgba(4, 10, 14, 0.62);
-        box-shadow: 0 0 26px rgba(0, 229, 255, 0.15);
+        box-shadow: var(--pc-boot-core-shadow);
+        opacity: 0;
         overflow: hidden;
+        will-change: width, height, opacity;
+      }
+
+      .pcBootLoaderCore > * {
+        position: relative;
+        z-index: 1;
+        opacity: 0;
+      }
+
+      .pcBootLoaderCore.isEntered > * {
+        opacity: 1;
       }
 
       .pcBootLoaderLine {
@@ -120,26 +141,29 @@
         font-size: clamp(10px, 3vw, 12px);
         color: #f8fafc;
         text-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow: visible;
       }
 
-      .pcBootLoaderCursor {
-        display: inline-block;
-        margin-left: 6px;
-        animation: pcBootCursorBlink 760ms steps(1, end) infinite;
+      #pcBootText {
+        visibility: hidden;
       }
 
-      @keyframes pcBootCursorBlink {
-        0%,
-        48% {
-          opacity: 1;
-        }
-        49%,
-        100% {
-          opacity: 0;
-        }
+      html.pcBootTextReady #pcBootText {
+        visibility: visible;
+      }
+
+      #pcBootTextContent {
+        display: block;
+        visibility: hidden;
+      }
+
+      html:not(.pcBootTextReady) #pcBootTextContent {
+        visibility: hidden !important;
+      }
+
+      #pcBootTextContent.isActive {
+        visibility: visible;
       }
 
       @keyframes pcBootSweep {
@@ -154,9 +178,24 @@
       @media (prefers-reduced-motion: reduce) {
         .pcBootLoader,
         .pcBootLoader::after,
-        .pcBootLoaderCursor {
+        .pcBootLoaderCore,
+        .pcBootLoaderCore > * {
           animation: none !important;
           transition: none !important;
+        }
+
+        .pcBootLoaderCore {
+          opacity: 1 !important;
+          width: min(620px, calc(100vw - 24px)) !important;
+          height: auto !important;
+        }
+
+        .pcBootLoaderCore > * {
+          opacity: 1 !important;
+        }
+
+        #pcBootTextContent {
+          visibility: visible !important;
         }
       }
     </style>
@@ -174,181 +213,619 @@
   <body>
     <div id="pcBootLoader" class="pcBootLoader" aria-hidden="true">
       <div class="pcBootLoaderCore">
-        <p class="pcBootLoaderLine">POISECAST BOOTSTRAP // SYNCHRONIZING SHELL</p>
+        <p class="pcBootLoaderLine">
+          POISECAST BOOTSTRAP // SYNCHRONIZING SHELL
+        </p>
         <p id="pcBootText" class="pcBootLoaderAscii">
-          <span id="pcBootTextContent">[ INIT ] LINKING AUDIO MATRIX ...</span
-          ><span class="pcBootLoaderCursor">_</span>
+          <span id="pcBootTextContent"></span>
         </p>
       </div>
     </div>
     <div id="root"></div>
     <script>
-      ;(() => {
-        const bootRoot = document.documentElement
-        bootRoot.classList.add('pcBooting')
+      (() => {
+        const bootRoot = document.documentElement;
+        const DESKTOP_BREAKPOINT_PX = 980;
+        const viewportVarNames = [
+          "--pc-desktop-scale",
+          "--pc-header-h",
+          "--pc-sidebar-expanded-w",
+          "--pc-sidebar-collapsed-w",
+          "--pc-now-pad-y",
+          "--pc-now-pad-x",
+          "--pc-now-gap",
+          "--pc-discover-hero-h",
+          "--pc-discover-hero-margin-x",
+          "--pc-discover-hero-image-w",
+          "--pc-discover-content-pad-top",
+          "--pc-discover-content-pad-x",
+          "--pc-discover-content-pad-bottom",
+          "--pc-discover-section-gap",
+          "--pc-show-details-pad-y",
+          "--pc-show-details-pad-x",
+          "--pc-show-details-inner-gap",
+          "--pc-show-artwork-size",
+          "--pc-show-artwork-icon-size",
+          "--pc-show-artwork-icon-offset",
+          "--pc-show-meta-gap",
+          "--pc-show-meta-margin-bottom",
+          "--pc-show-title-margin-bottom",
+          "--pc-show-stats-gap",
+          "--pc-show-stats-pad-top",
+          "--pc-discover-search-pad-y",
+          "--pc-discover-search-pad-x",
+          "--pc-discover-search-max-w",
+          "--pc-discover-hero-content-pad",
+          "--pc-discover-hero-content-max-w",
+          "--pc-discover-hero-header-gap",
+          "--pc-discover-hero-header-mb",
+          "--pc-discover-hero-desc-max-w",
+          "--pc-discover-hero-desc-mb",
+          "--pc-discover-hero-actions-gap",
+          "--pc-discover-section-head-pb",
+          "--pc-discover-section-head-mb",
+          "--pc-discover-section-title-gap",
+          "--pc-discover-grid-gap",
+          "--pc-episodes-head-pad-y",
+          "--pc-episodes-head-pad-x",
+          "--pc-episodes-head-gap",
+          "--pc-episodes-title-gap",
+          "--pc-episodes-tools-gap",
+          "--pc-sort-btn-pad-y",
+          "--pc-sort-btn-pad-x",
+          "--pc-filter-input-w",
+          "--pc-filter-input-pad-left",
+          "--pc-filter-input-pad-right",
+          "--pc-filter-input-pad-y",
+          "--pc-filter-icon-left",
+          "--pc-filter-icon-size",
+          "--pc-episode-col-icon-w",
+          "--pc-episode-col-content-min",
+          "--pc-episode-col-content-max",
+          "--pc-episode-th-pad-y",
+          "--pc-episode-cell-pad-y",
+          "--pc-episode-icon-size",
+          "--pc-library-header-pad-top",
+          "--pc-library-header-pad-x",
+          "--pc-library-header-pad-bottom",
+          "--pc-library-header-max-h",
+          "--pc-library-header-glow-size",
+          "--pc-library-header-icon-top",
+          "--pc-library-header-icon-right",
+          "--pc-library-header-icon-size",
+          "--pc-library-header-hide-shift",
+          "--pc-library-header-badges-gap",
+          "--pc-library-header-badges-mb",
+          "--pc-library-controls-pad-y",
+          "--pc-library-controls-pad-x",
+          "--pc-library-controls-left-gap",
+          "--pc-library-controls-group-gap",
+          "--pc-library-search-w",
+          "--pc-library-grid-pad-y",
+          "--pc-library-grid-pad-x",
+          "--pc-library-grid-gap",
+          "--pc-library-card-size",
+          "--pc-library-play-icon-size",
+          "--pc-library-placeholder-icon-size",
+          "--pc-library-card-badge-offset",
+        ];
+        let viewportResizeRaf = null;
+
+        const clamp01 = (value) => Math.min(1, Math.max(0, value));
+        const lerp = (min, max, t) => min + (max - min) * t;
+        const setRootPxVar = (name, value) => {
+          bootRoot.style.setProperty(name, `${Math.round(value)}px`);
+        };
+        const clearDesktopViewportVars = () => {
+          for (const varName of viewportVarNames) {
+            bootRoot.style.removeProperty(varName);
+          }
+        };
+        const applyDesktopViewportVars = () => {
+          const viewportWidthPx = Math.max(window.innerWidth, 1);
+          const viewportHeightPx = Math.max(window.innerHeight, 1);
+
+          bootRoot.style.setProperty("--pc-vw", `${viewportWidthPx}px`);
+          bootRoot.style.setProperty("--pc-vh", `${viewportHeightPx}px`);
+
+          if (viewportWidthPx <= DESKTOP_BREAKPOINT_PX) {
+            clearDesktopViewportVars();
+            return;
+          }
+
+          const widthT = clamp01((viewportWidthPx - 980) / (1920 - 980));
+          const heightT = clamp01((viewportHeightPx - 620) / (1280 - 620));
+          const scale = clamp01(widthT * 0.68 + heightT * 0.32);
+
+          bootRoot.style.setProperty("--pc-desktop-scale", scale.toFixed(4));
+          setRootPxVar("--pc-header-h", lerp(56, 72, scale));
+          setRootPxVar("--pc-sidebar-expanded-w", lerp(228, 320, scale));
+          setRootPxVar("--pc-sidebar-collapsed-w", lerp(54, 84, scale));
+          setRootPxVar("--pc-now-pad-y", lerp(22, 34, scale));
+          setRootPxVar("--pc-now-pad-x", lerp(28, 56, scale));
+          setRootPxVar("--pc-now-gap", lerp(28, 56, scale));
+          setRootPxVar("--pc-discover-hero-h", lerp(248, 360, scale));
+          setRootPxVar("--pc-discover-hero-margin-x", lerp(20, 40, scale));
+          setRootPxVar("--pc-discover-hero-image-w", lerp(240, 360, scale));
+          setRootPxVar("--pc-discover-content-pad-top", lerp(48, 72, scale));
+          setRootPxVar("--pc-discover-content-pad-x", lerp(20, 40, scale));
+          setRootPxVar("--pc-discover-content-pad-bottom", lerp(96, 156, scale));
+          setRootPxVar("--pc-discover-section-gap", lerp(72, 108, scale));
+          setRootPxVar("--pc-show-details-pad-y", lerp(20, 32, scale));
+          setRootPxVar("--pc-show-details-pad-x", lerp(22, 44, scale));
+          setRootPxVar("--pc-show-details-inner-gap", lerp(22, 44, scale));
+          setRootPxVar("--pc-show-artwork-size", lerp(164, 236, scale));
+          setRootPxVar("--pc-show-artwork-icon-size", lerp(102, 140, scale));
+          setRootPxVar("--pc-show-artwork-icon-offset", lerp(12, 20, scale));
+          setRootPxVar("--pc-show-meta-gap", lerp(10, 16, scale));
+          setRootPxVar("--pc-show-meta-margin-bottom", lerp(12, 20, scale));
+          setRootPxVar("--pc-show-title-margin-bottom", lerp(12, 20, scale));
+          setRootPxVar("--pc-show-stats-gap", lerp(24, 44, scale));
+          setRootPxVar("--pc-show-stats-pad-top", lerp(18, 30, scale));
+          setRootPxVar("--pc-discover-search-pad-y", lerp(16, 26, scale));
+          setRootPxVar("--pc-discover-search-pad-x", lerp(18, 34, scale));
+          setRootPxVar("--pc-discover-search-max-w", lerp(980, 1400, scale));
+          setRootPxVar("--pc-discover-hero-content-pad", lerp(22, 40, scale));
+          setRootPxVar("--pc-discover-hero-content-max-w", lerp(860, 1180, scale));
+          setRootPxVar("--pc-discover-hero-header-gap", lerp(10, 14, scale));
+          setRootPxVar("--pc-discover-hero-header-mb", lerp(12, 18, scale));
+          setRootPxVar("--pc-discover-hero-desc-max-w", lerp(620, 860, scale));
+          setRootPxVar("--pc-discover-hero-desc-mb", lerp(18, 28, scale));
+          setRootPxVar("--pc-discover-hero-actions-gap", lerp(12, 20, scale));
+          setRootPxVar("--pc-discover-section-head-pb", lerp(12, 18, scale));
+          setRootPxVar("--pc-discover-section-head-mb", lerp(24, 38, scale));
+          setRootPxVar("--pc-discover-section-title-gap", lerp(12, 20, scale));
+          setRootPxVar("--pc-discover-grid-gap", lerp(16, 30, scale));
+          setRootPxVar("--pc-episodes-head-pad-y", lerp(12, 20, scale));
+          setRootPxVar("--pc-episodes-head-pad-x", lerp(16, 30, scale));
+          setRootPxVar("--pc-episodes-head-gap", lerp(10, 18, scale));
+          setRootPxVar("--pc-episodes-title-gap", lerp(10, 20, scale));
+          setRootPxVar("--pc-episodes-tools-gap", lerp(8, 16, scale));
+          setRootPxVar("--pc-sort-btn-pad-y", lerp(6, 10, scale));
+          setRootPxVar("--pc-sort-btn-pad-x", lerp(8, 14, scale));
+          setRootPxVar("--pc-filter-input-w", lerp(220, 340, scale));
+          setRootPxVar("--pc-filter-input-pad-left", lerp(34, 44, scale));
+          setRootPxVar("--pc-filter-input-pad-right", lerp(8, 12, scale));
+          setRootPxVar("--pc-filter-input-pad-y", lerp(5, 7, scale));
+          setRootPxVar("--pc-filter-icon-left", lerp(10, 14, scale));
+          setRootPxVar("--pc-filter-icon-size", lerp(14, 18, scale));
+          setRootPxVar("--pc-episode-col-icon-w", lerp(68, 92, scale));
+          setRootPxVar("--pc-episode-col-content-min", lerp(260, 360, scale));
+          setRootPxVar("--pc-episode-col-content-max", lerp(440, 620, scale));
+          setRootPxVar("--pc-episode-th-pad-y", lerp(10, 14, scale));
+          setRootPxVar("--pc-episode-cell-pad-y", lerp(14, 20, scale));
+          setRootPxVar("--pc-episode-icon-size", lerp(28, 36, scale));
+          setRootPxVar("--pc-library-header-pad-top", lerp(30, 54, scale));
+          setRootPxVar("--pc-library-header-pad-x", lerp(28, 60, scale));
+          setRootPxVar("--pc-library-header-pad-bottom", lerp(18, 30, scale));
+          setRootPxVar("--pc-library-header-max-h", lerp(180, 260, scale));
+          setRootPxVar("--pc-library-header-glow-size", lerp(140, 220, scale));
+          setRootPxVar("--pc-library-header-icon-top", lerp(22, 40, scale));
+          setRootPxVar("--pc-library-header-icon-right", lerp(20, 40, scale));
+          setRootPxVar("--pc-library-header-icon-size", lerp(140, 220, scale));
+          setRootPxVar("--pc-library-header-hide-shift", lerp(10, 20, scale));
+          setRootPxVar("--pc-library-header-badges-gap", lerp(10, 16, scale));
+          setRootPxVar("--pc-library-header-badges-mb", lerp(16, 30, scale));
+          setRootPxVar("--pc-library-controls-pad-y", lerp(12, 20, scale));
+          setRootPxVar("--pc-library-controls-pad-x", lerp(20, 40, scale));
+          setRootPxVar("--pc-library-controls-left-gap", lerp(20, 40, scale));
+          setRootPxVar("--pc-library-controls-group-gap", lerp(8, 14, scale));
+          setRootPxVar("--pc-library-search-w", lerp(220, 340, scale));
+          setRootPxVar("--pc-library-grid-pad-y", lerp(24, 44, scale));
+          setRootPxVar("--pc-library-grid-pad-x", lerp(28, 60, scale));
+          setRootPxVar("--pc-library-grid-gap", lerp(16, 30, scale));
+          setRootPxVar("--pc-library-card-size", lerp(170, 236, scale));
+          setRootPxVar("--pc-library-play-icon-size", lerp(52, 74, scale));
+          setRootPxVar("--pc-library-placeholder-icon-size", lerp(78, 110, scale));
+          setRootPxVar("--pc-library-card-badge-offset", lerp(6, 12, scale));
+        };
+        const scheduleDesktopViewportVars = () => {
+          if (viewportResizeRaf !== null) return;
+          viewportResizeRaf = window.requestAnimationFrame(() => {
+            viewportResizeRaf = null;
+            applyDesktopViewportVars();
+          });
+        };
+
+        applyDesktopViewportVars();
+        window.addEventListener("resize", scheduleDesktopViewportVars, {
+          passive: true,
+        });
+        window.addEventListener("orientationchange", scheduleDesktopViewportVars);
+
+        bootRoot.classList.add("pcBooting");
+        bootRoot.classList.remove("pcBootTextReady");
 
         const prefersReducedMotion = window.matchMedia(
-          '(prefers-reduced-motion: reduce)',
-        ).matches
-        const frames = [
-          '[ INIT ] LINKING AUDIO MATRIX ...',
-          '[ INIT ] CHECKING WASM NODES .....',
-          '[ INIT ] STAGING DSP THREADS .....',
-          '[ INIT ] BRINGING UI SHELL ONLINE ',
-          '[ INIT ] CALIBRATING FEED CHANNELS ',
-          '[ INIT ] HANDSHAKE AWAITING RENDER ',
-        ]
-        const scrambleCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&'
-        const scrambleDurationMs = 700
-        const frameIntervalMs = 860
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        const bootStatusLine = "[ INIT ] LINKING AUDIO MATRIX ...";
+        const scrambleCharset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&";
+        const scrambleDurationMs = 780;
+        const minimumBootDurationMs = 3000;
+        const cleanupFallbackMs = 420;
+        const bootCoreEnterDurationMs = 520;
+        const bootCoreHeightStaggerMs = 150;
+        const bootStartedAt = performance.now();
+        const bootCore = document.querySelector(".pcBootLoaderCore");
 
-        let frameIndex = 0
-        let frameTimer = null
-        let scrambleRaf = null
-        let scrambleToken = 0
-        let fallbackTimer = null
-        let didFinish = false
-        let didCleanup = false
-        let hasWindowLoaded = document.readyState === 'complete'
-        let hasReactMounted = false
+        let scrambleRaf = null;
+        let scrambleToken = 0;
+        let bootCoreEnterAnimation = null;
+        let bootCoreEnterFallbackTimer = null;
+        let didBootCoreEnter = false;
+        let didStartAsciiLoop = false;
+        let didRegisterAsciiStartListener = false;
+        let bootCoreTargetWidthPx = 0;
+        let bootCoreTargetHeightPx = 0;
+        let bootCoreTargetLeftPx = 0;
+        let bootCoreTargetTopPx = 0;
+        let fallbackTimer = null;
+        let minimumDurationTimer = null;
+        let didFinish = false;
+        let didCleanup = false;
+        let hasWindowLoaded = document.readyState === "complete";
+        let hasReactMounted = false;
 
         const markBootComplete = () => {
-          const completedAt = performance.now()
-          window.__pcBootCompleteAt = completedAt
-          bootRoot.classList.remove('pcBooting')
-          bootRoot.classList.add('pcBootComplete')
+          const completedAt = performance.now();
+          window.__pcBootCompleteAt = completedAt;
+          bootRoot.classList.remove("pcBooting");
+          bootRoot.classList.add("pcBootComplete");
           window.dispatchEvent(
-            new CustomEvent('pc:boot-complete', {
+            new CustomEvent("pc:boot-complete", {
               detail: { completedAt },
             }),
-          )
-        }
+          );
+        };
+
+        const resetBootTextState = () => {
+          const text = document.getElementById("pcBootTextContent");
+
+          bootRoot.classList.remove("pcBootTextReady");
+          if (text) {
+            text.textContent = "";
+            text.classList.remove("isActive");
+          }
+        };
+        resetBootTextState();
 
         const cleanupLoader = () => {
-          if (didCleanup) return
-          didCleanup = true
-          const loader = document.getElementById('pcBootLoader')
-          loader?.remove()
-          markBootComplete()
-        }
+          if (didCleanup) return;
+          didCleanup = true;
+          const loader = document.getElementById("pcBootLoader");
+          resetBootTextState();
+          loader?.remove();
+          markBootComplete();
+        };
 
         const stopAsciiLoop = () => {
-          scrambleToken += 1
+          scrambleToken += 1;
           if (scrambleRaf !== null) {
-            window.cancelAnimationFrame(scrambleRaf)
-            scrambleRaf = null
+            window.cancelAnimationFrame(scrambleRaf);
+            scrambleRaf = null;
           }
-          if (frameTimer !== null) {
-            window.clearTimeout(frameTimer)
-            frameTimer = null
+          if (bootCoreEnterFallbackTimer !== null) {
+            window.clearTimeout(bootCoreEnterFallbackTimer);
+            bootCoreEnterFallbackTimer = null;
           }
-        }
+          if (bootCoreEnterAnimation !== null) {
+            bootCoreEnterAnimation.cancel();
+            bootCoreEnterAnimation = null;
+          }
+
+          if (bootCore) {
+            bootCore.style.transition = "";
+            bootCore.style.height = "";
+          }
+        };
+
+        const parseCssPx = (value, fallbackPx) => {
+          const parsed = Number.parseFloat((value || "").trim());
+          return Number.isFinite(parsed) ? parsed : fallbackPx;
+        };
+
+        const measureBootCoreTargetBox = () => {
+          if (!bootCore) {
+            return { width: 0, height: 0 };
+          }
+
+          const previous = {
+            width: bootCore.style.width,
+            height: bootCore.style.height,
+            opacity: bootCore.style.opacity,
+            visibility: bootCore.style.visibility,
+            transition: bootCore.style.transition,
+          };
+
+          bootCore.style.transition = "none";
+          bootCore.style.visibility = "hidden";
+          bootCore.style.opacity = "1";
+          bootCore.style.width = "min(620px, calc(100vw - 24px))";
+          bootCore.style.height = "auto";
+
+          const rect = bootCore.getBoundingClientRect();
+          const measured = {
+            width: rect.width,
+            height: Math.max(rect.height, bootCore.scrollHeight),
+          };
+
+          bootCore.style.width = previous.width;
+          bootCore.style.height = previous.height;
+          bootCore.style.opacity = previous.opacity;
+          bootCore.style.visibility = previous.visibility;
+          bootCore.style.transition = previous.transition;
+
+          return measured;
+        };
+
+        const markBootCoreEntered = () => {
+          if (didBootCoreEnter || !bootCore) return;
+
+          didBootCoreEnter = true;
+          bootCore.classList.add("isEntered");
+          bootCore.style.transition = "";
+          bootCore.style.left = `${bootCoreTargetLeftPx}px`;
+          bootCore.style.top = `${bootCoreTargetTopPx}px`;
+          bootCore.style.width = `${bootCoreTargetWidthPx}px`;
+          bootCore.style.height = `${bootCoreTargetHeightPx}px`;
+          bootCore.style.opacity = "1";
+          window.dispatchEvent(new Event("pc:boot-core-entered"));
+          window.requestAnimationFrame(() => {
+            if (didCleanup) return;
+            bootCore.style.height = "";
+          });
+        };
+
+        const startBootCoreEntrance = () => {
+          if (!bootCore) {
+            didBootCoreEnter = true;
+            window.dispatchEvent(new Event("pc:boot-core-entered"));
+            return;
+          }
+          resetBootTextState();
+
+          const styles = window.getComputedStyle(bootCore);
+          const collapsedWidth = parseCssPx(
+            styles.getPropertyValue("--pc-boot-core-collapsed-width"),
+            54,
+          );
+          const collapsedHeight = parseCssPx(
+            styles.getPropertyValue("--pc-boot-core-collapsed-height"),
+            20,
+          );
+          const measuredTarget = measureBootCoreTargetBox();
+          bootCoreTargetWidthPx = Math.max(collapsedWidth, measuredTarget.width);
+          bootCoreTargetHeightPx = Math.max(collapsedHeight, measuredTarget.height);
+          bootCoreTargetLeftPx = Math.round(
+            (window.innerWidth - bootCoreTargetWidthPx) / 2,
+          );
+          bootCoreTargetTopPx = Math.round(
+            (window.innerHeight - bootCoreTargetHeightPx) / 2,
+          );
+
+          bootCore.style.left = `${bootCoreTargetLeftPx}px`;
+          bootCore.style.top = `${bootCoreTargetTopPx}px`;
+          bootCore.style.width = `${collapsedWidth}px`;
+          bootCore.style.height = `${collapsedHeight}px`;
+          bootCore.style.opacity = "0";
+          bootCore.style.transition = "none";
+          void bootCore.offsetHeight;
+
+          if (prefersReducedMotion) {
+            markBootCoreEntered();
+            return;
+          }
+
+          const heightStartOffset = Math.min(
+            0.8,
+            0.22 + bootCoreHeightStaggerMs / Math.max(1, bootCoreEnterDurationMs),
+          );
+          const widthAtHeightStartPx =
+            collapsedWidth + (bootCoreTargetWidthPx - collapsedWidth) * 0.2;
+
+          bootCoreEnterAnimation = bootCore.animate(
+            [
+              {
+                opacity: 0,
+                width: `${collapsedWidth}px`,
+                height: `${collapsedHeight}px`,
+              },
+              {
+                offset: 0.22,
+                opacity: 1,
+                width: `${collapsedWidth}px`,
+                height: `${collapsedHeight}px`,
+              },
+              {
+                offset: heightStartOffset,
+                opacity: 1,
+                width: `${widthAtHeightStartPx}px`,
+                height: `${collapsedHeight}px`,
+              },
+              {
+                opacity: 1,
+                width: `${bootCoreTargetWidthPx}px`,
+                height: `${bootCoreTargetHeightPx}px`,
+              },
+            ],
+            {
+              duration: bootCoreEnterDurationMs,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              fill: "forwards",
+            },
+          );
+
+          bootCoreEnterAnimation.addEventListener(
+            "finish",
+            () => {
+              bootCoreEnterAnimation = null;
+              if (bootCoreEnterFallbackTimer !== null) {
+                window.clearTimeout(bootCoreEnterFallbackTimer);
+                bootCoreEnterFallbackTimer = null;
+              }
+              markBootCoreEntered();
+            },
+            { once: true },
+          );
+
+          bootCoreEnterFallbackTimer = window.setTimeout(() => {
+            if (bootCoreEnterAnimation !== null) {
+              bootCoreEnterAnimation.cancel();
+              bootCoreEnterAnimation = null;
+            }
+            bootCoreEnterFallbackTimer = null;
+            markBootCoreEntered();
+          }, bootCoreEnterDurationMs + 120);
+        };
 
         const scrambleToText = (target, nextText) => {
-          const chars = nextText.split('')
+          const chars = nextText.split("");
           const reveals = chars.map((ch, i) => {
-            if (!/[A-Za-z0-9]/.test(ch)) return 0
-            const base = i / Math.max(1, chars.length - 1)
-            return Math.min(1, base * 0.65 + Math.random() * 0.35)
-          })
+            if (!/[A-Za-z0-9]/.test(ch)) return 0;
+            const base = i / Math.max(1, chars.length - 1);
+            return Math.min(1, base * 0.65 + Math.random() * 0.35);
+          });
+          const randomizeCharacter = (ch) => {
+            if (!/[A-Za-z0-9]/.test(ch)) return ch;
+            return scrambleCharset[
+              Math.floor(Math.random() * scrambleCharset.length)
+            ];
+          };
 
-          const token = ++scrambleToken
-          const start = performance.now()
+          const token = ++scrambleToken;
+          const start = performance.now();
 
           const tick = (now) => {
-            if (token !== scrambleToken || didFinish || didCleanup) return
+            if (token !== scrambleToken || didFinish || didCleanup) return;
 
-            const progress = Math.min(1, (now - start) / scrambleDurationMs)
+            const elapsed = now - start;
+            const progress = Math.min(1, elapsed / scrambleDurationMs);
             const scrambled = chars
               .map((ch, i) => {
-                if (!/[A-Za-z0-9]/.test(ch)) return ch
-                if (progress >= (reveals[i] ?? 0)) return ch
-                return scrambleCharset[Math.floor(Math.random() * scrambleCharset.length)]
+                if (!/[A-Za-z0-9]/.test(ch)) return ch;
+                if (progress >= (reveals[i] ?? 0)) return ch;
+                return randomizeCharacter(ch);
               })
-              .join('')
+              .join("");
 
-            target.textContent = scrambled
+            target.textContent = scrambled;
 
             if (progress < 1) {
-              scrambleRaf = window.requestAnimationFrame(tick)
-              return
+              scrambleRaf = window.requestAnimationFrame(tick);
+              return;
             }
 
-            target.textContent = nextText
-            scrambleRaf = null
-          }
+            target.textContent = nextText;
+            scrambleRaf = null;
+          };
 
-          scrambleRaf = window.requestAnimationFrame(tick)
-        }
+          scrambleRaf = window.requestAnimationFrame(tick);
+        };
 
         const startAsciiLoop = () => {
-          if (prefersReducedMotion) return
-          const text = document.getElementById('pcBootTextContent')
-          if (!text) return
+          if (didStartAsciiLoop) return;
+          if (!bootCore) return;
+          if (!didBootCoreEnter) {
+            if (!didRegisterAsciiStartListener) {
+              didRegisterAsciiStartListener = true;
+              window.addEventListener("pc:boot-core-entered", startAsciiLoop, {
+                once: true,
+              });
+            }
+            return;
+          }
+          didStartAsciiLoop = true;
+          didRegisterAsciiStartListener = false;
 
-          text.textContent = ''
+          resetBootTextState();
+          const text = document.getElementById("pcBootTextContent");
+          if (!text) return;
+          bootRoot.classList.add("pcBootTextReady");
+          text.classList.add("isActive");
 
-          const runFrame = () => {
-            if (didFinish || didCleanup) return
-            const frame = frames[frameIndex]
-            frameIndex = (frameIndex + 1) % frames.length
-            scrambleToText(text, frame)
-            frameTimer = window.setTimeout(runFrame, frameIntervalMs)
+          if (prefersReducedMotion) {
+            text.textContent = bootStatusLine;
+            return;
           }
 
-          runFrame()
-        }
+          scrambleToText(text, bootStatusLine);
+        };
 
         const finishBoot = () => {
-          if (didFinish) return
-          didFinish = true
-          stopAsciiLoop()
+          if (didFinish) return;
+          didFinish = true;
+          stopAsciiLoop();
           if (fallbackTimer !== null) {
-            window.clearTimeout(fallbackTimer)
-            fallbackTimer = null
+            window.clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
+          if (minimumDurationTimer !== null) {
+            window.clearTimeout(minimumDurationTimer);
+            minimumDurationTimer = null;
           }
 
-          const loader = document.getElementById('pcBootLoader')
+          const loader = document.getElementById("pcBootLoader");
           if (!loader) {
-            cleanupLoader()
-            return
+            cleanupLoader();
+            return;
           }
 
-          loader.classList.add('isExiting')
-          loader.addEventListener('transitionend', cleanupLoader, { once: true })
-          window.setTimeout(cleanupLoader, 420)
-        }
+          loader.classList.add("isExiting");
+          loader.addEventListener("transitionend", cleanupLoader, {
+            once: true,
+          });
+          window.setTimeout(cleanupLoader, cleanupFallbackMs);
+        };
 
         const maybeFinish = () => {
-          if (hasWindowLoaded && hasReactMounted) finishBoot()
-        }
+          if (!hasWindowLoaded || !hasReactMounted || didFinish) return;
 
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', startAsciiLoop, {
+          const elapsed = performance.now() - bootStartedAt;
+          const remaining = minimumBootDurationMs - elapsed;
+          if (remaining <= 0) {
+            finishBoot();
+            return;
+          }
+
+          if (minimumDurationTimer !== null) return;
+          minimumDurationTimer = window.setTimeout(() => {
+            minimumDurationTimer = null;
+            maybeFinish();
+          }, remaining);
+        };
+
+        startBootCoreEntrance();
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", startAsciiLoop, {
             once: true,
-          })
+          });
         } else {
-          startAsciiLoop()
+          startAsciiLoop();
         }
 
         if (!hasWindowLoaded) {
           window.addEventListener(
-            'load',
+            "load",
             () => {
-              hasWindowLoaded = true
-              maybeFinish()
+              hasWindowLoaded = true;
+              maybeFinish();
             },
             { once: true },
-          )
+          );
         }
 
-        window.addEventListener('pc:react-mounted', () => {
-          hasReactMounted = true
-          maybeFinish()
-        })
+        window.addEventListener("pc:react-mounted", () => {
+          hasReactMounted = true;
+          maybeFinish();
+        });
 
-        fallbackTimer = window.setTimeout(finishBoot, 4000)
-      })()
+        window.addEventListener("beforeunload", resetBootTextState);
+        window.addEventListener("pagehide", resetBootTextState);
+
+        fallbackTimer = window.setTimeout(finishBoot, 4000);
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

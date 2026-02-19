@@ -33,7 +33,7 @@ html.pcBootComplete .pcApp:not(.isMobile) .pcHeader {
 }
 
 html.pcBootComplete .pcApp:not(.isMobile) .pcShell > .pcSidebar {
-  --pc-sidebar-boot-target: 280px;
+  --pc-sidebar-boot-target: var(--pc-sidebar-expanded-w, 280px);
   animation: pcBootSidebarIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 270ms 1
     backwards;
 }
@@ -42,7 +42,7 @@ html.pcBootComplete
   .pcApp:not(.isMobile)
   .pcShell
   > .pcSidebar.pcSidebarCollapsed {
-  --pc-sidebar-boot-target: 64px;
+  --pc-sidebar-boot-target: var(--pc-sidebar-collapsed-w, 64px);
 }
 
 html.pcBootComplete .pcApp:not(.isMobile) .pcShell > .pcSidebar .pcSidebarBody {
@@ -234,13 +234,13 @@ html.pcBootComplete .pcApp.isMobile .pcBackdrop {
   }
 
   html.pcBooting .pcApp .pcShell > .pcSidebar {
-    width: 280px !important;
-    flex-basis: 280px !important;
+    width: var(--pc-sidebar-expanded-w, 280px) !important;
+    flex-basis: var(--pc-sidebar-expanded-w, 280px) !important;
   }
 
   html.pcBooting .pcApp .pcShell > .pcSidebar.pcSidebarCollapsed {
-    width: 64px !important;
-    flex-basis: 64px !important;
+    width: var(--pc-sidebar-collapsed-w, 64px) !important;
+    flex-basis: var(--pc-sidebar-collapsed-w, 64px) !important;
   }
 
   html.pcBootComplete .pcApp .pcHeader,

@@ -92,16 +92,48 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
       </td>
       <td>
         <div className="pcEpisodeBody">
-          <div className="pcEpisodeTitle pcSkeletonLine pcSkeletonW70" />
+          <div className="pcEpisodeTitle pcSkeletonLine pcSkeletonScramble pcSkeletonW70">
+            <ScrambleText
+              text="DECODING EPISODE PAYLOAD"
+              durationMs={740}
+              delayMs={index * 42}
+              loop
+              loopDelayMs={120}
+            />
+          </div>
           <div className="pcEpisodeMeta">
-            <span className="pcSkeletonLine pcSkeletonW22" />
+            <span className="pcSkeletonLine pcSkeletonScramble pcSkeletonW22">
+              <ScrambleText
+                text="RUNTIME"
+                durationMs={620}
+                delayMs={index * 42 + 80}
+                loop
+                loopDelayMs={110}
+              />
+            </span>
             <span className="pcMetaSeparator">|</span>
-            <span className="pcSkeletonLine pcSkeletonW18" />
+            <span className="pcSkeletonLine pcSkeletonScramble pcSkeletonW18">
+              <ScrambleText
+                text="DATE"
+                durationMs={560}
+                delayMs={index * 42 + 120}
+                loop
+                loopDelayMs={110}
+              />
+            </span>
           </div>
         </div>
       </td>
       <td style={{ textAlign: 'right' }}>
-        <span className="pcEpisodeSize pcSkeletonLine pcSkeletonW25" />
+        <span className="pcEpisodeSize pcSkeletonLine pcSkeletonScramble pcSkeletonW25">
+          <ScrambleText
+            text="SIZE"
+            durationMs={560}
+            delayMs={index * 42 + 150}
+            loop
+            loopDelayMs={110}
+          />
+        </span>
       </td>
     </tr>
   ))
@@ -118,12 +150,52 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
       aria-hidden="true"
     >
       <div className="pcMobileEpisodeContent">
-        <span className="pcMobileEpisodeNumber pcSkeletonLine pcSkeletonW24" />
-        <h4 className="pcMobileEpisodeTitle pcSkeletonLine pcSkeletonW78" />
-        <p className="pcMobileEpisodeDescription pcSkeletonLine pcSkeletonW92" />
+        <span className="pcMobileEpisodeNumber pcSkeletonLine pcSkeletonScramble pcSkeletonW24">
+          <ScrambleText
+            text={`EP_${index + 1}`}
+            durationMs={560}
+            delayMs={index * 48}
+            loop
+            loopDelayMs={110}
+          />
+        </span>
+        <h4 className="pcMobileEpisodeTitle pcSkeletonLine pcSkeletonScramble pcSkeletonW78">
+          <ScrambleText
+            text="INITIALIZING TRANSCRIPT"
+            durationMs={720}
+            delayMs={index * 48 + 60}
+            loop
+            loopDelayMs={120}
+          />
+        </h4>
+        <p className="pcMobileEpisodeDescription pcSkeletonLine pcSkeletonScramble pcSkeletonW92">
+          <ScrambleText
+            text="LOADING SUMMARY BLOCK"
+            durationMs={740}
+            delayMs={index * 48 + 100}
+            loop
+            loopDelayMs={130}
+          />
+        </p>
         <div className="pcMobileEpisodeMeta">
-          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonW18" />
-          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonW24" />
+          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonScramble pcSkeletonW18">
+            <ScrambleText
+              text="TIME"
+              durationMs={560}
+              delayMs={index * 48 + 140}
+              loop
+              loopDelayMs={110}
+            />
+          </span>
+          <span className="pcMobileEpisodeMetaItem pcSkeletonLine pcSkeletonScramble pcSkeletonW24">
+            <ScrambleText
+              text="STAMP"
+              durationMs={560}
+              delayMs={index * 48 + 170}
+              loop
+              loopDelayMs={110}
+            />
+          </span>
         </div>
       </div>
       <span className="pcMobileEpisodePlayButton pcSkeletonBlock" />

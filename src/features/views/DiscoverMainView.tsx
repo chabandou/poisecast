@@ -46,12 +46,44 @@ export const DiscoverMainView = memo(function DiscoverMainView({
       }
       aria-hidden="true"
     >
-      <div className="pcSearchItemTitle pcSkeletonLine pcSkeletonW70" />
-      <div className="pcSearchItemMeta">
-        <span className="pcPill pcSkeletonLine pcSkeletonW30" />
-        <span className="pcPill pcSkeletonLine pcSkeletonW20" />
+      <div className="pcSearchItemTitle pcSkeletonLine pcSkeletonScramble pcSkeletonW70">
+        <ScrambleText
+          text="SYNCING RESULT BUFFER"
+          durationMs={700}
+          delayMs={index * 45}
+          loop
+          loopDelayMs={130}
+        />
       </div>
-      <div className="pcMonoUrl pcSkeletonLine pcSkeletonW90" />
+      <div className="pcSearchItemMeta">
+        <span className="pcPill pcSkeletonLine pcSkeletonScramble pcSkeletonW30">
+          <ScrambleText
+            text="INDEXING"
+            durationMs={620}
+            delayMs={index * 45 + 70}
+            loop
+            loopDelayMs={120}
+          />
+        </span>
+        <span className="pcPill pcSkeletonLine pcSkeletonScramble pcSkeletonW20">
+          <ScrambleText
+            text="RSS"
+            durationMs={560}
+            delayMs={index * 45 + 110}
+            loop
+            loopDelayMs={120}
+          />
+        </span>
+      </div>
+      <div className="pcMonoUrl pcSkeletonLine pcSkeletonScramble pcSkeletonW90">
+        <ScrambleText
+          text="HTTPS://FEED.NODE/LOADING"
+          durationMs={760}
+          delayMs={index * 45 + 150}
+          loop
+          loopDelayMs={140}
+        />
+      </div>
     </div>
   ))
 

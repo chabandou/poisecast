@@ -1481,14 +1481,15 @@
 .pcApp.isMobile .pcLibraryGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 120px;
+  grid-auto-rows: auto;
   gap: 8px;
   padding: 12px;
 }
 
 .pcApp.isMobile .pcLibraryCard {
   width: 100%;
-  height: 120px;
+  height: auto;
+  aspect-ratio: 1 / 1;
 }
 
 /* Library View Styles */
@@ -1500,12 +1501,13 @@
 }
 
 .pcLibraryHeader {
-  padding: 40px 48px 24px;
+  padding: var(--pc-library-header-pad-top) var(--pc-library-header-pad-x)
+    var(--pc-library-header-pad-bottom);
   border-bottom: 1px solid var(--pc-border-subtle);
   background: var(--pc-background-base);
   position: relative;
   overflow: hidden;
-  max-height: 220px;
+  max-height: var(--pc-library-header-max-h);
   transform: translate3d(0, 0, 0);
   opacity: 1;
   transition:
@@ -1522,8 +1524,8 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 180px;
-  height: 180px;
+  width: var(--pc-library-header-glow-size);
+  height: var(--pc-library-header-glow-size);
   background: radial-gradient(circle, var(--pc-primary) 0%, transparent 70%);
   opacity: 0.03;
   pointer-events: none;
@@ -1532,10 +1534,10 @@
 .pcLibraryHeader::after {
   content: "inventory_2";
   position: absolute;
-  top: 32px;
-  right: 32px;
+  top: var(--pc-library-header-icon-top);
+  right: var(--pc-library-header-icon-right);
   font-family: "Material Symbols Outlined";
-  font-size: 180px;
+  font-size: var(--pc-library-header-icon-size);
   line-height: 1;
   opacity: 0.03;
   pointer-events: none;
@@ -1551,7 +1553,7 @@
   padding-top: 0;
   padding-bottom: 0;
   opacity: 0;
-  transform: translate3d(0, -14px, 0);
+  transform: translate3d(0, calc(var(--pc-library-header-hide-shift) * -1), 0);
   border-bottom-color: transparent;
   pointer-events: none;
 }
@@ -1569,8 +1571,8 @@
 .pcLibraryHeaderBadges {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--pc-library-header-badges-gap);
+  margin-bottom: var(--pc-library-header-badges-mb);
 }
 
 .pcLibraryBadge {
@@ -1606,7 +1608,7 @@
 }
 
 .pcLibraryControls {
-  padding: 16px 32px;
+  padding: var(--pc-library-controls-pad-y) var(--pc-library-controls-pad-x);
   border-bottom: 1px solid var(--pc-border-subtle);
   background: rgba(24, 24, 27, 0.5);
   display: flex;
@@ -1621,14 +1623,14 @@
 .pcLibraryControlsLeft {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: var(--pc-library-controls-left-gap);
 }
 
 .pcLibrarySort,
 .pcLibraryFilters {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--pc-library-controls-group-gap);
 }
 
 .pcLibraryLabel {
@@ -1695,7 +1697,7 @@
 
 .pcLibrarySearch {
   position: relative;
-  width: 256px;
+  width: var(--pc-library-search-w);
 }
 
 .pcLibrarySearchIcon {
@@ -1740,11 +1742,14 @@
   --pc-library-grid-bg: #0f0f11;
   flex: 1;
   overflow-y: auto;
-  padding: 32px 48px;
+  padding: var(--pc-library-grid-pad-y) var(--pc-library-grid-pad-x);
   background: var(--pc-library-grid-bg);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, max-content));
-  gap: 24px;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--pc-library-card-size)), 1fr)
+  );
+  gap: var(--pc-library-grid-gap);
   justify-content: start;
 }
 
@@ -1761,8 +1766,9 @@
   overflow: visible;
   position: relative;
   cursor: pointer;
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   transition:
     border-color 300ms ease,
     box-shadow 300ms ease,
@@ -1835,7 +1841,7 @@
 }
 
 .pcLibraryPlayIcon {
-  font-size: 64px;
+  font-size: var(--pc-library-play-icon-size);
   color: var(--pc-primary);
   filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.4));
 }
@@ -1853,7 +1859,7 @@
 }
 
 .pcLibraryCardPlaceholder .material-symbols-outlined {
-  font-size: 96px;
+  font-size: var(--pc-library-placeholder-icon-size);
   color: var(--pc-border-active);
   opacity: 0;
   transform: scale(0.97);
@@ -1891,8 +1897,8 @@
 
 .pcLibraryCardBadge {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--pc-library-card-badge-offset);
+  right: var(--pc-library-card-badge-offset);
   background: var(--pc-primary);
   color: var(--pc-background-base);
   font-family: var(--pc-font-mono);
@@ -1907,14 +1913,17 @@
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .pcLibraryGrid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, max-content));
-    gap: 20px;
-    padding: 24px 32px;
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, var(--pc-library-card-size)), 1fr)
+    );
+    gap: var(--pc-library-grid-gap);
+    padding: var(--pc-library-grid-pad-y) var(--pc-library-grid-pad-x);
   }
 
   .pcLibraryCard {
-    width: 180px;
-    height: 180px;
+    width: 100%;
+    height: auto;
   }
 }
 

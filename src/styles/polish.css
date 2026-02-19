@@ -1,9 +1,14 @@
 /* View transitions */
 .pcViewHost {
   position: relative;
+  min-height: 0;
 }
 
 .pcViewSurface {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   animation: pcViewInUp var(--pc-motion-slow) var(--pc-ease-standard) both;
   will-change: transform, opacity;
 }
@@ -111,6 +116,21 @@
   min-height: 0.9em;
 }
 
+.pcSkeletonScramble {
+  color: rgba(148, 163, 184, 0.82) !important;
+  background: transparent;
+  border-radius: 0;
+  min-height: 1em;
+  font-family: var(--pc-font-mono);
+  font-size: inherit;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
 .pcSkeletonBlock {
   min-height: 24px;
 }
@@ -128,6 +148,10 @@
     transparent 100%
   );
   animation: pcSkeletonSweep 1.2s linear infinite;
+}
+
+.pcSkeletonScramble::after {
+  display: none;
 }
 
 .pcSkeletonW18 {
