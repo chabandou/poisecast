@@ -40,19 +40,18 @@ describe('useProcessingController', () => {
     const reportIssue = vi.fn<(source: IssueSource, summary: string, detail: unknown) => void>()
     const setCanDenoise = vi.fn<(next: boolean | null) => void>()
 
-    const corsProbe = vi.fn<(url: string, options?: { signal?: AbortSignal }) => Promise<boolean>>(
-      async (_url, options) =>
-        new Promise<boolean>((_resolve, reject) => {
+    const corsProbe = vi.fn(async () => false)
+    const waitForAudioMetadata = vi.fn<(audioEl: HTMLAudioElement, timeoutMs?: number, signal?: AbortSignal) => Promise<void>>(
+      async (_audioEl, _timeoutMs, signal) =>
+        new Promise<void>((_resolve, reject) => {
           const abortError = new DOMException('Aborted', 'AbortError')
-          if (options?.signal?.aborted) {
+          if (signal?.aborted) {
             reject(abortError)
             return
           }
-          options?.signal?.addEventListener('abort', () => reject(abortError), { once: true })
+          signal?.addEventListener('abort', () => reject(abortError), { once: true })
         }),
     )
-
-    const waitForAudioMetadata = vi.fn(async () => {})
     const probeStreamProxy = vi.fn(async () => false)
 
     const { result } = renderHook(() =>
@@ -92,10 +91,11 @@ describe('useProcessingController', () => {
     expect(result.current.denoiseEnabled).toBe(false)
     expect(result.current.isProcessingStarting).toBe(false)
     expect(reportIssue).not.toHaveBeenCalled()
+    expect(corsProbe).not.toHaveBeenCalled()
     expect(audio.removeAttribute).toHaveBeenCalledWith('crossorigin')
   })
 
-  it('recovers proxy playback for processing when direct fallback was active', async () => {
+  it('prefers proxy playback for processing even when playback fallback was direct', async () => {
     const audio = {
       paused: true,
       currentTime: 0,
@@ -154,10 +154,7 @@ describe('useProcessingController', () => {
       await result.current.toggleDenoise(true)
     })
 
-    expect(probeStreamProxy).toHaveBeenCalledWith(
-      expectedProxyUrl,
-      expect.objectContaining({ timeoutMs: 12_000 }),
-    )
+    expect(probeStreamProxy).not.toHaveBeenCalled()
     expect(corsProbe).not.toHaveBeenCalled()
     expect(waitForAudioMetadata).toHaveBeenCalled()
     expect(audio.src).toBe(expectedProxyUrl)
@@ -169,7 +166,7 @@ describe('useProcessingController', () => {
     )
   })
 
-  it('keeps direct playback and surfaces CORS blocked when proxy recovery fails', async () => {
+  it('falls back to direct CORS probe only after a real proxy load failure', async () => {
     const audio = {
       paused: true,
       currentTime: 0,
@@ -205,7 +202,11 @@ describe('useProcessingController', () => {
     const setCanDenoise = vi.fn<(next: boolean | null) => void>()
     const corsProbe = vi.fn(async () => false)
     const probeStreamProxy = vi.fn(async () => false)
-    const waitForAudioMetadata = vi.fn(async () => {})
+    const waitForAudioMetadata = vi.fn(async (audioEl: HTMLAudioElement) => {
+      if (audioEl.src.startsWith('/api/stream?url=')) {
+        throw new Error('Proxy metadata load failed')
+      }
+    })
 
     const { result } = renderHook(() =>
       useProcessingController({
@@ -233,10 +234,10 @@ describe('useProcessingController', () => {
       expect.objectContaining({ timeoutMs: 12_000 }),
     )
     expect(corsProbe).toHaveBeenCalledWith(episode.enclosureUrl, expect.any(Object))
-    expect(waitForAudioMetadata).not.toHaveBeenCalled()
-    expect(audio.src).toBe('')
+    expect(waitForAudioMetadata).toHaveBeenCalledTimes(1)
+    expect(audio.src).toBe(expectedProxyUrl)
     expect(setCanDenoise).toHaveBeenCalledWith(false)
-    expect(result.current.engineDetail).toBe('CORS blocked. Download + import the file to denoise.')
+    expect(result.current.engineDetail).toBe('Proxy unavailable and source blocks CORS. Download + import the file to denoise.')
     expect(reportIssue).not.toHaveBeenCalled()
   })
 })

@@ -409,65 +409,83 @@ export function useProcessingController({
       setEngineDetail('')
       setEngineState(engineRef.current?.status.state ?? 'idle')
 
-      let remotePlaybackUrl = sourceKind === 'remote' ? getRemotePlaybackUrl(episode) : episode.enclosureUrl
+      let remotePlaybackUrl = episode.enclosureUrl
+      let remoteNeedsCors = false
+
       if (sourceKind === 'remote') {
-        const directUrl = episode.enclosureUrl
-        const proxyUrl = buildStreamProxyUrl(directUrl)
-        const usingDirectCrossOrigin = remotePlaybackUrl === directUrl && !isSameOriginUrl(directUrl)
-        if (usingDirectCrossOrigin && proxyUrl !== remotePlaybackUrl) {
-          const proxyRecovered = await probeStreamProxy(proxyUrl, {
+        const proxyUrl = buildStreamProxyUrl(episode.enclosureUrl)
+        const fallbackUrl = getRemotePlaybackUrl(episode)
+        const wasPaused = audioEl.paused
+        const currentTime = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
+
+        const applyRemoteSource = async (url: string, needsCors: boolean): Promise<void> => {
+          if (needsCors) audioEl.crossOrigin = 'anonymous'
+          else audioEl.removeAttribute('crossorigin')
+          audioEl.src = url
+          audioEl.load()
+          await waitForAudioMetadata(audioEl, 12_000, run.signal)
+          if (!isActive()) return
+          try {
+            if (currentTime > 0) audioEl.currentTime = currentTime
+          } catch {
+            ignoreError()
+          }
+          if (!wasPaused) {
+            try {
+              await audioEl.play()
+            } catch {
+              ignoreError()
+            }
+          }
+        }
+
+        remotePlaybackUrl = proxyUrl
+        remoteNeedsCors = false
+
+        let proxyLoadError: unknown = null
+        try {
+          await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors)
+        } catch (error) {
+          proxyLoadError = error
+        }
+        if (!isActive()) return
+
+        if (proxyLoadError) {
+          const proxyStillReachable = await probeStreamProxy(proxyUrl, {
             signal: run.signal,
             timeoutMs: 12_000,
           })
           if (!isActive()) return
-          if (proxyRecovered) remotePlaybackUrl = proxyUrl
-        }
-      }
 
-      const remoteNeedsCors = sourceKind === 'remote' && !isSameOriginUrl(remotePlaybackUrl)
+          if (proxyStillReachable) {
+            throw proxyLoadError
+          }
 
-      const canEnable =
-        sourceKind === 'local'
-          ? true
-          : remoteNeedsCors
+          remotePlaybackUrl = fallbackUrl === proxyUrl ? episode.enclosureUrl : fallbackUrl
+          remoteNeedsCors = !isSameOriginUrl(remotePlaybackUrl)
+          const canEnableFallback = remoteNeedsCors
             ? await corsProbe(remotePlaybackUrl, { signal: run.signal })
             : true
-      if (!isActive()) return
+          if (!isActive()) return
 
-      setCanDenoise?.(canEnable)
-      if (!canEnable) {
-        setDenoiseEnabled(false)
-        setIsInferenceActive(false)
-        lastInferenceAtRef.current = 0
-        setEngineDetail('CORS blocked. Download + import the file to denoise.')
-        return
+          setCanDenoise?.(canEnableFallback)
+          if (!canEnableFallback) {
+            setDenoiseEnabled(false)
+            setIsInferenceActive(false)
+            lastInferenceAtRef.current = 0
+            setEngineDetail('Proxy unavailable and source blocks CORS. Download + import the file to denoise.')
+            return
+          }
+
+          await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors)
+          if (!isActive()) return
+        }
+        setCanDenoise?.(true)
+      } else {
+        setCanDenoise?.(true)
       }
 
       const ensureEnginePromise = ensureEngine()
-
-      if (sourceKind === 'remote') {
-        const wasPaused = audioEl.paused
-        const currentTime = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
-        if (remoteNeedsCors) audioEl.crossOrigin = 'anonymous'
-        else audioEl.removeAttribute('crossorigin')
-        audioEl.src = remotePlaybackUrl
-        audioEl.load()
-        await waitForAudioMetadata(audioEl, 12_000, run.signal)
-        if (!isActive()) return
-        try {
-          if (currentTime > 0) audioEl.currentTime = currentTime
-        } catch {
-          ignoreError()
-        }
-        if (!wasPaused) {
-          try {
-            await audioEl.play()
-          } catch {
-            ignoreError()
-          }
-        }
-      }
-
       await ensureEnginePromise
       if (!isActive()) return
       await engineRef.current!.attach(audioEl)
