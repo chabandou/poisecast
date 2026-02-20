@@ -86,9 +86,11 @@ export function createStreamProxyCoreFromEnv(env: NodeJS.ProcessEnv): StreamProx
   return new StreamProxyCore({
     maxUrlLength: 8_192,
     rateWindowMs: parseNumberEnv(env.STREAM_PROXY_RATE_WINDOW_MS, 60_000, 1_000, 600_000),
-    rateMaxRequests: parseNumberEnv(env.STREAM_PROXY_RATE_MAX_REQUESTS, 120, 1, 10_000),
-    rateMaxInflight: parseNumberEnv(env.STREAM_PROXY_RATE_MAX_INFLIGHT, 8, 1, 256),
-    rateBlockMs: parseNumberEnv(env.STREAM_PROXY_RATE_BLOCK_MS, 120_000, 1_000, 3_600_000),
+    // Audio streaming generates many range requests (especially on mobile browsers).
+    // Keep defaults permissive to avoid false positives; tighten with env vars if needed.
+    rateMaxRequests: parseNumberEnv(env.STREAM_PROXY_RATE_MAX_REQUESTS, 1_800, 600, 10_000),
+    rateMaxInflight: parseNumberEnv(env.STREAM_PROXY_RATE_MAX_INFLIGHT, 48, 16, 256),
+    rateBlockMs: parseNumberEnv(env.STREAM_PROXY_RATE_BLOCK_MS, 30_000, 5_000, 3_600_000),
     rateStateMaxEntries: parseNumberEnv(env.STREAM_PROXY_RATE_MAX_ENTRIES, 5_000, 100, 100_000),
     allowlist: parseHostListEnv(env.STREAM_PROXY_ALLOWLIST),
     blocklist: parseHostListEnv(env.STREAM_PROXY_BLOCKLIST),
@@ -127,6 +129,8 @@ export class StreamProxyCore {
   getClientIp(headers: Record<string, HeaderValue>): string {
     const forwarded = firstHeader(headers['x-forwarded-for'])
     if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown'
+    const vercelForwarded = firstHeader(headers['x-vercel-forwarded-for'])
+    if (vercelForwarded) return vercelForwarded.split(',')[0]?.trim() || 'unknown'
     const realIp = firstHeader(headers['x-real-ip'])
     if (realIp) return realIp.trim()
     const cfIp = firstHeader(headers['cf-connecting-ip'])
@@ -154,6 +158,8 @@ export class StreamProxyCore {
   }
 
   tryAcquireRateSlot(ip: string, now = Date.now()): { ok: true } | { ok: false; retryAfterSeconds: number } {
+    if (ip === 'unknown') return { ok: true }
+
     this.cleanupRateState(now)
 
     const entry =

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createStreamProxyCoreFromEnv } from '../../api/shared/streamProxyCore'
+import { createStreamProxyCoreFromEnv, StreamProxyCore } from '../../api/shared/streamProxyCore'
 
 describe('stream proxy core', () => {
   afterEach(() => {
@@ -16,11 +16,16 @@ describe('stream proxy core', () => {
   })
 
   it('enforces rate limit windows', () => {
-    const core = createStreamProxyCoreFromEnv({
-      STREAM_PROXY_RATE_MAX_REQUESTS: '1',
-      STREAM_PROXY_RATE_WINDOW_MS: '60000',
-      STREAM_PROXY_RATE_BLOCK_MS: '60000',
-    } as NodeJS.ProcessEnv)
+    const core = new StreamProxyCore({
+      maxUrlLength: 8_192,
+      rateWindowMs: 60_000,
+      rateMaxRequests: 1,
+      rateMaxInflight: 8,
+      rateBlockMs: 60_000,
+      rateStateMaxEntries: 5_000,
+      allowlist: [],
+      blocklist: [],
+    })
 
     expect(core.tryAcquireRateSlot('1.1.1.1').ok).toBe(true)
     const second = core.tryAcquireRateSlot('1.1.1.1')
@@ -28,6 +33,23 @@ describe('stream proxy core', () => {
     if (!second.ok) {
       expect(second.retryAfterSeconds).toBeGreaterThan(0)
     }
+  })
+
+  it('does not rate limit unknown client identity', () => {
+    const core = new StreamProxyCore({
+      maxUrlLength: 8_192,
+      rateWindowMs: 60_000,
+      rateMaxRequests: 1,
+      rateMaxInflight: 8,
+      rateBlockMs: 60_000,
+      rateStateMaxEntries: 5_000,
+      allowlist: [],
+      blocklist: [],
+    })
+
+    expect(core.tryAcquireRateSlot('unknown').ok).toBe(true)
+    expect(core.tryAcquireRateSlot('unknown').ok).toBe(true)
+    expect(core.tryAcquireRateSlot('unknown').ok).toBe(true)
   })
 
   it('enforces redirect host policy on each hop', async () => {
