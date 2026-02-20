@@ -112,4 +112,22 @@ describe('stream proxy core', () => {
       }),
     ).rejects.toThrow(/Blocked redirect target/)
   })
+
+  it('forwards safe upstream request headers used by audio hosts', () => {
+    const core = createStreamProxyCoreFromEnv({} as NodeJS.ProcessEnv)
+
+    const headers = core.buildUpstreamHeaders({
+      range: 'bytes=0-1',
+      'if-range': '"etag-1"',
+      accept: 'audio/*,*/*;q=0.1',
+      'accept-language': 'en-US,en;q=0.9',
+      'user-agent': 'Mozilla/5.0 Mobile Safari',
+    })
+
+    expect(headers.range).toBe('bytes=0-1')
+    expect(headers['if-range']).toBe('"etag-1"')
+    expect(headers.accept).toBe('audio/*,*/*;q=0.1')
+    expect(headers['accept-language']).toBe('en-US,en;q=0.9')
+    expect(headers['user-agent']).toBe('Mozilla/5.0 Mobile Safari')
+  })
 })

@@ -214,8 +214,14 @@ export class StreamProxyCore {
     const upstreamHeaders: Record<string, string> = {}
     const range = firstHeader(headers.range)
     const ifRange = firstHeader(headers['if-range'])
+    const accept = firstHeader(headers.accept)
+    const acceptLanguage = firstHeader(headers['accept-language'])
+    const userAgent = firstHeader(headers['user-agent'])
     if (range && range.trim()) upstreamHeaders.range = range
     if (ifRange && ifRange.trim()) upstreamHeaders['if-range'] = ifRange
+    if (accept && accept.trim()) upstreamHeaders.accept = accept
+    if (acceptLanguage && acceptLanguage.trim()) upstreamHeaders['accept-language'] = acceptLanguage
+    if (userAgent && userAgent.trim()) upstreamHeaders['user-agent'] = userAgent
     return upstreamHeaders
   }
 
