@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { methodAllowed, type StreamProxyCore, type StreamProxyHttpRequest } from './streamProxyCore'
+import { methodAllowed, type StreamProxyCore, type StreamProxyHttpRequest } from './streamProxyCore.js'
 
 export type StreamProxyResponder = {
   setHeader: (name: string, value: string) => void
@@ -53,7 +53,7 @@ export async function handleStreamProxyRequest(
 
   const clientIp = core.getClientIp(req.headers)
   const rateGate = core.tryAcquireRateSlot(clientIp)
-  if (!rateGate.ok) {
+  if (rateGate.ok === false) {
     responder.setHeader('retry-after', String(rateGate.retryAfterSeconds))
     responder.sendJson(429, { error: 'Rate limit exceeded' })
     return

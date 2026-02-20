@@ -1,5 +1,9 @@
-import { createStreamProxyCoreFromEnv, type StreamProxyHttpRequest } from './shared/streamProxyCore'
-import { createNodeStreamPipeResponder, handleStreamProxyRequest, type NodeLikeWritable } from './shared/streamProxyHandler'
+import { createStreamProxyCoreFromEnv, type StreamProxyHttpRequest } from './shared/streamProxyCore.js'
+import {
+  createNodeStreamPipeResponder,
+  handleStreamProxyRequest,
+  type NodeLikeWritable,
+} from './shared/streamProxyHandler.js'
 
 const core = createStreamProxyCoreFromEnv(process.env)
 
