@@ -14,8 +14,9 @@
     "test:visual": "bun run test:visual:first-paint"
   },
   "dependencies": {
-    "onnxruntime-web": "1.17.3",
+    "@openai/codex": "^0.104.0",
     "lottie-web": "^5.12.2",
+    "onnxruntime-web": "1.17.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "vite-plugin-pwa": "^1.2.0"

@@ -119,8 +119,14 @@ export default defineConfig({
         // Cache model files and RSS responses opportunistically.
         runtimeCaching: [
           {
-            urlPattern: ({ request }) =>
-              request.destination === 'audio' ||
+            // Never cache stream-proxy responses; they are request-specific and can fail transiently.
+            // Caching them can make mobile/PWA playback appear permanently broken.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/stream'),
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ request, url }) =>
+              (request.destination === 'audio' && !url.pathname.startsWith('/api/stream')) ||
               request.url.endsWith('.onnx') ||
               request.url.endsWith('.wasm') ||
               request.url.includes('/models/') ||
