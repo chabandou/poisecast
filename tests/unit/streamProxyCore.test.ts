@@ -121,13 +121,11 @@ describe('stream proxy core', () => {
       'if-range': '"etag-1"',
       accept: 'audio/*,*/*;q=0.1',
       'accept-language': 'en-US,en;q=0.9',
-      'user-agent': 'Mozilla/5.0 Mobile Safari',
     })
 
     expect(headers.range).toBe('bytes=0-1')
     expect(headers['if-range']).toBe('"etag-1"')
     expect(headers.accept).toBe('audio/*,*/*;q=0.1')
     expect(headers['accept-language']).toBe('en-US,en;q=0.9')
-    expect(headers['user-agent']).toBe('Mozilla/5.0 Mobile Safari')
   })
 })

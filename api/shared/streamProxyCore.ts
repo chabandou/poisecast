@@ -84,7 +84,7 @@ type StreamProxyCoreOptions = {
 
 export function createStreamProxyCoreFromEnv(env: NodeJS.ProcessEnv): StreamProxyCore {
   return new StreamProxyCore({
-    maxUrlLength: 8_192,
+    maxUrlLength: parseNumberEnv(env.STREAM_PROXY_MAX_URL_LENGTH, 32_768, 2_048, 262_144),
     rateWindowMs: parseNumberEnv(env.STREAM_PROXY_RATE_WINDOW_MS, 60_000, 1_000, 600_000),
     // Audio streaming generates many range requests (especially on mobile browsers).
     // Keep defaults permissive to avoid false positives; tighten with env vars if needed.
@@ -216,12 +216,10 @@ export class StreamProxyCore {
     const ifRange = firstHeader(headers['if-range'])
     const accept = firstHeader(headers.accept)
     const acceptLanguage = firstHeader(headers['accept-language'])
-    const userAgent = firstHeader(headers['user-agent'])
     if (range && range.trim()) upstreamHeaders.range = range
     if (ifRange && ifRange.trim()) upstreamHeaders['if-range'] = ifRange
     if (accept && accept.trim()) upstreamHeaders.accept = accept
     if (acceptLanguage && acceptLanguage.trim()) upstreamHeaders['accept-language'] = acceptLanguage
-    if (userAgent && userAgent.trim()) upstreamHeaders['user-agent'] = userAgent
     return upstreamHeaders
   }
 
