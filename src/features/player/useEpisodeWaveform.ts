@@ -23,6 +23,15 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
+function isProxyStreamUrl(sourceUrl: string): boolean {
+  try {
+    const parsed = new URL(sourceUrl, window.location.href)
+    return parsed.pathname.startsWith('/api/stream')
+  } catch {
+    return sourceUrl.startsWith('/api/stream')
+  }
+}
+
 function hashSeed(seed: string): number {
   let hash = 2166136261
   for (let i = 0; i < seed.length; i += 1) {
@@ -170,6 +179,13 @@ export function useEpisodeWaveform({
       const sourceUrl = audioEl.currentSrc || audioEl.src
       if (!sourceUrl || sourceUrl === lastResolvedSrc) return
       lastResolvedSrc = sourceUrl
+
+      // Proxy streams are already latency-sensitive; avoid extra full-file proxy fetches
+      // for decorative waveform extraction.
+      if (isProxyStreamUrl(sourceUrl)) {
+        setWaveformHeights(fallbackHeights)
+        return
+      }
 
       try {
         const heights = await decodeWaveformFromUrl(sourceUrl, {

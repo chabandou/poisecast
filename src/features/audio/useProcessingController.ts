@@ -473,7 +473,10 @@ export function useProcessingController({
             setDenoiseEnabled(false)
             setIsInferenceActive(false)
             lastInferenceAtRef.current = 0
-            setEngineDetail('Proxy unavailable and source blocks CORS. Download + import the file to denoise.')
+            const proxyFailureReason = proxyLoadError ? coerceErrorMessage(proxyLoadError) : 'Unknown proxy failure'
+            setEngineDetail(
+              `Proxy unavailable (${proxyFailureReason}) and source blocks CORS. Download + import the file to denoise.`,
+            )
             return
           }
 

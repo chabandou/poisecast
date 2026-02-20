@@ -237,7 +237,9 @@ describe('useProcessingController', () => {
     expect(waitForAudioMetadata).toHaveBeenCalledTimes(1)
     expect(audio.src).toBe(expectedProxyUrl)
     expect(setCanDenoise).toHaveBeenCalledWith(false)
-    expect(result.current.engineDetail).toBe('Proxy unavailable and source blocks CORS. Download + import the file to denoise.')
+    expect(result.current.engineDetail).toBe(
+      'Proxy unavailable (Proxy metadata load failed) and source blocks CORS. Download + import the file to denoise.',
+    )
     expect(reportIssue).not.toHaveBeenCalled()
   })
 })
