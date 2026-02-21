@@ -73,7 +73,10 @@ export class DenoiseEngine {
     this.frameSize = ready.frameSize
 
     // Prepare audio graph lazily; AudioContext creation can be blocked until user gesture in some browsers.
-    this.ctx = new AudioContext({ sampleRate: opts.sampleRateHz })
+    this.ctx = new AudioContext({
+      sampleRate: opts.sampleRateHz,
+      latencyHint: 'playback',
+    })
     await this.ctx.audioWorklet.addModule(new URL('./worklet/denoise-processor.js', import.meta.url))
 
     this.worklet = new AudioWorkletNode(this.ctx, 'poisecast-denoise', {
@@ -116,6 +119,36 @@ export class DenoiseEngine {
       this.source.connect(this.worklet)
       this.worklet.connect(this.ctx.destination)
     }
+  }
+
+  getContextState(): AudioContextState | null {
+    return this.ctx?.state ?? null
+  }
+
+  getContextCurrentTime(): number | null {
+    const ctx = this.ctx
+    if (!ctx) return null
+    return ctx.currentTime
+  }
+
+  async resumeContext(): Promise<void> {
+    if (!this.ctx || this.ctx.state === 'closed') return
+    if (this.ctx.state !== 'running') {
+      await this.ctx.resume()
+    }
+  }
+
+  async nudgeContext(): Promise<void> {
+    const ctx = this.ctx
+    if (!ctx || ctx.state === 'closed') return
+
+    if (ctx.state !== 'running') {
+      await ctx.resume()
+      return
+    }
+
+    await ctx.suspend()
+    await ctx.resume()
   }
 
   setEnabled(enabled: boolean) {

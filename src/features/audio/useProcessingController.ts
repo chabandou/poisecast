@@ -79,6 +79,12 @@ type UseProcessingControllerResult = {
   disposeProcessing: () => void
 }
 
+type NavigatorWithAudioSession = Navigator & {
+  audioSession?: {
+    type?: string
+  }
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timer = 0
   try {
@@ -90,6 +96,21 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
     ])
   } finally {
     if (timer) window.clearTimeout(timer)
+  }
+}
+
+function setPlaybackAudioSessionType(active: boolean): void {
+  const nav = navigator as NavigatorWithAudioSession
+  const session = nav.audioSession
+  if (!session) return
+
+  try {
+    const nextType = active ? 'playback' : 'auto'
+    if (session.type !== nextType) {
+      session.type = nextType
+    }
+  } catch {
+    ignoreError()
   }
 }
 
@@ -121,6 +142,9 @@ export function useProcessingController({
   const [modelDownloadUi, setModelDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [ortDownloadUi, setOrtDownloadUi] = useState<AssetDownloadUiState | null>(null)
   const [downloadModalKind, setDownloadModalKind] = useState<'ort' | 'model' | null>(null)
+  const shouldRunMobileBackgroundRecovery =
+    typeof navigator !== 'undefined' &&
+    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent)
 
   const ensureOrtAssetsReady = useCallback(async (opts: EnsureOrtOptions) => {
     const isExtended = opts.mode === 'extended'
@@ -545,6 +569,84 @@ export function useProcessingController({
     const timer = window.setInterval(updateInferenceState, intervalMs)
     return () => window.clearInterval(timer)
   }, [denoiseEnabled, engineState, isPlaying])
+
+  useEffect(() => {
+    if (!shouldRunMobileBackgroundRecovery) return
+    if (!denoiseEnabled || !isPlaying) return
+    setPlaybackAudioSessionType(true)
+    return () => {
+      setPlaybackAudioSessionType(false)
+    }
+  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery])
+
+  useEffect(() => {
+    if (!shouldRunMobileBackgroundRecovery) return
+    if (!denoiseEnabled || !isPlaying) return
+
+    const resumeEngineContext = () => {
+      if (document.visibilityState === 'hidden') return
+      void engineRef.current?.resumeContext().catch(() => {
+        ignoreError()
+      })
+    }
+
+    document.addEventListener('visibilitychange', resumeEngineContext)
+    window.addEventListener('pageshow', resumeEngineContext)
+    window.addEventListener('focus', resumeEngineContext)
+    resumeEngineContext()
+
+    return () => {
+      document.removeEventListener('visibilitychange', resumeEngineContext)
+      window.removeEventListener('pageshow', resumeEngineContext)
+      window.removeEventListener('focus', resumeEngineContext)
+    }
+  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery])
+
+  useEffect(() => {
+    if (!shouldRunMobileBackgroundRecovery) return
+    if (!denoiseEnabled || !isPlaying || engineState !== 'ready') return
+
+    let repairInFlight = false
+    let lastContextTime = engineRef.current?.getContextCurrentTime() ?? null
+
+    const checkContextHealth = () => {
+      if (document.visibilityState === 'hidden') return
+      if (repairInFlight) return
+
+      const engine = engineRef.current
+      if (!engine) return
+
+      const contextState = engine.getContextState()
+      if (contextState === 'suspended') {
+        repairInFlight = true
+        void engine.resumeContext().catch(() => {
+          ignoreError()
+        }).finally(() => {
+          repairInFlight = false
+        })
+        return
+      }
+
+      const nextContextTime = engine.getContextCurrentTime()
+      if (nextContextTime === null) return
+
+      if (lastContextTime !== null && nextContextTime <= lastContextTime + 1e-4) {
+        repairInFlight = true
+        void engine.nudgeContext().catch(() => {
+          ignoreError()
+        }).finally(() => {
+          repairInFlight = false
+        })
+      }
+
+      lastContextTime = nextContextTime
+    }
+
+    const timer = window.setInterval(checkContextHealth, 1200)
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [denoiseEnabled, engineState, isPlaying, shouldRunMobileBackgroundRecovery])
 
   return {
     engineState,
