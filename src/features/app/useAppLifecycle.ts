@@ -40,6 +40,7 @@ type UseAppLifecycleOptions = {
   setIsFooterExpanded: Dispatch<SetStateAction<boolean>>
   setIsSidebarCompact: Dispatch<SetStateAction<boolean>>
   audioRef: RefObject<HTMLAudioElement | null>
+  loadingEpisodeId: string | null
   setLoadingEpisodeId: Dispatch<SetStateAction<string | null>>
 }
 
@@ -69,6 +70,7 @@ export function useAppLifecycle({
   setIsFooterExpanded,
   setIsSidebarCompact,
   audioRef,
+  loadingEpisodeId,
   setLoadingEpisodeId,
 }: UseAppLifecycleOptions): void {
   useAppDiagnostics({
@@ -125,5 +127,5 @@ export function useAppLifecycle({
     setIsSidebarCompact,
   })
 
-  useAudioReadyLoadingReset({ audioRef, setLoadingEpisodeId })
+  useAudioReadyLoadingReset({ audioRef, loadingEpisodeId, setLoadingEpisodeId })
 }

@@ -395,22 +395,22 @@
     content: "⣷⣾";
   }
   30% {
-    content: "⣧⣼";
+    content: "⣦⣴";
   }
   40% {
-    content: "⣇⣸";
+    content: "⣌⣡";
   }
   50% {
-    content: "⡇⢸";
+    content: "⡙⢋";
   }
   60% {
-    content: "⡏⢹";
+    content: "⠻⠟";
   }
   70% {
-    content: "⡟⢻";
+    content: "⢿⡿";
   }
   80% {
-    content: "⡿⢿";
+    content: "⣿⣿";
   }
   90% {
     content: "⣿⣿";
@@ -902,6 +902,30 @@
 
 .pcFooterPlayBtn .material-symbols-outlined {
   font-size: 30px;
+}
+
+.pcPlayLoadingGlyph {
+  display: inline-block;
+  font-family: var(--pc-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  transform: scale(0.45);
+  transform-origin: center;
+}
+
+.pcFooterPlayBtn .pcPlayLoadingGlyph {
+  color: #000;
+  font-size: 16px;
+  font-weight: 700;
+  font-family:
+    "Segoe UI Symbol", "Noto Sans Symbols2", "Noto Sans", var(--pc-font-mono);
+  transform: none;
+}
+
+.pcFooterPlayBtn.isLoading:disabled {
+  opacity: 1;
 }
 
 .pcFooterDividerVertical {

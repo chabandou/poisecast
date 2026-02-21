@@ -647,6 +647,11 @@
   transform: scale(0.95);
 }
 
+.pcFooterExpandedPlayBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .pcFooterExpandedPlayIcon {
   font-size: 38px;
 }
@@ -1445,6 +1450,14 @@
 
 .pcApp.isMobile .pcMobileMiniPlayerControlButton.primary {
   color: var(--pc-primary);
+}
+
+.pcApp.isMobile
+  .pcMobileMiniPlayerControlButton.primary
+  .pcPlayLoadingGlyph {
+  font-size: 16px;
+  font-weight: 700;
+  transform: none;
 }
 
 .pcApp.isMobile .pcMobileMiniPlayerProcessBtn.on {

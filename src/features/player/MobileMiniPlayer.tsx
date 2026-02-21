@@ -7,6 +7,7 @@ import {
 import { GlitchImage } from '../../ui/GlitchImage'
 import { formatClock } from './playbackMath'
 import { useAudioTimeline } from './useAudioTimeline'
+import { usePlaybackLoadingGlyph } from './usePlaybackLoadingGlyph'
 
 type MobileMiniPlayerProps = {
   isVisible: boolean
@@ -53,10 +54,14 @@ export const MobileMiniPlayer = memo(function MobileMiniPlayer({
     audioRef,
     isActive: isVisible && hasEpisode,
   })
+  const loadingGlyphFrame = usePlaybackLoadingGlyph(
+    isEpisodeLoading && isVisible && hasEpisode,
+  )
   if (!isVisible) return null
   const footerCurrent = formatClock(currentTime)
   const footerDuration = formatClock(duration)
   const footerProgressPct = Math.round(progressPct * 1000) / 10
+  const playPauseTitle = isEpisodeLoading ? 'Loading audio' : isPlaying ? 'Pause' : 'Play'
 
   return (
     <div
@@ -121,10 +126,18 @@ export const MobileMiniPlayer = memo(function MobileMiniPlayer({
             className="pcMobileMiniPlayerControlButton primary"
             onClick={() => void togglePlayPause()}
             disabled={isEpisodeLoading || !hasEpisode}
+            title={playPauseTitle}
+            aria-label={playPauseTitle}
           >
-            <span className="material-symbols-outlined fill-1">
-              {isPlaying ? 'pause' : 'play_arrow'}
-            </span>
+            {isEpisodeLoading ? (
+              <span className="pcPlayLoadingGlyph" aria-hidden="true">
+                {loadingGlyphFrame}
+              </span>
+            ) : (
+              <span className="material-symbols-outlined fill-1">
+                {isPlaying ? 'pause' : 'play_arrow'}
+              </span>
+            )}
           </button>
           <button
             type="button"

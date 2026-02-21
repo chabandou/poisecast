@@ -379,6 +379,7 @@ export function useAppOrchestrator() {
     setIsFooterExpanded,
     setIsSidebarCompact,
     audioRef,
+    loadingEpisodeId,
     setLoadingEpisodeId,
   })
 

@@ -12,6 +12,7 @@ import { IconNext, IconPause, IconPlay, IconPrev } from '../../ui/icons'
 import { ScrambleText } from '../system/ScrambleText'
 import { formatClock } from './playbackMath'
 import { useAudioTimeline } from './useAudioTimeline'
+import { usePlaybackLoadingGlyph } from './usePlaybackLoadingGlyph'
 
 export type DesktopFooterProps = {
   isVisible: boolean
@@ -112,10 +113,14 @@ export const DesktopFooter = memo(function DesktopFooter({
     audioRef,
     isActive: isVisible && Boolean(episode),
   })
+  const loadingGlyphFrame = usePlaybackLoadingGlyph(
+    isEpisodeLoading && isVisible && Boolean(episode),
+  )
   if (!isVisible || !episode) return null
   const footerProgressPct = Math.round(progressPct * 1000) / 10
   const footerCurrent = formatClock(currentTime)
   const footerDuration = formatClock(duration)
+  const playPauseTitle = isEpisodeLoading ? 'Loading audio' : isPlaying ? 'Pause' : 'Play'
 
   return (
             <>
@@ -237,12 +242,17 @@ export const DesktopFooter = memo(function DesktopFooter({
                       </button>
                       <button
                         type="button"
-                        className="pcFooterPlayBtn"
+                        className={`pcFooterPlayBtn ${isEpisodeLoading ? 'isLoading' : ''}`}
                         disabled={!episode || isEpisodeLoading}
                         onClick={() => void togglePlayPause()}
-                        title={isPlaying ? "Pause" : "Play"}
+                        title={playPauseTitle}
+                        aria-label={playPauseTitle}
                       >
-                        {isPlaying ? (
+                        {isEpisodeLoading ? (
+                          <span className="pcPlayLoadingGlyph" aria-hidden="true">
+                            {loadingGlyphFrame}
+                          </span>
+                        ) : isPlaying ? (
                           <IconPause size={26} />
                         ) : (
                           <IconPlay size={26} />
@@ -479,11 +489,20 @@ export const DesktopFooter = memo(function DesktopFooter({
                           <div className="pcFooterExpandedPlayGlow"></div>
                           <button
                             className="pcFooterExpandedPlayBtn"
+                            disabled={isEpisodeLoading}
                             onClick={() => void togglePlayPause()}
+                            title={playPauseTitle}
+                            aria-label={playPauseTitle}
                           >
-                            <span className="material-symbols-outlined pcFooterExpandedPlayIcon FILL-1">
-                              {isPlaying ? "pause" : "play_arrow"}
-                            </span>
+                            {isEpisodeLoading ? (
+                              <span className="pcPlayLoadingGlyph" aria-hidden="true">
+                                {loadingGlyphFrame}
+                              </span>
+                            ) : (
+                              <span className="material-symbols-outlined pcFooterExpandedPlayIcon FILL-1">
+                                {isPlaying ? "pause" : "play_arrow"}
+                              </span>
+                            )}
                           </button>
                         </div>
                         <button
