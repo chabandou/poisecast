@@ -1,9 +1,13 @@
 import {
+  useCallback,
+  useEffect,
+  useState,
   memo,
   type CSSProperties,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
+  type UIEvent,
 } from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
 import { ScrambleText } from '../system/ScrambleText'
@@ -15,6 +19,9 @@ type ShowTitleParts = {
   head: string
   accent?: string
 }
+
+const SHOW_DETAILS_HIDE_SCROLL_THRESHOLD_PX = 18
+const SHOW_DETAILS_REVEAL_SCROLL_THRESHOLD_PX = 4
 
 export type ShowDetailsMainViewProps = {
   isMobile: boolean
@@ -76,6 +83,20 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
   rssError,
 }: ShowDetailsMainViewProps) {
   if (!isMobileShowDetailsView && !isDesktopShowDetailsView) return null
+  const [isShowDetailsScrolledOut, setIsShowDetailsScrolledOut] = useState(false)
+
+  useEffect(() => {
+    if (!isDesktopShowDetailsView) setIsShowDetailsScrolledOut(false)
+  }, [isDesktopShowDetailsView])
+
+  const handleEpisodeListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const scrollTop = event.currentTarget.scrollTop
+    setIsShowDetailsScrolledOut((prev) => {
+      if (prev) return scrollTop > SHOW_DETAILS_REVEAL_SCROLL_THRESHOLD_PX
+      return scrollTop > SHOW_DETAILS_HIDE_SCROLL_THRESHOLD_PX
+    })
+  }, [])
+
   const desktopEpisodeSkeletonRows = Array.from({ length: 6 }, (_, index) => (
     <tr
       key={`desktop-episode-skeleton-${index}`}
@@ -431,7 +452,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
 
       {isDesktopShowDetailsView ? (
         <div className="pcViewSurface pcViewSurfaceShowDetails">
-          <section className="pcShowDetails">
+          <section className={`pcShowDetails ${isShowDetailsScrolledOut ? 'isScrolledOut' : ''}`}>
             <div className="pcShowDetailsInner">
               <div className="pcShowArtwork">
                 <div className="pcShowArtworkCard">
@@ -554,11 +575,13 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                       episodes={episodes}
                       activeEpisodeGuid={currentEpisodeGuid}
                       loadingEpisodeId={loadingEpisodeId}
+                      showArtworkUrl={showArtwork}
                       onStartEpisode={startEpisode}
                     />
                   )
                 }
                 hasEpisodes={isShowInfoLoading || episodes.length > 0}
+                onScroll={handleEpisodeListScroll}
               />
               {!isShowInfoLoading && rssError ? (
                 <div className="pcError">{rssError}</div>

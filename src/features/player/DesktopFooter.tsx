@@ -8,6 +8,7 @@ import {
   type WheelEvent,
 } from 'react'
 import type { PodcastEpisode } from '../../podcasts/types'
+import { SHOW_EPISODE_ARTWORK } from '../../config/featureFlags'
 import { IconNext, IconPause, IconPlay, IconPrev } from '../../ui/icons'
 import { ScrambleText } from '../system/ScrambleText'
 import { formatClock } from './playbackMath'
@@ -33,6 +34,7 @@ export type DesktopFooterProps = {
   footerShowPanStyle: CSSProperties
   footerEpisodeTitle: string
   footerEpisodeShow: string
+  showArtworkUrl: string | null
   canPrev: boolean
   canNext: boolean
   playPrev: () => void
@@ -81,6 +83,7 @@ export const DesktopFooter = memo(function DesktopFooter({
   footerShowPanStyle,
   footerEpisodeTitle,
   footerEpisodeShow,
+  showArtworkUrl,
   canPrev,
   canNext,
   playPrev,
@@ -117,6 +120,8 @@ export const DesktopFooter = memo(function DesktopFooter({
     isEpisodeLoading && isVisible && Boolean(episode),
   )
   if (!isVisible || !episode) return null
+  const episodeArtworkUrl = SHOW_EPISODE_ARTWORK ? episode.imageUrl : null
+  const artworkUrl = episodeArtworkUrl || showArtworkUrl || null
   const footerProgressPct = Math.round(progressPct * 1000) / 10
   const footerCurrent = formatClock(currentTime)
   const footerDuration = formatClock(duration)
@@ -180,10 +185,19 @@ export const DesktopFooter = memo(function DesktopFooter({
                     style={{ cursor: "pointer" }}
                   >
                     <div className="pcFooterEpisodeInfo">
-                      <div className="pcFooterEpisodeArtwork">
-                        <span className="material-symbols-outlined">
-                          podcasts
-                        </span>
+                      <div className={`pcFooterEpisodeArtwork ${artworkUrl ? 'hasArtwork' : ''}`}>
+                        {artworkUrl ? (
+                          <img
+                            className="pcFooterEpisodeArtworkImage"
+                            src={artworkUrl}
+                            alt={`Artwork for ${episode.title}`}
+                            decoding="async"
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined">
+                            podcasts
+                          </span>
+                        )}
                       </div>
                       <div className="pcFooterEpisodeDetails">
                         <h4
@@ -347,6 +361,16 @@ export const DesktopFooter = memo(function DesktopFooter({
                 episode ? (
                   <div className="pcFooterExpandedContent">
                     <div className="pcFooterExpandedBody">
+                      {artworkUrl ? (
+                        <div className="pcFooterExpandedArtworkBackdrop" aria-hidden="true">
+                          <img
+                            className="pcFooterExpandedArtworkImage"
+                            src={artworkUrl}
+                            alt=""
+                            decoding="async"
+                          />
+                        </div>
+                      ) : null}
                       <div className="pcFooterExpandedHero text-center mb-10 max-w-4xl mx-auto space-y-4">
                         <div className="pcFooterExpandedBadge">
                           <span className="pcFooterExpandedBadgeDot"></span>

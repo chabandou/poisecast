@@ -76,7 +76,7 @@
   --pc-episode-col-content-max: clamp(440px, 34vw, 620px);
   --pc-episode-th-pad-y: clamp(10px, 1.2vh, 14px);
   --pc-episode-cell-pad-y: clamp(14px, 1.8vh, 20px);
-  --pc-episode-icon-size: clamp(28px, 2.1vw, 36px);
+  --pc-episode-icon-size: clamp(32px, 2.4vw, 40px);
   --pc-library-header-pad-top: clamp(30px, 4.6vh, 54px);
   --pc-library-header-pad-x: clamp(28px, 4vw, 60px);
   --pc-library-header-pad-bottom: clamp(18px, 2.8vh, 30px);

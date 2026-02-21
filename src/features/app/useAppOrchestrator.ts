@@ -584,6 +584,7 @@ export function useAppOrchestrator() {
       footerShowPanStyle,
       footerEpisodeTitle,
       footerEpisodeShow,
+      showArtworkUrl: nowPlayingArtworkUrl || showArtwork,
       canPrev,
       canNext,
       playPrev,
