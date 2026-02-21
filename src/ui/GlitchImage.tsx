@@ -26,8 +26,6 @@ type TileRevealPreset = {
   revealMaxMs: number
   tileDurMinMs: number
   tileDurMaxMs: number
-  blurStartPx: number
-  dimStart: number
   scaleStart: number
 }
 
@@ -62,8 +60,6 @@ const TILE_REVEAL_PRESETS: Record<GlitchImageVariant, TileRevealPreset> = {
     revealMaxMs: 640,
     tileDurMinMs: 170,
     tileDurMaxMs: 260,
-    blurStartPx: 2.8,
-    dimStart: 0.72,
     scaleStart: 1.03,
   },
   artwork: {
@@ -73,8 +69,6 @@ const TILE_REVEAL_PRESETS: Record<GlitchImageVariant, TileRevealPreset> = {
     revealMaxMs: 620,
     tileDurMinMs: 165,
     tileDurMaxMs: 250,
-    blurStartPx: 2.5,
-    dimStart: 0.74,
     scaleStart: 1.026,
   },
   card: {
@@ -84,8 +78,6 @@ const TILE_REVEAL_PRESETS: Record<GlitchImageVariant, TileRevealPreset> = {
     revealMaxMs: 360,
     tileDurMinMs: 120,
     tileDurMaxMs: 180,
-    blurStartPx: 1.4,
-    dimStart: 0.84,
     scaleStart: 1.012,
   },
   mini: {
@@ -95,8 +87,6 @@ const TILE_REVEAL_PRESETS: Record<GlitchImageVariant, TileRevealPreset> = {
     revealMaxMs: 500,
     tileDurMinMs: 140,
     tileDurMaxMs: 210,
-    blurStartPx: 1.8,
-    dimStart: 0.82,
     scaleStart: 1.018,
   },
 }
@@ -195,10 +185,7 @@ function buildTileReveal(
     rootVars: {
       '--pc-tile-cols': `${preset.tilesX}`,
       '--pc-tile-rows': `${preset.tilesY}`,
-      '--pc-tile-blur-start': toPx(preset.blurStartPx),
-      '--pc-tile-dim-start': toNum(preset.dimStart),
       '--pc-tile-scale-start': toNum(preset.scaleStart),
-      '--pc-tile-image-ms': toMs(longestEndMs),
     } as CSSProperties,
     cells,
     totalMs: longestEndMs,

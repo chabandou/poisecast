@@ -2,7 +2,7 @@ import { useMemo, useState, type Dispatch, type RefObject, type SetStateAction }
 import { MODELS } from '../../models/models'
 import type { PodcastEpisode } from '../../podcasts/types'
 import {
-  probeStreamProxyDetailed,
+  probeStreamProxy,
   corsProbe,
   waitForAudioMetadata,
 } from '../audio/audioPlaybackNetwork'
@@ -113,7 +113,7 @@ export function useAppProcessingDomain({
     reportIssue,
     setCanDenoise,
     corsProbe,
-    probeStreamProxyDetailed,
+    probeStreamProxy,
     waitForAudioMetadata,
     engineInitTimeoutMs: ENGINE_INIT_TIMEOUT_MS,
   })

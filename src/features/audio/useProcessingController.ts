@@ -21,7 +21,7 @@ import {
   type ResolveModelHooks,
   type ResolveOrtHooks,
 } from './processingBootstrapService'
-import { buildStreamProxyUrl, type ProxyProbeResult } from './audioPlaybackNetwork'
+import { buildStreamProxyUrl } from './audioPlaybackNetwork'
 
 export type AssetDownloadUiState = {
   assetLabel: string
@@ -48,10 +48,7 @@ type UseProcessingControllerOptions = {
   reportIssue: (source: IssueSource, summary: string, detail: unknown) => void
   setCanDenoise?: (next: boolean | null) => void
   corsProbe: (url: string, options?: { signal?: AbortSignal }) => Promise<boolean>
-  probeStreamProxyDetailed: (
-    proxyUrl: string,
-    options?: { signal?: AbortSignal; timeoutMs?: number },
-  ) => Promise<ProxyProbeResult>
+  probeStreamProxy: (proxyUrl: string, options?: { signal?: AbortSignal; timeoutMs?: number }) => Promise<boolean>
   waitForAudioMetadata: (audioEl: HTMLAudioElement, timeoutMs?: number, signal?: AbortSignal) => Promise<void>
   engineInitTimeoutMs?: number
 }
@@ -107,7 +104,7 @@ export function useProcessingController({
   reportIssue,
   setCanDenoise,
   corsProbe,
-  probeStreamProxyDetailed,
+  probeStreamProxy,
   waitForAudioMetadata,
   engineInitTimeoutMs = 90_000,
 }: UseProcessingControllerOptions): UseProcessingControllerResult {
@@ -451,13 +448,13 @@ export function useProcessingController({
         if (!isActive()) return
 
         if (proxyLoadError) {
-          const proxyProbe = await probeStreamProxyDetailed(proxyUrl, {
+          const proxyAvailable = await probeStreamProxy(proxyUrl, {
             signal: run.signal,
             timeoutMs: 12_000,
           })
           if (!isActive()) return
 
-          if (proxyProbe.ok) {
+          if (proxyAvailable) {
             throw proxyLoadError
           }
 
@@ -473,14 +470,8 @@ export function useProcessingController({
             setDenoiseEnabled(false)
             setIsInferenceActive(false)
             lastInferenceAtRef.current = 0
-            const proxyFailureParts = [
-              coerceErrorMessage(proxyLoadError),
-              proxyProbe.status ? `HTTP ${proxyProbe.status}` : null,
-              proxyProbe.detail,
-            ].filter(Boolean)
-            const proxyFailureReason = proxyFailureParts.join(' · ') || 'Unknown proxy failure'
             setEngineDetail(
-              `Proxy unavailable (${proxyFailureReason}) and source blocks CORS. Download + import the file to denoise.`,
+              'Proxy unavailable and source blocks CORS. Download + import the file to denoise.',
             )
             return
           }
@@ -521,7 +512,7 @@ export function useProcessingController({
     ensureEngine,
     episode,
     getRemotePlaybackUrl,
-    probeStreamProxyDetailed,
+    probeStreamProxy,
     reportIssue,
     resetProcessingState,
     setCanDenoise,

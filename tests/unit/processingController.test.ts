@@ -52,7 +52,7 @@ describe('useProcessingController', () => {
           signal?.addEventListener('abort', () => reject(abortError), { once: true })
         }),
     )
-    const probeStreamProxyDetailed = vi.fn(async () => ({ ok: false, status: 502, detail: 'Upstream fetch failed' }))
+    const probeStreamProxy = vi.fn(async () => false)
 
     const { result } = renderHook(() =>
       useProcessingController({
@@ -66,7 +66,7 @@ describe('useProcessingController', () => {
         reportIssue,
         setCanDenoise,
         corsProbe,
-        probeStreamProxyDetailed,
+        probeStreamProxy,
         waitForAudioMetadata,
       }),
     )
@@ -130,7 +130,7 @@ describe('useProcessingController', () => {
     const reportIssue = vi.fn<(source: IssueSource, summary: string, detail: unknown) => void>()
     const setCanDenoise = vi.fn<(next: boolean | null) => void>()
     const corsProbe = vi.fn(async () => false)
-    const probeStreamProxyDetailed = vi.fn(async () => ({ ok: true, status: 206, detail: null }))
+    const probeStreamProxy = vi.fn(async () => true)
     const waitForAudioMetadata = vi.fn(async () => {})
 
     const { result } = renderHook(() =>
@@ -145,7 +145,7 @@ describe('useProcessingController', () => {
         reportIssue,
         setCanDenoise,
         corsProbe,
-        probeStreamProxyDetailed,
+        probeStreamProxy,
         waitForAudioMetadata,
       }),
     )
@@ -154,7 +154,7 @@ describe('useProcessingController', () => {
       await result.current.toggleDenoise(true)
     })
 
-    expect(probeStreamProxyDetailed).not.toHaveBeenCalled()
+    expect(probeStreamProxy).not.toHaveBeenCalled()
     expect(corsProbe).not.toHaveBeenCalled()
     expect(waitForAudioMetadata).toHaveBeenCalled()
     expect(audio.src).toBe(expectedProxyUrl)
@@ -201,7 +201,7 @@ describe('useProcessingController', () => {
     const reportIssue = vi.fn<(source: IssueSource, summary: string, detail: unknown) => void>()
     const setCanDenoise = vi.fn<(next: boolean | null) => void>()
     const corsProbe = vi.fn(async () => false)
-    const probeStreamProxyDetailed = vi.fn(async () => ({ ok: false, status: 429, detail: 'Rate limit exceeded' }))
+    const probeStreamProxy = vi.fn(async () => false)
     const waitForAudioMetadata = vi.fn(async (audioEl: HTMLAudioElement) => {
       if (audioEl.src.startsWith('/api/stream?url=')) {
         throw new Error('Proxy metadata load failed')
@@ -220,7 +220,7 @@ describe('useProcessingController', () => {
         reportIssue,
         setCanDenoise,
         corsProbe,
-        probeStreamProxyDetailed,
+        probeStreamProxy,
         waitForAudioMetadata,
       }),
     )
@@ -229,7 +229,7 @@ describe('useProcessingController', () => {
       await result.current.toggleDenoise(true)
     })
 
-    expect(probeStreamProxyDetailed).toHaveBeenCalledWith(
+    expect(probeStreamProxy).toHaveBeenCalledWith(
       expectedProxyUrl,
       expect.objectContaining({ timeoutMs: 12_000 }),
     )
@@ -238,7 +238,7 @@ describe('useProcessingController', () => {
     expect(audio.src).toBe(expectedProxyUrl)
     expect(setCanDenoise).toHaveBeenCalledWith(false)
     expect(result.current.engineDetail).toBe(
-      'Proxy unavailable (Proxy metadata load failed · HTTP 429 · Rate limit exceeded) and source blocks CORS. Download + import the file to denoise.',
+      'Proxy unavailable and source blocks CORS. Download + import the file to denoise.',
     )
     expect(reportIssue).not.toHaveBeenCalled()
   })

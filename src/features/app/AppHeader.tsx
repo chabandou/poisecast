@@ -1,18 +1,18 @@
 type AppHeaderProps = {
-  processingStatus: string
-  processingErrorText: string | null
-  isProcessingStarting: boolean
-  processingErrorInline: string | null
-  isInferenceActive: boolean
-  canInstall: boolean
-  installing: boolean
-  triggerInstall: () => Promise<void>
-  topStatus: string
-  denoiseEnabled: boolean
-  hasEpisode: boolean
-  modelSupported: boolean
-  toggleDenoise: (next: boolean) => Promise<void>
-}
+  processingStatus: string;
+  processingErrorText: string | null;
+  isProcessingStarting: boolean;
+  processingErrorInline: string | null;
+  isInferenceActive: boolean;
+  canInstall: boolean;
+  installing: boolean;
+  triggerInstall: () => Promise<void>;
+  topStatus: string;
+  denoiseEnabled: boolean;
+  hasEpisode: boolean;
+  modelSupported: boolean;
+  toggleDenoise: (next: boolean) => Promise<void>;
+};
 
 export function AppHeader({
   processingStatus,
@@ -50,7 +50,7 @@ export function AppHeader({
           >
             <span className="pcStatusDot"></span>
             <span className="pcStatusText">
-              Processing:{' '}
+              Processing:{" "}
               {isProcessingStarting ? (
                 <>
                   <span>Initializing</span>
@@ -61,9 +61,9 @@ export function AppHeader({
               ) : processingErrorInline ? (
                 `Error · ${processingErrorInline}`
               ) : isInferenceActive ? (
-                'Active'
+                "Active"
               ) : (
-                'Idle'
+                "Idle"
               )}
             </span>
           </div>
@@ -75,7 +75,11 @@ export function AppHeader({
             onClick={() => void triggerInstall()}
             disabled={!canInstall || installing}
           >
-            {!canInstall ? 'Installed' : installing ? 'Installing…' : 'Install App'}
+            {!canInstall
+              ? "Installed"
+              : installing
+                ? "Installing…"
+                : "Install App"}
           </button>
           <div className="pcDspMode">
             <div className="pcDspLabel">Isolation Mode</div>
@@ -88,26 +92,41 @@ export function AppHeader({
       </header>
 
       <div className="pcMobileStatus">
-        <div className="pcMobileStatusText">{topStatus}</div>
+        <div className="pcMobileStatusBrand">
+          <div className="pcMarkSm" aria-hidden="true">
+            <span>P</span>
+          </div>
+          <div className="pcMobileStatusText">{topStatus}</div>
+        </div>
         <div className="pcMobileStatusActions">
           {canInstall ? (
             <button
-              className="pcMobileInstall"
+              className="pcMobileStatusBtn pcMobileInstall"
               onClick={() => void triggerInstall()}
               disabled={installing}
             >
-              {installing ? 'INSTALLING…' : 'INSTALL'}
+              <span className="material-symbols-outlined">
+                {installing ? "hourglass_empty" : "download"}
+              </span>
+              <span className="pcMobileStatusBtnLabel">
+                {installing ? "INSTALLING" : "INSTALL"}
+              </span>
             </button>
           ) : null}
           <button
-            className={`pcMobileDenoise ${denoiseEnabled ? 'on' : ''}`}
+            className={`pcMobileStatusBtn pcMobileDenoise ${denoiseEnabled ? "active" : ""}`}
             disabled={!hasEpisode || !modelSupported || isProcessingStarting}
             onClick={() => void toggleDenoise(!denoiseEnabled)}
           >
-            {denoiseEnabled ? 'ON' : 'OFF'}
+            <span className="material-symbols-outlined">
+              {denoiseEnabled ? "graphic_eq" : "equalizer"}
+            </span>
+            <span className="pcMobileStatusBtnLabel">
+              {denoiseEnabled ? "ON" : "OFF"}
+            </span>
           </button>
         </div>
       </div>
     </>
-  )
+  );
 }

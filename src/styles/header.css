@@ -347,62 +347,95 @@
 /* Mobile top status */
 .pcMobileStatus {
   display: none;
-  height: var(--pc-status-h);
-  flex: 0 0 var(--pc-status-h);
+  height: var(--pc-nav-h, 66px);
+  flex: 0 0 var(--pc-nav-h, 66px);
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  background: rgba(14, 18, 24, 0.92);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0 20px;
+  background: #000;
+  border-bottom: 1px solid var(--pc-border-active);
   position: relative;
   z-index: 3;
 }
-.pcMobileStatusText {
+
+.pcMobileStatusBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.pcMarkSm {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pc-primary);
+  color: #000;
   font-family: var(--pc-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.9px;
-  color: rgba(242, 233, 215, 0.75);
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 0;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px -2px var(--pc-glow-sm);
+}
+
+.pcMobileStatusText {
+  font-family: var(--pc-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--pc-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .pcMobileStatusActions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex: 0 0 auto;
 }
-.pcMobileInstall {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(242, 233, 215, 0.9);
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  padding: 4px 8px;
+
+.pcMobileStatusBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: rgba(242, 233, 215, 0.45);
   cursor: pointer;
-}
-.pcMobileInstall:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.pcMobileDenoise {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--pc-primary);
-  font-family: var(--pc-font-mono);
-  font-size: 10px;
-  padding: 4px 8px;
-  cursor: pointer;
-}
-.pcMobileDenoise.on {
-  background: rgba(46, 217, 195, 0.18);
-  border-color: rgba(46, 217, 195, 0.45);
-  color: var(--pc-accent);
-}
-.pcMobileDenoise:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  padding: 0;
+  transition: color 120ms ease;
+  text-decoration: none;
+  line-height: 1;
 }
 
+.pcMobileStatusBtn .material-symbols-outlined {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.pcMobileStatusBtnLabel {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-family: var(--pc-font-mono);
+}
+
+.pcMobileStatusBtn.active {
+  color: var(--pc-primary);
+  text-shadow: 0 0 10px var(--pc-glow-sm);
+}
+
+.pcMobileStatusBtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}

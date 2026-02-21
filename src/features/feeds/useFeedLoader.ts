@@ -25,6 +25,17 @@ type FeedLookupMeta = {
   genres: string[]
 }
 
+export type FetchLibraryFeedArtworkOptions = {
+  feedTitle?: string
+  failedImageUrl?: string
+}
+
+type ArtworkQueueEntry = {
+  url: string
+  options?: FetchLibraryFeedArtworkOptions
+  resolve: () => void
+}
+
 type ResetProcessingStateOptions = {
   canDenoise?: boolean | null
 }
@@ -59,8 +70,10 @@ type UseFeedLoaderResult = {
   libraryStatsByUrl: Record<string, LibraryFeedStats>
   loadFeed: (url: string) => Promise<void>
   initializeFeedCaches: () => void
-  fetchLibraryFeedArtwork: (url: string) => Promise<void>
+  fetchLibraryFeedArtwork: (url: string, options?: FetchLibraryFeedArtworkOptions) => Promise<void>
 }
+
+const LIBRARY_ARTWORK_FETCH_CONCURRENCY = 2
 
 export function useFeedLoader({
   audioRef,
@@ -83,6 +96,8 @@ export function useFeedLoader({
 }: UseFeedLoaderOptions): UseFeedLoaderResult {
   const feedCacheRef = useRef<Map<string, ParsedPodcast>>(new Map())
   const feedImageFetchRef = useRef<Set<string>>(new Set())
+  const feedImageQueueRef = useRef<ArtworkQueueEntry[]>([])
+  const activeLibraryArtworkFetchCountRef = useRef(0)
   const feedImagesRef = useRef<Record<string, string>>({})
   const loadFeedTaskRef = useRef(createLatestAsyncState())
   const repositoryRef = useRef<IFeedRepository | null>(null)
@@ -117,16 +132,43 @@ export function useFeedLoader({
     return repositoryImpl.loadLookupMeta(rssUrl, { signal })
   }, [repositoryImpl])
 
-  const fetchFeedArtwork = useCallback(async (rssUrl: string, signal?: AbortSignal): Promise<string | null> => {
+  const fetchFeedArtwork = useCallback(async (
+    rssUrl: string,
+    signal?: AbortSignal,
+    options?: FetchLibraryFeedArtworkOptions,
+  ): Promise<string | null> => {
+    const failedImageUrl = options?.failedImageUrl?.trim() || null
+    const normalizeCandidate = (value?: string | null): string | null => {
+      if (typeof value !== 'string') return null
+      const trimmed = value.trim()
+      if (!trimmed) return null
+      if (failedImageUrl && trimmed === failedImageUrl) return null
+      return trimmed
+    }
+
+    let feedTitle: string | null = options?.feedTitle?.trim() || null
+
     try {
       const parsed = await repositoryImpl.loadFeed(rssUrl, { signal })
-      const feedImage = parsed.feed.imageUrl?.trim()
+      const parsedFeedTitle = parsed.feed.title?.trim()
+      if (parsedFeedTitle) {
+        feedTitle = parsedFeedTitle
+      }
+      const feedImage = normalizeCandidate(parsed.feed.imageUrl)
       if (feedImage) return feedImage
     } catch {
       // Fall through to lookup fallback below.
     }
     const meta = await fetchFeedLookupMeta(rssUrl, signal)
-    return meta?.artworkUrl ?? null
+    const lookupArtwork = normalizeCandidate(meta?.artworkUrl)
+    if (lookupArtwork) return lookupArtwork
+
+    if (!feedTitle) return null
+    const searchArtwork = await repositoryImpl.searchArtworkByTerm(feedTitle, {
+      signal,
+      expectedFeedUrl: rssUrl,
+    })
+    return normalizeCandidate(searchArtwork)
   }, [fetchFeedLookupMeta, repositoryImpl])
 
   const initializeFeedCaches = useCallback(() => {
@@ -290,36 +332,93 @@ export function useFeedLoader({
     setSourceKind,
   ])
 
-  const fetchLibraryFeedArtwork = useCallback(async (url: string) => {
-    if (!url || feedImagesRef.current[url] || feedImageFetchRef.current.has(url)) return
+  const drainArtworkQueue = useCallback(() => {
+    while (
+      activeLibraryArtworkFetchCountRef.current < LIBRARY_ARTWORK_FETCH_CONCURRENCY
+    ) {
+      const nextEntry = feedImageQueueRef.current.shift()
+      if (!nextEntry) break
+
+      activeLibraryArtworkFetchCountRef.current += 1
+
+      void (async () => {
+        try {
+          const currentArtwork = feedImagesRef.current[nextEntry.url]
+          const failedImageUrl = nextEntry.options?.failedImageUrl?.trim()
+          if (currentArtwork && (!failedImageUrl || currentArtwork !== failedImageUrl)) {
+            return
+          }
+
+          const artwork = await fetchFeedArtwork(nextEntry.url, undefined, nextEntry.options)
+          if (artwork && artwork !== failedImageUrl) {
+            setFeedImages((prev) => {
+              if (prev[nextEntry.url] === artwork) return prev
+              const next = { ...prev, [nextEntry.url]: artwork }
+              try {
+                persistFeedImages(localStorage, feedImageCacheKey, next)
+              } catch {
+                ignoreError()
+              }
+              return next
+            })
+            return
+          }
+
+          if (!failedImageUrl) return
+          setFeedImages((prev) => {
+            if (prev[nextEntry.url] !== failedImageUrl) return prev
+            const next = { ...prev }
+            delete next[nextEntry.url]
+            try {
+              persistFeedImages(localStorage, feedImageCacheKey, next)
+            } catch {
+              ignoreError()
+            }
+            return next
+          })
+        } catch {
+          ignoreError()
+        } finally {
+          feedImageFetchRef.current.delete(nextEntry.url)
+          setLibraryArtworkLoadingByUrl((prev) => {
+            if (!prev[nextEntry.url]) return prev
+            const next = { ...prev }
+            delete next[nextEntry.url]
+            return next
+          })
+
+          activeLibraryArtworkFetchCountRef.current = Math.max(
+            0,
+            activeLibraryArtworkFetchCountRef.current - 1,
+          )
+          nextEntry.resolve()
+          drainArtworkQueue()
+        }
+      })()
+    }
+  }, [feedImageCacheKey, fetchFeedArtwork])
+
+  const fetchLibraryFeedArtwork = useCallback((url: string, options?: FetchLibraryFeedArtworkOptions) => {
+    const failedImageUrl = options?.failedImageUrl?.trim()
+    const currentArtwork = feedImagesRef.current[url]
+    const hasUsableCurrentArtwork =
+      Boolean(currentArtwork) && (!failedImageUrl || currentArtwork !== failedImageUrl)
+
+    if (!url || hasUsableCurrentArtwork || feedImageFetchRef.current.has(url)) {
+      return Promise.resolve()
+    }
+
     feedImageFetchRef.current.add(url)
     setLibraryArtworkLoadingByUrl((prev) => {
       if (prev[url]) return prev
       return { ...prev, [url]: true }
     })
-    try {
-      const artwork = await fetchFeedArtwork(url)
-      if (!artwork) return
-      setFeedImages((prev) => {
-        if (prev[url] === artwork) return prev
-        const next = { ...prev, [url]: artwork }
-        try {
-          persistFeedImages(localStorage, feedImageCacheKey, next)
-        } catch {
-          ignoreError()
-        }
-        return next
-      })
-    } finally {
-      feedImageFetchRef.current.delete(url)
-      setLibraryArtworkLoadingByUrl((prev) => {
-        if (!prev[url]) return prev
-        const next = { ...prev }
-        delete next[url]
-        return next
-      })
-    }
-  }, [feedImageCacheKey, fetchFeedArtwork])
+
+    return new Promise<void>((resolve) => {
+      feedImageQueueRef.current.push({ url, options, resolve })
+      drainArtworkQueue()
+    })
+  }, [drainArtworkQueue])
 
   useEffect(() => {
     const loadFeedTaskState = loadFeedTaskRef.current

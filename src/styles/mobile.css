@@ -1532,7 +1532,7 @@
 }
 
 .pcLibraryHeader::after {
-  content: "inventory_2";
+  content: "library_books";
   position: absolute;
   top: var(--pc-library-header-icon-top);
   right: var(--pc-library-header-icon-right);

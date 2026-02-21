@@ -2,12 +2,6 @@ type RequestProbeOptions = {
   signal?: AbortSignal
 }
 
-export type ProxyProbeResult = {
-  ok: boolean
-  status: number | null
-  detail: string | null
-}
-
 function throwIfAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return
   throw new DOMException('Aborted', 'AbortError')
@@ -74,36 +68,14 @@ export function buildStreamProxyUrl(sourceUrl: string): string {
   return `/api/stream?url=${encodeURIComponent(sourceUrl)}`
 }
 
-async function readProxyFailureDetail(res: Response): Promise<string | null> {
-  const contentType = res.headers.get('content-type')?.toLowerCase() ?? ''
-  try {
-    if (contentType.includes('application/json')) {
-      const payload = await res.clone().json() as {
-        error?: unknown
-        detail?: unknown
-      }
-      const error = typeof payload.error === 'string' ? payload.error.trim() : ''
-      const detail = typeof payload.detail === 'string' ? payload.detail.trim() : ''
-      const combined = [error, detail].filter(Boolean).join(': ')
-      return combined || null
-    }
-
-    const text = (await res.clone().text()).trim()
-    if (!text) return null
-    return text.length > 180 ? `${text.slice(0, 179)}…` : text
-  } catch {
-    return null
-  }
-}
-
 function isProxyProbeStatusOk(status: number): boolean {
   return (status >= 200 && status <= 299) || status === 416
 }
 
-export async function probeStreamProxyDetailed(
+export async function probeStreamProxy(
   proxyUrl: string,
   options: RequestProbeOptions & { timeoutMs?: number } = {},
-): Promise<ProxyProbeResult> {
+): Promise<boolean> {
   const ctrl = new AbortController()
   const onExternalAbort = () => ctrl.abort()
   if (options.signal) options.signal.addEventListener('abort', onExternalAbort, { once: true })
@@ -117,12 +89,10 @@ export async function probeStreamProxyDetailed(
       cache: 'no-store',
       signal: ctrl.signal,
     })
+    cancelBody(ranged)
     if (isProxyProbeStatusOk(ranged.status)) {
-      cancelBody(ranged)
-      return { ok: true, status: ranged.status, detail: null }
+      return true
     }
-    let lastStatus: number | null = ranged.status
-    let lastDetail = await readProxyFailureDetail(ranged)
 
     // Some upstreams reject/ignore ranged probes; fall back to a tiny HEAD check.
     const head = await fetch(proxyUrl, {
@@ -131,10 +101,8 @@ export async function probeStreamProxyDetailed(
       signal: ctrl.signal,
     })
     if (isProxyProbeStatusOk(head.status)) {
-      return { ok: true, status: head.status, detail: null }
+      return true
     }
-    lastStatus = head.status
-    lastDetail = lastDetail ?? (await readProxyFailureDetail(head))
 
     // Final fallback: plain GET without Range in case Range-specific handling is broken upstream.
     const full = await fetch(proxyUrl, {
@@ -142,28 +110,17 @@ export async function probeStreamProxyDetailed(
       cache: 'no-store',
       signal: ctrl.signal,
     })
+    cancelBody(full)
     if (isProxyProbeStatusOk(full.status)) {
-      cancelBody(full)
-      return { ok: true, status: full.status, detail: null }
+      return true
     }
-    lastStatus = full.status
-    lastDetail = lastDetail ?? (await readProxyFailureDetail(full))
-    return { ok: false, status: lastStatus, detail: lastDetail }
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error)
-    return { ok: false, status: null, detail }
+    return false
+  } catch {
+    return false
   } finally {
     window.clearTimeout(timer)
     if (options.signal) options.signal.removeEventListener('abort', onExternalAbort)
   }
-}
-
-export async function probeStreamProxy(
-  proxyUrl: string,
-  options: RequestProbeOptions & { timeoutMs?: number } = {},
-): Promise<boolean> {
-  const result = await probeStreamProxyDetailed(proxyUrl, options)
-  return result.ok
 }
 
 export async function waitForAudioMetadata(

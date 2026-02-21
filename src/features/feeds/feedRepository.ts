@@ -1,4 +1,4 @@
-import { buildAppleLookupUrl } from '../../podcasts/appleApi'
+import { buildAppleLookupUrl, buildAppleSearchUrl } from '../../podcasts/appleApi'
 import { fetchAndParseRss } from '../../podcasts/rss'
 import type { ParsedPodcast } from '../../podcasts/types'
 import { dedupeGenres, type FeedLookupMeta } from './feedUtils'
@@ -7,9 +7,14 @@ export type FeedRepositoryLoadOptions = {
   signal?: AbortSignal
 }
 
+export type FeedRepositorySearchOptions = FeedRepositoryLoadOptions & {
+  expectedFeedUrl?: string
+}
+
 export interface IFeedRepository {
   loadFeed(url: string, options?: FeedRepositoryLoadOptions): Promise<ParsedPodcast>
   loadLookupMeta(url: string, options?: FeedRepositoryLoadOptions): Promise<FeedLookupMeta | null>
+  searchArtworkByTerm(term: string, options?: FeedRepositorySearchOptions): Promise<string | null>
 }
 
 type CacheEntry<T> = {
@@ -123,6 +128,69 @@ export class FeedRepository implements IFeedRepository {
     } catch (error) {
       if (isAbortError(error)) throw error
       this.setCached(this.lookupCache, url, null, this.lookupCacheMaxEntries)
+      return null
+    }
+  }
+
+  async searchArtworkByTerm(
+    term: string,
+    options: FeedRepositorySearchOptions = {},
+  ): Promise<string | null> {
+    if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+    const query = term.trim()
+    if (!query) return null
+
+    try {
+      const res = await fetch(buildAppleSearchUrl(query, 12), { signal: options.signal })
+      if (!res.ok) return null
+
+      const data = (await res.json()) as {
+        results?: Array<{
+          feedUrl?: string
+          artworkUrl600?: string
+          artworkUrl512?: string
+          artworkUrl100?: string
+        }>
+      }
+
+      const results = Array.isArray(data?.results) ? data.results : []
+      const resolveArtwork = (item: {
+        artworkUrl600?: string
+        artworkUrl512?: string
+        artworkUrl100?: string
+      }): string | null => {
+        const candidate = item.artworkUrl600 || item.artworkUrl512 || item.artworkUrl100
+        return typeof candidate === 'string' && candidate.trim().length > 0
+          ? candidate.trim()
+          : null
+      }
+
+      const normalizeFeedUrl = (value?: string): string | null => {
+        if (typeof value !== 'string') return null
+        const trimmed = value.trim()
+        if (!trimmed) return null
+        return trimmed.replace(/\/+$/, '').toLowerCase()
+      }
+
+      const expectedFeedUrl = normalizeFeedUrl(options.expectedFeedUrl)
+      if (expectedFeedUrl) {
+        const matchingResult = results.find(
+          (item) =>
+            normalizeFeedUrl(item.feedUrl) === expectedFeedUrl &&
+            Boolean(resolveArtwork(item)),
+        )
+        if (matchingResult) return resolveArtwork(matchingResult)
+      }
+
+      for (const item of results) {
+        const artwork = resolveArtwork(item)
+        if (artwork) return artwork
+      }
+
+      return null
+    } catch (error) {
+      if (isAbortError(error)) throw error
       return null
     }
   }

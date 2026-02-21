@@ -19,8 +19,10 @@ import { GlitchImage } from '../../ui/GlitchImage'
 type LibrarySortMode = 'updated' | 'alpha' | 'count'
 
 const REVEAL_STAGGER_MS = 86
+const REVEAL_STAGGER_MAX_MS = 420
 const IMAGE_START_DELAY_MS = 680
 const VIRTUAL_OVERSCAN_ROWS = 2
+const DISABLE_LIBRARY_VIRTUALIZATION = true
 
 type LibraryGridSizing = {
   cardSize: number
@@ -77,6 +79,11 @@ type LibraryCardProps = {
   feed: LibraryFeedViewItem
   index: number
   isCardRevealed: boolean
+  onArtworkError: (
+    rssUrl: string,
+    feedTitle: string,
+    imageUrl: string | null,
+  ) => void
   onSelectFeed: (feed: DefaultFeed) => void
 }
 
@@ -85,6 +92,7 @@ const LibraryCard = memo(
     feed,
     index,
     isCardRevealed,
+    onArtworkError,
     onSelectFeed,
   }: LibraryCardProps) {
     const shouldShowArtworkLoading =
@@ -136,6 +144,9 @@ const LibraryCard = memo(
               startDelayMs={IMAGE_START_DELAY_MS}
               src={feed.imageUrl ?? undefined}
               alt={`${feed.title} cover art`}
+              onError={() => {
+                onArtworkError(feed.rssUrl, feed.title, feed.imageUrl ?? null)
+              }}
               loading="lazy"
               style={{
                 width: '100%',
@@ -156,6 +167,7 @@ const LibraryCard = memo(
   (prevProps, nextProps) =>
     prevProps.index === nextProps.index &&
     prevProps.isCardRevealed === nextProps.isCardRevealed &&
+    prevProps.onArtworkError === nextProps.onArtworkError &&
     prevProps.onSelectFeed === nextProps.onSelectFeed &&
     prevProps.feed.rssUrl === nextProps.feed.rssUrl &&
     prevProps.feed.title === nextProps.feed.title &&
@@ -173,7 +185,10 @@ export type LibraryMainViewProps = {
   libraryGridRef: MutableRefObject<HTMLDivElement | null>
   isMainStartupReady: boolean
   libraryFeedsView: LibraryFeedViewItem[]
-  fetchLibraryFeedArtwork: (url: string) => Promise<void>
+  fetchLibraryFeedArtwork: (
+    url: string,
+    options?: { feedTitle?: string; failedImageUrl?: string },
+  ) => Promise<void>
   onSelectFeed: (feed: DefaultFeed) => void
 }
 
@@ -202,11 +217,11 @@ export const LibraryMainView = memo(function LibraryMainView({
   )
   const [isHeaderHiddenOnScroll, setIsHeaderHiddenOnScroll] = useState(false)
   const revealTimersRef = useRef<Map<string, number>>(new Map())
+  const failedArtworkByUrlRef = useRef<Map<string, string>>(new Map())
   const queuedRevealUrlsRef = useRef<Set<string>>(new Set())
   const pendingRevealUrlsRef = useRef<Set<string>>(new Set())
   const revealFlushRafRef = useRef<number | null>(null)
   const virtualWindowRafRef = useRef<number | null>(null)
-  const revealSequenceRef = useRef(0)
   const lastGridScrollTopRef = useRef(0)
   const [virtualWindow, setVirtualWindow] = useState<VirtualGridWindow>({
     columnCount: 1,
@@ -221,6 +236,13 @@ export const LibraryMainView = memo(function LibraryMainView({
     [libraryFeedsView],
   )
   const visibleRange = useMemo(() => {
+    if (DISABLE_LIBRARY_VIRTUALIZATION) {
+      return {
+        startIndex: 0,
+        endIndex: libraryFeedsView.length,
+      }
+    }
+
     if (libraryFeedsView.length === 0) {
       return {
         startIndex: 0,
@@ -249,6 +271,7 @@ export const LibraryMainView = memo(function LibraryMainView({
     [libraryGridSizing.cardSize, libraryGridSizing.gap],
   )
   const topSpacerHeight = useMemo(() => {
+    if (DISABLE_LIBRARY_VIRTUALIZATION) return 0
     if (virtualWindow.startRow <= 0) return 0
     return Math.max(
       0,
@@ -256,6 +279,7 @@ export const LibraryMainView = memo(function LibraryMainView({
     )
   }, [virtualWindow.rowGap, virtualWindow.rowHeight, virtualWindow.startRow])
   const bottomSpacerHeight = useMemo(() => {
+    if (DISABLE_LIBRARY_VIRTUALIZATION) return 0
     const remainingRows = Math.max(0, virtualWindow.rowCount - virtualWindow.endRow)
     if (remainingRows <= 0) return 0
     return Math.max(
@@ -293,8 +317,32 @@ export const LibraryMainView = memo(function LibraryMainView({
       revealTimersRef.current.delete(url)
       queuedRevealUrlsRef.current.delete(url)
       pendingRevealUrlsRef.current.delete(url)
+      failedArtworkByUrlRef.current.delete(url)
     }
   }, [feedOrderKey])
+
+  useEffect(() => {
+    const currentImageByUrl = new Map<string, string | null>(
+      libraryFeedsView.map((feed) => [feed.rssUrl, feed.imageUrl?.trim() ?? null]),
+    )
+    for (const [url, failedImageUrl] of failedArtworkByUrlRef.current) {
+      const currentImageUrl = currentImageByUrl.get(url) ?? null
+      if (!currentImageUrl || currentImageUrl !== failedImageUrl) {
+        failedArtworkByUrlRef.current.delete(url)
+      }
+    }
+  }, [libraryFeedsView])
+
+  const handleArtworkError = useCallback(
+    (rssUrl: string, feedTitle: string, imageUrl: string | null) => {
+      const failedImageUrl = imageUrl?.trim()
+      if (!failedImageUrl) return
+      if (failedArtworkByUrlRef.current.get(rssUrl) === failedImageUrl) return
+      failedArtworkByUrlRef.current.set(rssUrl, failedImageUrl)
+      void fetchLibraryFeedArtwork(rssUrl, { feedTitle, failedImageUrl })
+    },
+    [fetchLibraryFeedArtwork],
+  )
 
   const scheduleRevealFlush = useCallback(() => {
     if (revealFlushRafRef.current !== null) return
@@ -332,7 +380,6 @@ export const LibraryMainView = memo(function LibraryMainView({
         window.cancelAnimationFrame(virtualWindowRafRef.current)
         virtualWindowRafRef.current = null
       }
-      revealSequenceRef.current = 0
     }
   }, [])
 
@@ -340,6 +387,13 @@ export const LibraryMainView = memo(function LibraryMainView({
     if (!isVisible) {
       setIsHeaderHiddenOnScroll(false)
       lastGridScrollTopRef.current = 0
+      setVirtualWindow((prev) => {
+        if (prev.startRow === 0) return prev
+        return {
+          ...prev,
+          startRow: 0,
+        }
+      })
       return
     }
 
@@ -502,18 +556,20 @@ export const LibraryMainView = memo(function LibraryMainView({
         return aIndex - bIndex
       })
 
-      uniqueSorted.forEach((url) => {
+      uniqueSorted.forEach((url, index) => {
         void fetchLibraryFeedArtwork(url)
         if (queuedRevealUrlsRef.current.has(url)) return
         queuedRevealUrlsRef.current.add(url)
-        const revealSlot = revealSequenceRef.current
-        revealSequenceRef.current += 1
+        const revealDelayMs = Math.min(
+          index * REVEAL_STAGGER_MS,
+          REVEAL_STAGGER_MAX_MS,
+        )
 
         const timer = window.setTimeout(() => {
           revealTimersRef.current.delete(url)
           pendingRevealUrlsRef.current.add(url)
           scheduleRevealFlush()
-        }, revealSlot * REVEAL_STAGGER_MS)
+        }, revealDelayMs)
 
         revealTimersRef.current.set(url, timer)
       })
@@ -602,7 +658,6 @@ export const LibraryMainView = memo(function LibraryMainView({
         window.cancelAnimationFrame(revealFlushRafRef.current)
         revealFlushRafRef.current = null
       }
-      revealSequenceRef.current = 0
     }
   }, [
     feedOrderKey,
@@ -725,6 +780,7 @@ export const LibraryMainView = memo(function LibraryMainView({
                     feed={feed}
                     index={index}
                     isCardRevealed={isCardRevealed}
+                    onArtworkError={handleArtworkError}
                     onSelectFeed={onSelectFeed}
                   />
                 )
