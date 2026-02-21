@@ -504,11 +504,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to top right,
-    rgba(0, 229, 255, 0.1),
-    transparent
-  );
+  background: linear-gradient(to top right, var(--pc-primary-dim), transparent);
 }
 
 /* Force full transparency for show-artwork image stack. */
@@ -564,8 +560,8 @@
 }
 
 .pcGenrePrimary {
-  background: rgba(0, 229, 255, 0.2);
-  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: var(--pc-primary-dim);
+  border: 1px solid var(--pc-glow-sm);
   color: var(--pc-primary);
 }
 
@@ -590,7 +586,7 @@
 
 .pcShowTitleAccent {
   color: var(--pc-primary);
-  text-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+  text-shadow: 0 0 15px var(--pc-glow);
 }
 
 .pcShowDescription p {
@@ -1209,6 +1205,7 @@
 }
 
 .pcEpisodeItem {
+  --pc-episode-cell-pad-y: clamp(9px, 1.2vh, 13px);
   text-align: left;
   background: transparent;
   border: none;
@@ -1228,16 +1225,17 @@
 .pcEpisodeItem td:first-child {
   width: var(--pc-episode-col-icon-w);
   text-align: center;
-  padding-left: clamp(6px, 0.7vw, 10px);
+  padding-left: clamp(12px, 1.4vw, 20px);
   padding-right: clamp(6px, 0.7vw, 10px);
-  padding-top: clamp(8px, 1.1vh, 12px);
-  padding-bottom: clamp(8px, 1.1vh, 12px);
+  padding-top: var(--pc-episode-cell-pad-y);
+  padding-bottom: var(--pc-episode-cell-pad-y);
   vertical-align: middle;
 }
 
 .pcEpisodeItem td:nth-child(2) {
   min-width: var(--pc-episode-col-content-min);
   max-width: var(--pc-episode-col-content-max);
+  padding-left: clamp(6px, 0.7vw, 10px);
 }
 .pcEpisodeItem:hover {
   background: var(--pc-surface-hover);
@@ -1337,7 +1335,7 @@
   display: block;
   font-family: var(--pc-font-mono);
   font-size: 10px;
-  color: rgba(0, 229, 255, 0.7);
+  color: var(--pc-accent);
   opacity: 0.7;
 }
 

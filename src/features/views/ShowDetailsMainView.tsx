@@ -1,6 +1,8 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   memo,
   type CSSProperties,
@@ -22,6 +24,10 @@ type ShowTitleParts = {
 
 const SHOW_DETAILS_HIDE_SCROLL_THRESHOLD_PX = 18
 const SHOW_DETAILS_REVEAL_SCROLL_THRESHOLD_PX = 4
+const SHOW_DETAILS_DESKTOP_INITIAL_EPISODE_LIMIT = 40
+const SHOW_DETAILS_DESKTOP_EPISODE_LIMIT_STEP = 30
+const SHOW_DETAILS_DESKTOP_LOAD_MORE_OFFSET_PX = 220
+const SHOW_DETAILS_MOBILE_LOAD_MORE_OFFSET_PX = 320
 
 export type ShowDetailsMainViewProps = {
   isMobile: boolean
@@ -82,12 +88,58 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
   currentEpisodeGuid,
   rssError,
 }: ShowDetailsMainViewProps) {
-  if (!isMobileShowDetailsView && !isDesktopShowDetailsView) return null
+  const isShowDetailsVisible =
+    isMobileShowDetailsView || isDesktopShowDetailsView
   const [isShowDetailsScrolledOut, setIsShowDetailsScrolledOut] = useState(false)
+  const [desktopEpisodeLimit, setDesktopEpisodeLimit] = useState(
+    SHOW_DETAILS_DESKTOP_INITIAL_EPISODE_LIMIT,
+  )
+  const desktopEpisodeListRef = useRef<HTMLDivElement | null>(null)
+
+  const desktopVisibleEpisodes = useMemo(
+    () => episodes.slice(0, desktopEpisodeLimit),
+    [desktopEpisodeLimit, episodes],
+  )
+  const hasMoreDesktopEpisodes = desktopEpisodeLimit < episodes.length
+
+  const loadMoreDesktopEpisodes = useCallback(() => {
+    if (isShowInfoLoading) return
+    setDesktopEpisodeLimit((prev) => {
+      if (prev >= episodes.length) return prev
+      return Math.min(episodes.length, prev + SHOW_DETAILS_DESKTOP_EPISODE_LIMIT_STEP)
+    })
+  }, [episodes.length, isShowInfoLoading])
+
+  const maybeLoadMoreDesktopEpisodes = useCallback(() => {
+    if (isShowInfoLoading || !hasMoreDesktopEpisodes) return
+    const list = desktopEpisodeListRef.current
+    if (!list) return
+    const distanceToBottom = list.scrollHeight - (list.scrollTop + list.clientHeight)
+    if (distanceToBottom <= SHOW_DETAILS_DESKTOP_LOAD_MORE_OFFSET_PX) {
+      loadMoreDesktopEpisodes()
+    }
+  }, [hasMoreDesktopEpisodes, isShowInfoLoading, loadMoreDesktopEpisodes])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!isDesktopShowDetailsView) setIsShowDetailsScrolledOut(false)
   }, [isDesktopShowDetailsView])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDesktopEpisodeLimit(SHOW_DETAILS_DESKTOP_INITIAL_EPISODE_LIMIT)
+  }, [episodes, isDesktopShowDetailsView])
+
+  useEffect(() => {
+    if (!isDesktopShowDetailsView) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    maybeLoadMoreDesktopEpisodes()
+  }, [
+    desktopEpisodeLimit,
+    isDesktopShowDetailsView,
+    maybeLoadMoreDesktopEpisodes,
+    episodes.length,
+  ])
 
   const handleEpisodeListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     const scrollTop = event.currentTarget.scrollTop
@@ -95,7 +147,32 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
       if (prev) return scrollTop > SHOW_DETAILS_REVEAL_SCROLL_THRESHOLD_PX
       return scrollTop > SHOW_DETAILS_HIDE_SCROLL_THRESHOLD_PX
     })
-  }, [])
+    const distanceToBottom =
+      event.currentTarget.scrollHeight -
+      (scrollTop + event.currentTarget.clientHeight)
+    if (distanceToBottom <= SHOW_DETAILS_DESKTOP_LOAD_MORE_OFFSET_PX) {
+      loadMoreDesktopEpisodes()
+    }
+  }, [loadMoreDesktopEpisodes])
+
+  const handleMobileShowDetailsScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      if (isShowInfoLoading || !hasMoreMobileEpisodes) return
+      const container = event.currentTarget
+      const distanceToBottom =
+        container.scrollHeight - (container.scrollTop + container.clientHeight)
+      if (distanceToBottom <= SHOW_DETAILS_MOBILE_LOAD_MORE_OFFSET_PX) {
+        loadMoreMobileEpisodes()
+      }
+    },
+    [
+      hasMoreMobileEpisodes,
+      isShowInfoLoading,
+      loadMoreMobileEpisodes,
+    ],
+  )
+
+  if (!isShowDetailsVisible) return null
 
   const desktopEpisodeSkeletonRows = Array.from({ length: 6 }, (_, index) => (
     <tr
@@ -243,7 +320,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
             </button>
           </header>
 
-          <div className="pcMobileShowDetails">
+          <div className="pcMobileShowDetails" onScroll={handleMobileShowDetailsScroll}>
             <section className="pcMobileHeroSection">
               <div className="pcMobileArtworkContainer">
                 <div className="pcMobileArtworkGlow"></div>
@@ -434,17 +511,6 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                   ))
                 )}
               </div>
-              {!isShowInfoLoading && hasMoreMobileEpisodes ? (
-                <div style={{ textAlign: 'center', padding: '24px' }}>
-                  <button
-                    type="button"
-                    className="pcMobileLoadMoreButton"
-                    onClick={loadMoreMobileEpisodes}
-                  >
-                    Load Previous Data_Blocks
-                  </button>
-                </div>
-              ) : null}
             </section>
           </div>
         </div>
@@ -572,7 +638,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                     desktopEpisodeSkeletonRows
                   ) : (
                     <EpisodeRows
-                      episodes={episodes}
+                      episodes={desktopVisibleEpisodes}
                       activeEpisodeGuid={currentEpisodeGuid}
                       loadingEpisodeId={loadingEpisodeId}
                       showArtworkUrl={showArtwork}
@@ -582,6 +648,7 @@ export const ShowDetailsMainView = memo(function ShowDetailsMainView({
                 }
                 hasEpisodes={isShowInfoLoading || episodes.length > 0}
                 onScroll={handleEpisodeListScroll}
+                containerRef={desktopEpisodeListRef}
               />
               {!isShowInfoLoading && rssError ? (
                 <div className="pcError">{rssError}</div>

@@ -262,8 +262,7 @@
 .pcApp.isMobile .pcMobileEpisodePlayButton,
 .pcApp.isMobile .pcMobileFollowButton,
 .pcApp.isMobile .pcMobileDownloadButton,
-.pcApp.isMobile .pcMobileMiniPlayerControlButton,
-.pcApp.isMobile .pcMobileLoadMoreButton {
+.pcApp.isMobile .pcMobileMiniPlayerControlButton {
   will-change: transform;
 }
 
@@ -282,8 +281,7 @@
 .pcApp.isMobile .pcMobileEpisodePlayButton:active:not(:disabled),
 .pcApp.isMobile .pcMobileFollowButton:active:not(:disabled),
 .pcApp.isMobile .pcMobileDownloadButton:active:not(:disabled),
-.pcApp.isMobile .pcMobileMiniPlayerControlButton:active:not(:disabled),
-.pcApp.isMobile .pcMobileLoadMoreButton:active:not(:disabled) {
+.pcApp.isMobile .pcMobileMiniPlayerControlButton:active:not(:disabled) {
   transform: scale(0.97);
 }
 

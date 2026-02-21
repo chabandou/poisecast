@@ -270,8 +270,8 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--pc-primary);
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid var(--pc-glow-sm);
+  background: var(--pc-primary-dim);
   padding: 6px 8px;
   white-space: nowrap;
 }
@@ -328,12 +328,8 @@
   display: block;
   height: 100%;
   width: 0%;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 229, 255, 0.55) 0%,
-    rgba(0, 229, 255, 1) 100%
-  );
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.45);
+  background: linear-gradient(90deg, var(--pc-accent) 0%, var(--pc-primary) 100%);
+  box-shadow: 0 0 16px var(--pc-glow);
   transition: width 120ms linear;
 }
 
@@ -372,9 +368,9 @@
 .pcModelDlBraille {
   display: inline-flex;
   align-items: center;
-  color: rgba(0, 229, 255, 0.92);
+  color: var(--pc-primary);
   letter-spacing: 0;
-  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.35));
+  filter: drop-shadow(0 0 4px var(--pc-glow-sm));
 }
 
 .pcModelDlBrailleGlyph::before {
@@ -459,7 +455,7 @@
 .pcFooterExpanded {
   height: 100%;
   background: var(--deep-charcoal);
-  border-top-color: rgba(0, 229, 255, 0.24);
+  border-top-color: var(--pc-glow-sm);
   box-shadow: none;
   z-index: 50;
   transition: none !important;
@@ -484,7 +480,7 @@
 .pcFooterExpanding {
   height: 100%;
   background: #0a0a0b; /* Fully opaque --deep-charcoal equivalent */
-  border-top-color: rgba(0, 229, 255, 0.24);
+  border-top-color: var(--pc-glow-sm);
   box-shadow: none;
   z-index: 50;
   overflow: hidden;
@@ -580,7 +576,7 @@
   to {
     height: 100%;
     background: var(--deep-charcoal);
-    border-top-color: rgba(0, 229, 255, 0.24);
+    border-top-color: var(--pc-glow-sm);
     box-shadow: none;
   }
 }
@@ -883,7 +879,7 @@
 
 .pcFooterProcessBtn.on {
   color: var(--pc-primary);
-  text-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+  text-shadow: 0 0 8px var(--pc-glow-sm);
 }
 
 .pcFooterSeekBtn .material-symbols-outlined {
@@ -995,7 +991,7 @@
 }
 
 .pcFooterVolumeTrack:focus-visible {
-  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.35);
+  box-shadow: 0 0 0 2px var(--pc-glow-sm);
 }
 
 .pcFooterVolumeFill {
