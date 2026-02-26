@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import type { ModelSpec } from '../../models/models'
-import { getModelCandidateUrls } from '../../models/models'
-import type { PodcastEpisode } from '../../podcasts/types'
-import { DenoiseEngine } from '../../audio/engine'
-import { coerceErrorMessage, ignoreError } from '../system/errors'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import type { ModelSpec } from "../../models/models";
+import { getModelCandidateUrls } from "../../models/models";
+import type { PodcastEpisode } from "../../podcasts/types";
+import { DenoiseEngine } from "../../audio/engine";
+import { coerceErrorMessage, ignoreError } from "../system/errors";
 import {
   cancelLatestAsyncRun,
   createLatestAsyncState,
@@ -11,106 +17,124 @@ import {
   isAbortError,
   isLatestAsyncRunActive,
   startLatestAsyncRun,
-} from '../system/latestAsync'
-import type { IssueSource } from '../system/useIssueLog'
-import { describeModelSource, isSameOriginUrl, toAbsoluteUrl } from '../system/url'
+} from "../system/latestAsync";
+import type { IssueSource } from "../system/useIssueLog";
+import {
+  describeModelSource,
+  isSameOriginUrl,
+  toAbsoluteUrl,
+} from "../system/url";
 import {
   MODEL_CACHE_NAME,
   ORT_DOWNLOAD_RETRY_MAX,
   type ProcessingBootstrapService,
   type ResolveModelHooks,
   type ResolveOrtHooks,
-} from './processingBootstrapService'
-import { buildStreamProxyUrl } from './audioPlaybackNetwork'
+} from "./processingBootstrapService";
+import { buildStreamProxyUrl } from "./audioPlaybackNetwork";
 
 export type AssetDownloadUiState = {
-  assetLabel: string
-  sourceUrl: string
-  sourceLabel: string
-  attempt: number
-  totalAttempts: number
-  fileIndex?: number
-  totalFiles?: number
-  loadedBytes: number
-  totalBytes: number | null
-  phase: 'downloading' | 'retrying'
-  errorDetail: string | null
-}
+  assetLabel: string;
+  sourceUrl: string;
+  sourceLabel: string;
+  attempt: number;
+  totalAttempts: number;
+  fileIndex?: number;
+  totalFiles?: number;
+  loadedBytes: number;
+  totalBytes: number | null;
+  phase: "downloading" | "retrying";
+  errorDetail: string | null;
+};
 
 type UseProcessingControllerOptions = {
-  audioRef: RefObject<HTMLAudioElement | null>
-  model: ModelSpec | undefined
-  isPlaying: boolean
-  episode: PodcastEpisode | null
-  sourceKind: 'remote' | 'local'
-  getRemotePlaybackUrl: (ep: PodcastEpisode) => string
-  processingBootstrap: ProcessingBootstrapService
-  reportIssue: (source: IssueSource, summary: string, detail: unknown) => void
-  setCanDenoise?: (next: boolean | null) => void
-  corsProbe: (url: string, options?: { signal?: AbortSignal }) => Promise<boolean>
-  probeStreamProxy: (proxyUrl: string, options?: { signal?: AbortSignal; timeoutMs?: number }) => Promise<boolean>
-  waitForAudioMetadata: (audioEl: HTMLAudioElement, timeoutMs?: number, signal?: AbortSignal) => Promise<void>
-  engineInitTimeoutMs?: number
-}
+  audioRef: RefObject<HTMLAudioElement | null>;
+  model: ModelSpec | undefined;
+  isPlaying: boolean;
+  episode: PodcastEpisode | null;
+  sourceKind: "remote" | "local";
+  getRemotePlaybackUrl: (ep: PodcastEpisode) => string;
+  processingBootstrap: ProcessingBootstrapService;
+  reportIssue: (source: IssueSource, summary: string, detail: unknown) => void;
+  setCanDenoise?: (next: boolean | null) => void;
+  corsProbe: (
+    url: string,
+    options?: { signal?: AbortSignal },
+  ) => Promise<boolean>;
+  probeStreamProxy: (
+    proxyUrl: string,
+    options?: { signal?: AbortSignal; timeoutMs?: number },
+  ) => Promise<boolean>;
+  waitForAudioMetadata: (
+    audioEl: HTMLAudioElement,
+    timeoutMs?: number,
+    signal?: AbortSignal,
+  ) => Promise<void>;
+  engineInitTimeoutMs?: number;
+};
 
 type EnsureOrtOptions = {
-  showModal: boolean
-  mode: 'core' | 'extended'
-}
+  showModal: boolean;
+  mode: "core" | "extended";
+};
 
 type ResetProcessingStateOptions = {
-  canDenoise?: boolean | null
-}
+  canDenoise?: boolean | null;
+};
 
 type UseProcessingControllerResult = {
-  engineState: string
-  setEngineState: (next: string) => void
-  engineDetail: string
-  setEngineDetail: (next: string) => void
-  denoiseEnabled: boolean
-  isInferenceActive: boolean
-  isProcessingStarting: boolean
-  modelDownloadUi: AssetDownloadUiState | null
-  ortDownloadUi: AssetDownloadUiState | null
-  downloadModalKind: 'ort' | 'model' | null
-  ensureOrtAssetsReady: (opts: EnsureOrtOptions) => Promise<string>
-  toggleDenoise: (next: boolean) => Promise<void>
-  resetProcessingState: (opts?: ResetProcessingStateOptions) => void
-  disposeProcessing: () => void
-}
+  engineState: string;
+  setEngineState: (next: string) => void;
+  engineDetail: string;
+  setEngineDetail: (next: string) => void;
+  denoiseEnabled: boolean;
+  isInferenceActive: boolean;
+  isProcessingStarting: boolean;
+  modelDownloadUi: AssetDownloadUiState | null;
+  ortDownloadUi: AssetDownloadUiState | null;
+  downloadModalKind: "ort" | "model" | null;
+  ensureOrtAssetsReady: (opts: EnsureOrtOptions) => Promise<string>;
+  toggleDenoise: (next: boolean) => Promise<void>;
+  resetProcessingState: (opts?: ResetProcessingStateOptions) => void;
+  disposeProcessing: () => void;
+};
 
 type NavigatorWithAudioSession = Navigator & {
   audioSession?: {
-    type?: string
-  }
-}
+    type?: string;
+  };
+};
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer = 0
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer = 0;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timer = window.setTimeout(() => reject(new Error(label)), ms)
+        timer = window.setTimeout(() => reject(new Error(label)), ms);
       }),
-    ])
+    ]);
   } finally {
-    if (timer) window.clearTimeout(timer)
+    if (timer) window.clearTimeout(timer);
   }
 }
 
 function setPlaybackAudioSessionType(active: boolean): void {
-  const nav = navigator as NavigatorWithAudioSession
-  const session = nav.audioSession
-  if (!session) return
+  const nav = navigator as NavigatorWithAudioSession;
+  const session = nav.audioSession;
+  if (!session) return;
 
   try {
-    const nextType = active ? 'playback' : 'auto'
+    const nextType = active ? "playback" : "auto";
     if (session.type !== nextType) {
-      session.type = nextType
+      session.type = nextType;
     }
   } catch {
-    ignoreError()
+    ignoreError();
   }
 }
 
@@ -129,524 +153,646 @@ export function useProcessingController({
   waitForAudioMetadata,
   engineInitTimeoutMs = 90_000,
 }: UseProcessingControllerOptions): UseProcessingControllerResult {
-  const engineRef = useRef<DenoiseEngine | null>(null)
-  const initPromiseRef = useRef<Promise<void> | null>(null)
-  const toggleTaskRef = useRef(createLatestAsyncState())
-  const lastInferenceAtRef = useRef(0)
+  const engineRef = useRef<DenoiseEngine | null>(null);
+  const initPromiseRef = useRef<Promise<void> | null>(null);
+  const toggleTaskRef = useRef(createLatestAsyncState());
+  const lastInferenceAtRef = useRef(0);
+  const eagerCtxRef = useRef<AudioContext | null>(null);
 
-  const [engineState, setEngineState] = useState<string>('idle')
-  const [engineDetail, setEngineDetail] = useState<string>('')
-  const [denoiseEnabled, setDenoiseEnabled] = useState(false)
-  const [isInferenceActive, setIsInferenceActive] = useState(false)
-  const [isProcessingStarting, setIsProcessingStarting] = useState(false)
-  const [modelDownloadUi, setModelDownloadUi] = useState<AssetDownloadUiState | null>(null)
-  const [ortDownloadUi, setOrtDownloadUi] = useState<AssetDownloadUiState | null>(null)
-  const [downloadModalKind, setDownloadModalKind] = useState<'ort' | 'model' | null>(null)
+  const [engineState, setEngineState] = useState<string>("idle");
+  const [engineDetail, setEngineDetail] = useState<string>("");
+  const [denoiseEnabled, setDenoiseEnabled] = useState(false);
+  const [isInferenceActive, setIsInferenceActive] = useState(false);
+  const [isProcessingStarting, setIsProcessingStarting] = useState(false);
+  const [modelDownloadUi, setModelDownloadUi] =
+    useState<AssetDownloadUiState | null>(null);
+  const [ortDownloadUi, setOrtDownloadUi] =
+    useState<AssetDownloadUiState | null>(null);
+  const [downloadModalKind, setDownloadModalKind] = useState<
+    "ort" | "model" | null
+  >(null);
   const shouldRunMobileBackgroundRecovery =
-    typeof navigator !== 'undefined' &&
-    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent)
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 
-  const ensureOrtAssetsReady = useCallback(async (opts: EnsureOrtOptions) => {
-    const isExtended = opts.mode === 'extended'
-    const preferredBaseUrl = processingBootstrap.preferredOrtBaseUrl
-    const labelPrefix = isExtended ? 'ONNX Runtime WASM Extended' : 'ONNX Runtime WASM Core'
+  const ensureOrtAssetsReady = useCallback(
+    async (opts: EnsureOrtOptions) => {
+      const isExtended = opts.mode === "extended";
+      const preferredBaseUrl = processingBootstrap.preferredOrtBaseUrl;
+      const labelPrefix = isExtended
+        ? "ONNX Runtime WASM Extended"
+        : "ONNX Runtime WASM Core";
 
-    if (opts.showModal) {
-      setDownloadModalKind('ort')
-      setOrtDownloadUi((prev) => {
-        if (prev) return prev
-        return {
-          assetLabel: labelPrefix,
-          sourceUrl: preferredBaseUrl,
-          sourceLabel: describeModelSource(preferredBaseUrl),
-          attempt: 1,
-          totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
-          loadedBytes: 0,
-          totalBytes: null,
-          phase: 'downloading',
-          errorDetail: null,
-        }
-      })
-    }
-
-    const hooks: ResolveOrtHooks = {
-      onDownloadStart: ({ url, fileName, fileIndex, totalFiles, attempt, totalAttempts }) => {
-        const sourceLabel = describeModelSource(url)
-        setOrtDownloadUi((prev) => ({
-          assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
-          sourceUrl: url,
-          sourceLabel,
-          attempt,
-          totalAttempts,
-          fileIndex,
-          totalFiles,
-          loadedBytes: prev?.loadedBytes ?? 0,
-          totalBytes: prev?.totalBytes ?? null,
-          phase: 'downloading',
-          errorDetail: null,
-        }))
-        if (opts.showModal) {
-          setEngineDetail(`Downloading runtime asset ${fileName} from ${sourceLabel}…`)
-        }
-      },
-      onProgress: ({ url, fileIndex, totalFiles, attempt, totalAttempts, loadedBytes, totalBytes }) => {
-        const sourceLabel = describeModelSource(url)
-        setOrtDownloadUi({
-          assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
-          sourceUrl: url,
-          sourceLabel,
-          attempt,
-          totalAttempts,
-          fileIndex,
-          totalFiles,
-          loadedBytes,
-          totalBytes,
-          phase: 'downloading',
-          errorDetail: null,
-        })
-      },
-      onRetry: ({ url, fileIndex, totalFiles, attempt, totalAttempts, message }) => {
-        const sourceLabel = describeModelSource(url)
-        setOrtDownloadUi((prev) => ({
-          assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
-          sourceUrl: url,
-          sourceLabel,
-          attempt,
-          totalAttempts,
-          fileIndex,
-          totalFiles,
-          loadedBytes: prev?.loadedBytes ?? 0,
-          totalBytes: prev?.totalBytes ?? null,
-          phase: 'retrying',
-          errorDetail: message,
-        }))
-        if (opts.showModal) {
-          setEngineDetail(`Runtime download failed (attempt ${attempt}/${totalAttempts}). Retrying…`)
-        }
-      },
-      onSourceFallback: ({ nextBaseUrl }) => {
-        if (!opts.showModal || !nextBaseUrl) return
-        setEngineDetail('Primary runtime source failed. Trying fallback source…')
-      },
-    }
-
-    return processingBootstrap.ensureOrtAssetsReady({
-      mode: opts.mode,
-      hooks,
-    })
-  }, [processingBootstrap])
-
-  const ensureEngine = useCallback(async () => {
-    if (!model) throw new Error('No model selected')
-    if (!model.supported) throw new Error('Selected model is not supported yet')
-
-    if (!engineRef.current) engineRef.current = new DenoiseEngine()
-    engineRef.current.setInferenceActivityHandler(() => {
-      lastInferenceAtRef.current = performance.now()
-    })
-
-    if (!initPromiseRef.current) {
-      setEngineState('loading-model')
-      setEngineDetail('Preparing ONNX runtime…')
-      setDownloadModalKind('ort')
-      setOrtDownloadUi((prev) => {
-        if (prev) return prev
-        return {
-          assetLabel: 'ONNX Runtime WASM Core',
-          sourceUrl: processingBootstrap.preferredOrtBaseUrl,
-          sourceLabel: describeModelSource(processingBootstrap.preferredOrtBaseUrl),
-          attempt: 1,
-          totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
-          loadedBytes: 0,
-          totalBytes: null,
-          phase: 'downloading',
-          errorDetail: null,
-        }
-      })
-
-      initPromiseRef.current = (async () => {
-        let ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'core' })
-        setEngineDetail('Loading ONNX session…')
-
-        const modelCandidateUrls = getModelCandidateUrls(model)
-        const initialModelSourceUrl = toAbsoluteUrl(modelCandidateUrls[0] ?? model.url)
-        setDownloadModalKind('model')
-        setModelDownloadUi((prev) => {
-          if (prev) return prev
+      if (opts.showModal) {
+        setDownloadModalKind("ort");
+        setOrtDownloadUi((prev) => {
+          if (prev) return prev;
           return {
-            assetLabel: model.label,
-            sourceUrl: initialModelSourceUrl,
-            sourceLabel: describeModelSource(initialModelSourceUrl),
+            assetLabel: labelPrefix,
+            sourceUrl: preferredBaseUrl,
+            sourceLabel: describeModelSource(preferredBaseUrl),
             attempt: 1,
-            totalAttempts: Math.max(1, modelCandidateUrls.length),
+            totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
             loadedBytes: 0,
             totalBytes: null,
-            phase: 'downloading',
+            phase: "downloading",
             errorDetail: null,
-          }
-        })
+          };
+        });
+      }
 
-        const modelHooks: ResolveModelHooks = {
-          onDownloadStart: ({ url, attempt, totalAttempts }) => {
-            const sourceLabel = describeModelSource(url)
-            setDownloadModalKind('model')
-            setModelDownloadUi({
+      const hooks: ResolveOrtHooks = {
+        onDownloadStart: ({
+          url,
+          fileName,
+          fileIndex,
+          totalFiles,
+          attempt,
+          totalAttempts,
+        }) => {
+          const sourceLabel = describeModelSource(url);
+          setOrtDownloadUi((prev) => ({
+            assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
+            sourceUrl: url,
+            sourceLabel,
+            attempt,
+            totalAttempts,
+            fileIndex,
+            totalFiles,
+            loadedBytes: prev?.loadedBytes ?? 0,
+            totalBytes: prev?.totalBytes ?? null,
+            phase: "downloading",
+            errorDetail: null,
+          }));
+          if (opts.showModal) {
+            setEngineDetail(
+              `Downloading runtime asset ${fileName} from ${sourceLabel}…`,
+            );
+          }
+        },
+        onProgress: ({
+          url,
+          fileIndex,
+          totalFiles,
+          attempt,
+          totalAttempts,
+          loadedBytes,
+          totalBytes,
+        }) => {
+          const sourceLabel = describeModelSource(url);
+          setOrtDownloadUi({
+            assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
+            sourceUrl: url,
+            sourceLabel,
+            attempt,
+            totalAttempts,
+            fileIndex,
+            totalFiles,
+            loadedBytes,
+            totalBytes,
+            phase: "downloading",
+            errorDetail: null,
+          });
+        },
+        onRetry: ({
+          url,
+          fileIndex,
+          totalFiles,
+          attempt,
+          totalAttempts,
+          message,
+        }) => {
+          const sourceLabel = describeModelSource(url);
+          setOrtDownloadUi((prev) => ({
+            assetLabel: `${labelPrefix} (${fileIndex}/${totalFiles})`,
+            sourceUrl: url,
+            sourceLabel,
+            attempt,
+            totalAttempts,
+            fileIndex,
+            totalFiles,
+            loadedBytes: prev?.loadedBytes ?? 0,
+            totalBytes: prev?.totalBytes ?? null,
+            phase: "retrying",
+            errorDetail: message,
+          }));
+          if (opts.showModal) {
+            setEngineDetail(
+              `Runtime download failed (attempt ${attempt}/${totalAttempts}). Retrying…`,
+            );
+          }
+        },
+        onSourceFallback: ({ nextBaseUrl }) => {
+          if (!opts.showModal || !nextBaseUrl) return;
+          setEngineDetail(
+            "Primary runtime source failed. Trying fallback source…",
+          );
+        },
+      };
+
+      return processingBootstrap.ensureOrtAssetsReady({
+        mode: opts.mode,
+        hooks,
+      });
+    },
+    [processingBootstrap],
+  );
+
+  const ensureEngine = useCallback(
+    async (eagerAudioContext?: AudioContext) => {
+      if (!model) throw new Error("No model selected");
+      if (!model.supported)
+        throw new Error("Selected model is not supported yet");
+
+      if (!engineRef.current) engineRef.current = new DenoiseEngine();
+      engineRef.current.setInferenceActivityHandler(() => {
+        lastInferenceAtRef.current = performance.now();
+      });
+
+      if (!initPromiseRef.current) {
+        setEngineState("loading-model");
+        setEngineDetail("Preparing ONNX runtime…");
+        setDownloadModalKind("ort");
+        setOrtDownloadUi((prev) => {
+          if (prev) return prev;
+          return {
+            assetLabel: "ONNX Runtime WASM Core",
+            sourceUrl: processingBootstrap.preferredOrtBaseUrl,
+            sourceLabel: describeModelSource(
+              processingBootstrap.preferredOrtBaseUrl,
+            ),
+            attempt: 1,
+            totalAttempts: ORT_DOWNLOAD_RETRY_MAX,
+            loadedBytes: 0,
+            totalBytes: null,
+            phase: "downloading",
+            errorDetail: null,
+          };
+        });
+
+        initPromiseRef.current = (async () => {
+          let ortWasmBaseUrl = await ensureOrtAssetsReady({
+            showModal: true,
+            mode: "core",
+          });
+          setEngineDetail("Loading ONNX session…");
+
+          const modelCandidateUrls = getModelCandidateUrls(model);
+          const initialModelSourceUrl = toAbsoluteUrl(
+            modelCandidateUrls[0] ?? model.url,
+          );
+          setDownloadModalKind("model");
+          setModelDownloadUi((prev) => {
+            if (prev) return prev;
+            return {
               assetLabel: model.label,
-              sourceUrl: url,
-              sourceLabel,
-              attempt,
-              totalAttempts,
+              sourceUrl: initialModelSourceUrl,
+              sourceLabel: describeModelSource(initialModelSourceUrl),
+              attempt: 1,
+              totalAttempts: Math.max(1, modelCandidateUrls.length),
               loadedBytes: 0,
               totalBytes: null,
-              phase: 'downloading',
+              phase: "downloading",
               errorDetail: null,
-            })
-            setEngineDetail(`Downloading model from ${sourceLabel}…`)
-          },
-          onProgress: ({ url, attempt, totalAttempts, loadedBytes, totalBytes }) => {
-            const sourceLabel = describeModelSource(url)
-            setModelDownloadUi((prev) => ({
-              assetLabel: prev?.assetLabel ?? model.label,
-              sourceUrl: url,
-              sourceLabel,
+            };
+          });
+
+          const modelHooks: ResolveModelHooks = {
+            onDownloadStart: ({ url, attempt, totalAttempts }) => {
+              const sourceLabel = describeModelSource(url);
+              setDownloadModalKind("model");
+              setModelDownloadUi({
+                assetLabel: model.label,
+                sourceUrl: url,
+                sourceLabel,
+                attempt,
+                totalAttempts,
+                loadedBytes: 0,
+                totalBytes: null,
+                phase: "downloading",
+                errorDetail: null,
+              });
+              setEngineDetail(`Downloading model from ${sourceLabel}…`);
+            },
+            onProgress: ({
+              url,
               attempt,
               totalAttempts,
               loadedBytes,
               totalBytes,
-              phase: 'downloading',
-              errorDetail: prev?.phase === 'retrying' ? prev.errorDetail : null,
-            }))
-          },
-          onSourceFailed: ({ url, attempt, totalAttempts, message }) => {
-            const sourceLabel = describeModelSource(url)
-            setModelDownloadUi((prev) => ({
-              assetLabel: prev?.assetLabel ?? model.label,
-              sourceUrl: url,
-              sourceLabel,
-              attempt,
-              totalAttempts,
-              loadedBytes: prev?.loadedBytes ?? 0,
-              totalBytes: prev?.totalBytes ?? null,
-              phase: 'retrying',
-              errorDetail: message,
-            }))
-            if (attempt < totalAttempts) {
-              setEngineDetail('Primary model source failed. Trying fallback source…')
-            }
-          },
-        }
-        const modelUrl = await processingBootstrap.resolveModelInitUrl(model, modelHooks)
+            }) => {
+              const sourceLabel = describeModelSource(url);
+              setModelDownloadUi((prev) => ({
+                assetLabel: prev?.assetLabel ?? model.label,
+                sourceUrl: url,
+                sourceLabel,
+                attempt,
+                totalAttempts,
+                loadedBytes,
+                totalBytes,
+                phase: "downloading",
+                errorDetail:
+                  prev?.phase === "retrying" ? prev.errorDetail : null,
+              }));
+            },
+            onSourceFailed: ({ url, attempt, totalAttempts, message }) => {
+              const sourceLabel = describeModelSource(url);
+              setModelDownloadUi((prev) => ({
+                assetLabel: prev?.assetLabel ?? model.label,
+                sourceUrl: url,
+                sourceLabel,
+                attempt,
+                totalAttempts,
+                loadedBytes: prev?.loadedBytes ?? 0,
+                totalBytes: prev?.totalBytes ?? null,
+                phase: "retrying",
+                errorDetail: message,
+              }));
+              if (attempt < totalAttempts) {
+                setEngineDetail(
+                  "Primary model source failed. Trying fallback source…",
+                );
+              }
+            },
+          };
+          const modelUrl = await processingBootstrap.resolveModelInitUrl(
+            model,
+            modelHooks,
+          );
 
-        const initSession = async () => {
-          setEngineDetail('Initializing ONNX runtime session…')
-          await withTimeout(
-            engineRef.current!.init({
-              modelUrl,
-              sampleRateHz: model.sampleRateHz,
-              ortWasmBaseUrl,
-              assetCacheName: MODEL_CACHE_NAME,
-            }),
-            engineInitTimeoutMs,
-            'Timed out while initializing ONNX runtime/session',
-          )
-          engineRef.current!.setWarmupMs(250)
-        }
-
-        try {
-          await initSession()
-        } catch (firstInitError) {
-          setEngineDetail('Loading additional runtime variants…')
-          ortWasmBaseUrl = await ensureOrtAssetsReady({ showModal: true, mode: 'extended' })
-          setEngineDetail('Retrying ONNX session init…')
+          const initSession = async () => {
+            setEngineDetail("Initializing ONNX runtime session…");
+            await withTimeout(
+              engineRef.current!.init({
+                modelUrl,
+                sampleRateHz: model.sampleRateHz,
+                ortWasmBaseUrl,
+                assetCacheName: MODEL_CACHE_NAME,
+                audioContext: eagerAudioContext,
+              }),
+              engineInitTimeoutMs,
+              "Timed out while initializing ONNX runtime/session",
+            );
+            engineRef.current!.setWarmupMs(250);
+          };
 
           try {
-            await engineRef.current?.dispose()
-          } catch {
-            ignoreError()
-          }
+            await initSession();
+          } catch (firstInitError) {
+            setEngineDetail("Loading additional runtime variants…");
+            ortWasmBaseUrl = await ensureOrtAssetsReady({
+              showModal: true,
+              mode: "extended",
+            });
+            setEngineDetail("Retrying ONNX session init…");
 
-          engineRef.current = new DenoiseEngine()
-          engineRef.current.setInferenceActivityHandler(() => {
-            lastInferenceAtRef.current = performance.now()
-          })
-
-          try {
-            await initSession()
-          } catch {
-            throw firstInitError
-          }
-        }
-      })()
-    }
-
-    try {
-      await initPromiseRef.current
-      const status = engineRef.current!.status
-      if (status.state === 'ready') {
-        setEngineState('ready')
-        setEngineDetail(`Backend: ${status.backend.toUpperCase()} · frame ${status.frameSize}`)
-      } else if (status.state === 'error') {
-        setEngineState('error')
-        setEngineDetail(status.message)
-      } else {
-        setEngineState(status.state)
-        setEngineDetail('')
-      }
-    } catch (error) {
-      setEngineState('error')
-      setEngineDetail(error instanceof Error ? error.message : String(error))
-      initPromiseRef.current = null
-      throw error
-    } finally {
-      setModelDownloadUi(null)
-      setDownloadModalKind(null)
-    }
-  }, [ensureOrtAssetsReady, engineInitTimeoutMs, model, processingBootstrap])
-
-  const resetProcessingState = useCallback((opts: ResetProcessingStateOptions = {}) => {
-    cancelLatestAsyncRun(toggleTaskRef.current)
-    if (typeof opts.canDenoise !== 'undefined') setCanDenoise?.(opts.canDenoise)
-    setDenoiseEnabled(false)
-    setIsInferenceActive(false)
-    setIsProcessingStarting(false)
-    lastInferenceAtRef.current = 0
-    engineRef.current?.setEnabled(false)
-  }, [setCanDenoise])
-
-  const toggleDenoise = useCallback(async (next: boolean) => {
-    const run = startLatestAsyncRun(toggleTaskRef.current)
-    const isActive = () => isLatestAsyncRunActive(toggleTaskRef.current, run)
-    const audioEl = audioRef.current
-    try {
-      if (!audioEl || !episode) return
-
-      if (!next) {
-        resetProcessingState()
-        audioEl.removeAttribute('crossorigin')
-        return
-      }
-
-      setIsProcessingStarting(true)
-      setEngineDetail('')
-      setEngineState(engineRef.current?.status.state ?? 'idle')
-
-      let remotePlaybackUrl = episode.enclosureUrl
-      let remoteNeedsCors = false
-
-      if (sourceKind === 'remote') {
-        const proxyUrl = buildStreamProxyUrl(episode.enclosureUrl)
-        const fallbackUrl = getRemotePlaybackUrl(episode)
-        const wasPaused = audioEl.paused
-        const currentTime = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0
-
-        const applyRemoteSource = async (url: string, needsCors: boolean): Promise<void> => {
-          if (needsCors) audioEl.crossOrigin = 'anonymous'
-          else audioEl.removeAttribute('crossorigin')
-          audioEl.src = url
-          audioEl.load()
-          await waitForAudioMetadata(audioEl, 12_000, run.signal)
-          if (!isActive()) return
-          try {
-            if (currentTime > 0) audioEl.currentTime = currentTime
-          } catch {
-            ignoreError()
-          }
-          if (!wasPaused) {
             try {
-              await audioEl.play()
+              await engineRef.current?.dispose();
             } catch {
-              ignoreError()
+              ignoreError();
+            }
+
+            engineRef.current = new DenoiseEngine();
+            engineRef.current.setInferenceActivityHandler(() => {
+              lastInferenceAtRef.current = performance.now();
+            });
+
+            try {
+              await initSession();
+            } catch {
+              throw firstInitError;
             }
           }
-        }
-
-        remotePlaybackUrl = proxyUrl
-        remoteNeedsCors = false
-
-        let proxyLoadError: unknown = null
-        try {
-          await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors)
-        } catch (error) {
-          proxyLoadError = error
-        }
-        if (!isActive()) return
-
-        if (proxyLoadError) {
-          const proxyAvailable = await probeStreamProxy(proxyUrl, {
-            signal: run.signal,
-            timeoutMs: 12_000,
-          })
-          if (!isActive()) return
-
-          if (proxyAvailable) {
-            throw proxyLoadError
-          }
-
-          remotePlaybackUrl = fallbackUrl === proxyUrl ? episode.enclosureUrl : fallbackUrl
-          remoteNeedsCors = !isSameOriginUrl(remotePlaybackUrl)
-          const canEnableFallback = remoteNeedsCors
-            ? await corsProbe(remotePlaybackUrl, { signal: run.signal })
-            : true
-          if (!isActive()) return
-
-          setCanDenoise?.(canEnableFallback)
-          if (!canEnableFallback) {
-            setDenoiseEnabled(false)
-            setIsInferenceActive(false)
-            lastInferenceAtRef.current = 0
-            setEngineDetail(
-              'Proxy unavailable and source blocks CORS. Download + import the file to denoise.',
-            )
-            return
-          }
-
-          await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors)
-          if (!isActive()) return
-        }
-        setCanDenoise?.(true)
-      } else {
-        setCanDenoise?.(true)
+        })();
       }
 
-      const ensureEnginePromise = ensureEngine()
-      await ensureEnginePromise
-      if (!isActive()) return
-      await engineRef.current!.attach(audioEl)
-      if (!isActive()) return
-      engineRef.current!.setEnabled(true)
-      setDenoiseEnabled(true)
-    } catch (error) {
-      if (isAbortError(error) || run.signal.aborted || !isActive()) return
-      const message = coerceErrorMessage(error)
-      setEngineState('error')
-      setDenoiseEnabled(false)
-      setIsInferenceActive(false)
-      lastInferenceAtRef.current = 0
-      setEngineDetail(message)
-      reportIssue('processing', 'Failed to enable audio processing', message)
-    } finally {
-      if (isActive()) {
-        setIsProcessingStarting(false)
+      try {
+        await initPromiseRef.current;
+        const status = engineRef.current!.status;
+        if (status.state === "ready") {
+          setEngineState("ready");
+          setEngineDetail(
+            `Backend: ${status.backend.toUpperCase()} · frame ${status.frameSize}`,
+          );
+        } else if (status.state === "error") {
+          setEngineState("error");
+          setEngineDetail(status.message);
+        } else {
+          setEngineState(status.state);
+          setEngineDetail("");
+        }
+      } catch (error) {
+        setEngineState("error");
+        setEngineDetail(error instanceof Error ? error.message : String(error));
+        initPromiseRef.current = null;
+        throw error;
+      } finally {
+        setModelDownloadUi(null);
+        setDownloadModalKind(null);
       }
-      finishLatestAsyncRun(toggleTaskRef.current, run)
-    }
-  }, [
-    audioRef,
-    corsProbe,
-    ensureEngine,
-    episode,
-    getRemotePlaybackUrl,
-    probeStreamProxy,
-    reportIssue,
-    resetProcessingState,
-    setCanDenoise,
-    sourceKind,
-    waitForAudioMetadata,
-  ])
+    },
+    [ensureOrtAssetsReady, engineInitTimeoutMs, model, processingBootstrap],
+  );
+
+  const resetProcessingState = useCallback(
+    (opts: ResetProcessingStateOptions = {}) => {
+      cancelLatestAsyncRun(toggleTaskRef.current);
+      if (typeof opts.canDenoise !== "undefined")
+        setCanDenoise?.(opts.canDenoise);
+      setDenoiseEnabled(false);
+      setIsInferenceActive(false);
+      setIsProcessingStarting(false);
+      lastInferenceAtRef.current = 0;
+      engineRef.current?.setEnabled(false);
+      // Close any eagerly-created AudioContext that was never consumed by the engine.
+      if (eagerCtxRef.current) {
+        void eagerCtxRef.current.close().catch(() => {
+          ignoreError();
+        });
+        eagerCtxRef.current = null;
+      }
+    },
+    [setCanDenoise],
+  );
+
+  const toggleDenoise = useCallback(
+    async (next: boolean) => {
+      const run = startLatestAsyncRun(toggleTaskRef.current);
+      const isActive = () => isLatestAsyncRunActive(toggleTaskRef.current, run);
+      const audioEl = audioRef.current;
+      try {
+        if (!audioEl || !episode) return;
+
+        if (!next) {
+          resetProcessingState();
+          audioEl.removeAttribute("crossorigin");
+          return;
+        }
+
+        setIsProcessingStarting(true);
+        setEngineDetail("");
+        setEngineState(engineRef.current?.status.state ?? "idle");
+
+        // Create the AudioContext eagerly while still within the user gesture scope.
+        // On mobile, the gesture token expires after the first await, causing a context
+        // created later to start in 'suspended' state and silently fail to resume.
+        if (!eagerCtxRef.current && model) {
+          try {
+            eagerCtxRef.current = new AudioContext({
+              sampleRate: model.sampleRateHz,
+              latencyHint: "playback",
+            });
+          } catch {
+            ignoreError();
+          }
+        }
+
+        let remotePlaybackUrl = episode.enclosureUrl;
+        let remoteNeedsCors = false;
+
+        if (sourceKind === "remote") {
+          const proxyUrl = buildStreamProxyUrl(episode.enclosureUrl);
+          const fallbackUrl = getRemotePlaybackUrl(episode);
+          const wasPaused = audioEl.paused;
+          const currentTime = Number.isFinite(audioEl.currentTime)
+            ? audioEl.currentTime
+            : 0;
+
+          const applyRemoteSource = async (
+            url: string,
+            needsCors: boolean,
+          ): Promise<void> => {
+            if (needsCors) audioEl.crossOrigin = "anonymous";
+            else audioEl.removeAttribute("crossorigin");
+            audioEl.src = url;
+            audioEl.load();
+            await waitForAudioMetadata(audioEl, 12_000, run.signal);
+            if (!isActive()) return;
+            try {
+              if (currentTime > 0) audioEl.currentTime = currentTime;
+            } catch {
+              ignoreError();
+            }
+            if (!wasPaused) {
+              try {
+                await audioEl.play();
+              } catch {
+                ignoreError();
+              }
+            }
+          };
+
+          remotePlaybackUrl = proxyUrl;
+          remoteNeedsCors = false;
+
+          let proxyLoadError: unknown = null;
+          try {
+            await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors);
+          } catch (error) {
+            proxyLoadError = error;
+          }
+          if (!isActive()) return;
+
+          if (proxyLoadError) {
+            const proxyAvailable = await probeStreamProxy(proxyUrl, {
+              signal: run.signal,
+              timeoutMs: 12_000,
+            });
+            if (!isActive()) return;
+
+            if (proxyAvailable) {
+              throw proxyLoadError;
+            }
+
+            remotePlaybackUrl =
+              fallbackUrl === proxyUrl ? episode.enclosureUrl : fallbackUrl;
+            remoteNeedsCors = !isSameOriginUrl(remotePlaybackUrl);
+            const canEnableFallback = remoteNeedsCors
+              ? await corsProbe(remotePlaybackUrl, { signal: run.signal })
+              : true;
+            if (!isActive()) return;
+
+            setCanDenoise?.(canEnableFallback);
+            if (!canEnableFallback) {
+              setDenoiseEnabled(false);
+              setIsInferenceActive(false);
+              lastInferenceAtRef.current = 0;
+              setEngineDetail(
+                "Proxy unavailable and source blocks CORS. Download + import the file to denoise.",
+              );
+              return;
+            }
+
+            await applyRemoteSource(remotePlaybackUrl, remoteNeedsCors);
+            if (!isActive()) return;
+          }
+          setCanDenoise?.(true);
+        } else {
+          setCanDenoise?.(true);
+        }
+
+        // Pass the eagerly-created AudioContext to the engine so it can be used
+        // instead of creating a new one after the user gesture has expired.
+        const ctx = eagerCtxRef.current;
+        eagerCtxRef.current = null;
+        const ensureEnginePromise = ensureEngine(ctx ?? undefined);
+        await ensureEnginePromise;
+        if (!isActive()) return;
+        await engineRef.current!.attach(audioEl);
+        if (!isActive()) return;
+        engineRef.current!.setEnabled(true);
+        setDenoiseEnabled(true);
+      } catch (error) {
+        if (isAbortError(error) || run.signal.aborted || !isActive()) return;
+        const message = coerceErrorMessage(error);
+        setEngineState("error");
+        setDenoiseEnabled(false);
+        setIsInferenceActive(false);
+        lastInferenceAtRef.current = 0;
+        setEngineDetail(message);
+        reportIssue("processing", "Failed to enable audio processing", message);
+      } finally {
+        if (isActive()) {
+          setIsProcessingStarting(false);
+        }
+        finishLatestAsyncRun(toggleTaskRef.current, run);
+      }
+    },
+    [
+      audioRef,
+      corsProbe,
+      ensureEngine,
+      episode,
+      getRemotePlaybackUrl,
+      probeStreamProxy,
+      reportIssue,
+      resetProcessingState,
+      setCanDenoise,
+      sourceKind,
+      waitForAudioMetadata,
+    ],
+  );
 
   const disposeProcessing = useCallback(() => {
-    cancelLatestAsyncRun(toggleTaskRef.current)
-    engineRef.current?.setInferenceActivityHandler(null)
-    void engineRef.current?.dispose()
-    engineRef.current = null
-    initPromiseRef.current = null
-  }, [])
+    cancelLatestAsyncRun(toggleTaskRef.current);
+    engineRef.current?.setInferenceActivityHandler(null);
+    void engineRef.current?.dispose();
+    engineRef.current = null;
+    initPromiseRef.current = null;
+  }, []);
 
   useEffect(() => {
-    if (!denoiseEnabled || !isPlaying || engineState !== 'ready') {
-      setIsInferenceActive(false)
-      return
+    if (!denoiseEnabled || !isPlaying || engineState !== "ready") {
+      setIsInferenceActive(false);
+      return;
     }
 
-    const thresholdMs = 700
-    const intervalMs = 180
+    const thresholdMs = 700;
+    const intervalMs = 180;
     const updateInferenceState = () => {
-      const nextIsActive = performance.now() - lastInferenceAtRef.current <= thresholdMs
-      setIsInferenceActive((prev) => (prev === nextIsActive ? prev : nextIsActive))
-    }
+      const nextIsActive =
+        performance.now() - lastInferenceAtRef.current <= thresholdMs;
+      setIsInferenceActive((prev) =>
+        prev === nextIsActive ? prev : nextIsActive,
+      );
+    };
 
-    updateInferenceState()
-    const timer = window.setInterval(updateInferenceState, intervalMs)
-    return () => window.clearInterval(timer)
-  }, [denoiseEnabled, engineState, isPlaying])
+    updateInferenceState();
+    const timer = window.setInterval(updateInferenceState, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [denoiseEnabled, engineState, isPlaying]);
 
   useEffect(() => {
-    if (!shouldRunMobileBackgroundRecovery) return
-    if (!denoiseEnabled || !isPlaying) return
-    setPlaybackAudioSessionType(true)
+    if (!shouldRunMobileBackgroundRecovery) return;
+    if (!denoiseEnabled || !isPlaying) return;
+    setPlaybackAudioSessionType(true);
     return () => {
-      setPlaybackAudioSessionType(false)
-    }
-  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery])
+      setPlaybackAudioSessionType(false);
+    };
+  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery]);
 
   useEffect(() => {
-    if (!shouldRunMobileBackgroundRecovery) return
-    if (!denoiseEnabled || !isPlaying) return
+    if (!shouldRunMobileBackgroundRecovery) return;
+    if (!denoiseEnabled || !isPlaying) return;
 
     const resumeEngineContext = () => {
-      if (document.visibilityState === 'hidden') return
+      if (document.visibilityState === "hidden") return;
       void engineRef.current?.resumeContext().catch(() => {
-        ignoreError()
-      })
-    }
+        ignoreError();
+      });
+    };
 
-    document.addEventListener('visibilitychange', resumeEngineContext)
-    window.addEventListener('pageshow', resumeEngineContext)
-    window.addEventListener('focus', resumeEngineContext)
-    resumeEngineContext()
+    document.addEventListener("visibilitychange", resumeEngineContext);
+    window.addEventListener("pageshow", resumeEngineContext);
+    window.addEventListener("focus", resumeEngineContext);
+    resumeEngineContext();
 
     return () => {
-      document.removeEventListener('visibilitychange', resumeEngineContext)
-      window.removeEventListener('pageshow', resumeEngineContext)
-      window.removeEventListener('focus', resumeEngineContext)
-    }
-  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery])
+      document.removeEventListener("visibilitychange", resumeEngineContext);
+      window.removeEventListener("pageshow", resumeEngineContext);
+      window.removeEventListener("focus", resumeEngineContext);
+    };
+  }, [denoiseEnabled, isPlaying, shouldRunMobileBackgroundRecovery]);
 
   useEffect(() => {
-    if (!shouldRunMobileBackgroundRecovery) return
-    if (!denoiseEnabled || !isPlaying || engineState !== 'ready') return
+    if (!shouldRunMobileBackgroundRecovery) return;
+    if (!denoiseEnabled || !isPlaying || engineState !== "ready") return;
 
-    let repairInFlight = false
-    let lastContextTime = engineRef.current?.getContextCurrentTime() ?? null
+    let repairInFlight = false;
+    let lastContextTime = engineRef.current?.getContextCurrentTime() ?? null;
 
     const checkContextHealth = () => {
-      if (document.visibilityState === 'hidden') return
-      if (repairInFlight) return
+      if (document.visibilityState === "hidden") return;
+      if (repairInFlight) return;
 
-      const engine = engineRef.current
-      if (!engine) return
+      const engine = engineRef.current;
+      if (!engine) return;
 
-      const contextState = engine.getContextState()
-      if (contextState === 'suspended') {
-        repairInFlight = true
-        void engine.resumeContext().catch(() => {
-          ignoreError()
-        }).finally(() => {
-          repairInFlight = false
-        })
-        return
+      const contextState = engine.getContextState();
+      if (contextState === "suspended") {
+        repairInFlight = true;
+        void engine
+          .resumeContext()
+          .catch(() => {
+            ignoreError();
+          })
+          .finally(() => {
+            repairInFlight = false;
+          });
+        return;
       }
 
-      const nextContextTime = engine.getContextCurrentTime()
-      if (nextContextTime === null) return
+      const nextContextTime = engine.getContextCurrentTime();
+      if (nextContextTime === null) return;
 
-      if (lastContextTime !== null && nextContextTime <= lastContextTime + 1e-4) {
-        repairInFlight = true
-        void engine.nudgeContext().catch(() => {
-          ignoreError()
-        }).finally(() => {
-          repairInFlight = false
-        })
+      if (
+        lastContextTime !== null &&
+        nextContextTime <= lastContextTime + 1e-4
+      ) {
+        repairInFlight = true;
+        void engine
+          .nudgeContext()
+          .catch(() => {
+            ignoreError();
+          })
+          .finally(() => {
+            repairInFlight = false;
+          });
       }
 
-      lastContextTime = nextContextTime
-    }
+      lastContextTime = nextContextTime;
+    };
 
-    const timer = window.setInterval(checkContextHealth, 1200)
+    const timer = window.setInterval(checkContextHealth, 1200);
     return () => {
-      window.clearInterval(timer)
-    }
-  }, [denoiseEnabled, engineState, isPlaying, shouldRunMobileBackgroundRecovery])
+      window.clearInterval(timer);
+    };
+  }, [
+    denoiseEnabled,
+    engineState,
+    isPlaying,
+    shouldRunMobileBackgroundRecovery,
+  ]);
 
   return {
     engineState,
@@ -663,5 +809,5 @@ export function useProcessingController({
     toggleDenoise,
     resetProcessingState,
     disposeProcessing,
-  }
+  };
 }

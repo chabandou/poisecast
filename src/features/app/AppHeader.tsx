@@ -11,9 +11,6 @@ type AppHeaderProps = {
   triggerInstall: () => Promise<void>;
   topStatus: string;
   denoiseEnabled: boolean;
-  hasEpisode: boolean;
-  modelSupported: boolean;
-  toggleDenoise: (next: boolean) => Promise<void>;
 };
 
 function AppWaveIcon() {
@@ -57,9 +54,6 @@ export function AppHeader({
   triggerInstall,
   topStatus,
   denoiseEnabled,
-  hasEpisode,
-  modelSupported,
-  toggleDenoise,
 }: AppHeaderProps) {
   return (
     <>
@@ -145,18 +139,14 @@ export function AppHeader({
               </span>
             </button>
           ) : null}
-          <button
+          <span
             className={`pcMobileStatusBtn pcMobileDenoise ${denoiseEnabled ? "active" : ""}`}
-            disabled={!hasEpisode || !modelSupported || isProcessingStarting}
-            onClick={() => void toggleDenoise(!denoiseEnabled)}
+            aria-hidden="true"
           >
             <span className="material-symbols-outlined">
               {denoiseEnabled ? "graphic_eq" : "equalizer"}
             </span>
-            <span className="pcMobileStatusBtnLabel">
-              {denoiseEnabled ? "ON" : "OFF"}
-            </span>
-          </button>
+          </span>
         </div>
       </div>
     </>

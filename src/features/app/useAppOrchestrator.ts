@@ -4,67 +4,70 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react'
-import type { DefaultFeed } from '../../podcasts/defaultFeeds'
-import { DEFAULT_FEEDS } from '../../podcasts/defaultFeeds'
-import type { PodcastEpisode } from '../../podcasts/types'
+} from "react";
+import type { DefaultFeed } from "../../podcasts/defaultFeeds";
+import { DEFAULT_FEEDS } from "../../podcasts/defaultFeeds";
+import type { PodcastEpisode } from "../../podcasts/types";
 import {
   buildStreamProxyUrl,
   probeStreamProxy,
-} from '../audio/audioPlaybackNetwork'
-import { useAppActions } from './useAppActions'
-import { useAppFeedDomain } from './useAppFeedDomain'
-import { useAppLifecycle } from './useAppLifecycle'
-import { useAppPlaybackDomain } from './useAppPlaybackDomain'
-import { useAppProcessingDomain } from './useAppProcessingDomain'
-import { useAppUiModels } from './useAppUiModels'
-import { useAppViewModel } from './useAppViewModel'
+} from "../audio/audioPlaybackNetwork";
+import { useAppActions } from "./useAppActions";
+import { useAppFeedDomain } from "./useAppFeedDomain";
+import { useAppLifecycle } from "./useAppLifecycle";
+import { useAppPlaybackDomain } from "./useAppPlaybackDomain";
+import { useAppProcessingDomain } from "./useAppProcessingDomain";
+import { useAppUiModels } from "./useAppUiModels";
+import { useAppViewModel } from "./useAppViewModel";
 import {
   LIBRARY_FEEDS_STORAGE_KEY as LIBRARY_FEEDS_STORAGE_KEY_VALUE,
   loadPersistedLibraryFeeds as loadPersistedLibraryFeedsUtil,
   normalizeFeedUrlKey,
-} from '../feeds/feedUtils'
+} from "../feeds/feedUtils";
 import {
   RECENT_FEED_PLAYS_STORAGE_KEY as RECENT_FEED_PLAYS_STORAGE_KEY_VALUE,
   loadPersistedRecentFeedPlays as loadPersistedRecentFeedPlaysUtil,
   upsertRecentFeedPlay,
   type RecentFeedPlay,
-} from '../feeds/recentFeedPlays'
-import { useDiscoverSearchFocus } from '../feeds/useDiscoverSearchFocus'
-import { useEpisodePlaybackActions } from '../player/useEpisodePlaybackActions'
-import { useMediaSessionController } from '../player/useMediaSessionController'
-import { useMobileEpisodeLimit } from '../player/useMobileEpisodeLimit'
-import { usePlayerUiInteractions } from '../player/usePlayerUiInteractions'
-import { useAppNavigation } from '../system/useAppNavigation'
-import { useInstallPrompt } from '../system/useInstallPrompt'
-import { useIsMobile } from '../system/useIsMobile'
-import { useIssueLog } from '../system/useIssueLog'
+} from "../feeds/recentFeedPlays";
+import { useDiscoverSearchFocus } from "../feeds/useDiscoverSearchFocus";
+import { useEpisodePlaybackActions } from "../player/useEpisodePlaybackActions";
+import { useMediaSessionController } from "../player/useMediaSessionController";
+import { useMobileEpisodeLimit } from "../player/useMobileEpisodeLimit";
+import { usePlayerUiInteractions } from "../player/usePlayerUiInteractions";
+import { useAppNavigation } from "../system/useAppNavigation";
+import { useInstallPrompt } from "../system/useInstallPrompt";
+import { useIsMobile } from "../system/useIsMobile";
+import { useIssueLog } from "../system/useIssueLog";
 
-type LibrarySortMode = 'updated' | 'alpha' | 'count'
+type LibrarySortMode = "updated" | "alpha" | "count";
 
-const LIBRARY_FEEDS_STORAGE_KEY = LIBRARY_FEEDS_STORAGE_KEY_VALUE
-const RECENT_FEED_PLAYS_STORAGE_KEY = RECENT_FEED_PLAYS_STORAGE_KEY_VALUE
+const LIBRARY_FEEDS_STORAGE_KEY = LIBRARY_FEEDS_STORAGE_KEY_VALUE;
+const RECENT_FEED_PLAYS_STORAGE_KEY = RECENT_FEED_PLAYS_STORAGE_KEY_VALUE;
 
 const AUDIO_FILE_ACCEPT =
-  'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4'
-const FOOTER_SLIDE_MS = 500
-const FOOTER_EXPAND_REVEAL_MS = 600
-const RECENT_SIDEBAR_FEEDS_LIMIT = 10
+  "audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.m4b,.mp4";
+const FOOTER_SLIDE_MS = 500;
+const FOOTER_EXPAND_REVEAL_MS = 600;
+const RECENT_SIDEBAR_FEEDS_LIMIT = 10;
 
 function loadPersistedLibraryFeeds(): DefaultFeed[] {
-  return loadPersistedLibraryFeedsUtil(localStorage)
+  return loadPersistedLibraryFeedsUtil(localStorage);
 }
 
 function loadPersistedRecentFeedPlays(): RecentFeedPlay[] {
-  return loadPersistedRecentFeedPlaysUtil(localStorage)
+  return loadPersistedRecentFeedPlaysUtil(localStorage);
 }
 
 export function useAppOrchestrator() {
-  const isMobile = useIsMobile(980)
-  const initialLibraryFeeds = useMemo(() => loadPersistedLibraryFeeds(), [])
-  const initialRecentFeedPlays = useMemo(() => loadPersistedRecentFeedPlays(), [])
+  const isMobile = useIsMobile(980);
+  const initialLibraryFeeds = useMemo(() => loadPersistedLibraryFeeds(), []);
+  const initialRecentFeedPlays = useMemo(
+    () => loadPersistedRecentFeedPlays(),
+    [],
+  );
   const initialRssUrl =
-    initialLibraryFeeds[0]?.rssUrl ?? DEFAULT_FEEDS[0]?.rssUrl ?? ''
+    initialLibraryFeeds[0]?.rssUrl ?? DEFAULT_FEEDS[0]?.rssUrl ?? "";
 
   const {
     mobileView,
@@ -85,71 +88,70 @@ export function useAppOrchestrator() {
     isDesktopLibraryView,
     isDesktopDiscoverView,
     isDesktopShowDetailsView,
-  } = useAppNavigation({ isMobile })
+  } = useAppNavigation({ isMobile });
 
   const { discoverSearchInputRef, requestDiscoverSearchFocus } =
     useDiscoverSearchFocus({
       isMobile,
       mobileView,
       mobileDiscoverMode,
-    })
+    });
 
   const {
     issues: sidebarIssues,
     reportIssue,
     clearIssues: clearSidebarIssues,
-  } = useIssueLog()
+  } = useIssueLog();
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const objectUrlRef = useRef<string | null>(null)
-  const proxyBypassRef = useRef<Set<string>>(new Set())
-  const proxyVerifiedRef = useRef<Set<string>>(new Set())
-  const footerCloseTimerRef = useRef<number | null>(null)
-  const footerExpandTimerRef = useRef<number | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const proxyBypassRef = useRef<Set<string>>(new Set());
+  const proxyVerifiedRef = useRef<Set<string>>(new Set());
+  const footerCloseTimerRef = useRef<number | null>(null);
+  const footerExpandTimerRef = useRef<number | null>(null);
 
   const cancelFooterCloseTimer = useCallback(() => {
     if (footerCloseTimerRef.current !== null) {
-      window.clearTimeout(footerCloseTimerRef.current)
-      footerCloseTimerRef.current = null
+      window.clearTimeout(footerCloseTimerRef.current);
+      footerCloseTimerRef.current = null;
     }
-  }, [])
+  }, []);
 
   const cancelFooterExpandTimer = useCallback(() => {
     if (footerExpandTimerRef.current !== null) {
-      window.clearTimeout(footerExpandTimerRef.current)
-      footerExpandTimerRef.current = null
+      window.clearTimeout(footerExpandTimerRef.current);
+      footerExpandTimerRef.current = null;
     }
-  }, [])
+  }, []);
 
   const getRemotePlaybackUrl = useCallback((ep: PodcastEpisode): string => {
-    if (proxyBypassRef.current.has(ep.guid)) return ep.enclosureUrl
-    return buildStreamProxyUrl(ep.enclosureUrl)
-  }, [])
+    if (proxyBypassRef.current.has(ep.guid)) return ep.enclosureUrl;
+    return buildStreamProxyUrl(ep.enclosureUrl);
+  }, []);
 
-  const [libraryFeeds, setLibraryFeeds] = useState<DefaultFeed[]>(
-    initialLibraryFeeds,
-  )
+  const [libraryFeeds, setLibraryFeeds] =
+    useState<DefaultFeed[]>(initialLibraryFeeds);
   const [recentFeedPlays, setRecentFeedPlays] = useState<RecentFeedPlay[]>(
     initialRecentFeedPlays,
-  )
-  const [rssUrl, setRssUrl] = useState(initialRssUrl)
-  const [episode, setEpisode] = useState<PodcastEpisode | null>(null)
+  );
+  const [rssUrl, setRssUrl] = useState(initialRssUrl);
+  const [episode, setEpisode] = useState<PodcastEpisode | null>(null);
   const [nowPlayingArtworkUrl, setNowPlayingArtworkUrl] = useState<
     string | null
-  >(null)
-  const [sourceKind, setSourceKind] = useState<'remote' | 'local'>('remote')
-  const [loadingEpisodeId, setLoadingEpisodeId] = useState<string | null>(null)
-  const [libraryQuery, setLibraryQuery] = useState('')
+  >(null);
+  const [sourceKind, setSourceKind] = useState<"remote" | "local">("remote");
+  const [loadingEpisodeId, setLoadingEpisodeId] = useState<string | null>(null);
+  const [libraryQuery, setLibraryQuery] = useState("");
   const [librarySortMode, setLibrarySortMode] =
-    useState<LibrarySortMode>('updated')
-  const [episodeQuery, setEpisodeQuery] = useState('')
-  const [episodeReverse, setEpisodeReverse] = useState(false)
+    useState<LibrarySortMode>("updated");
+  const [episodeQuery, setEpisodeQuery] = useState("");
+  const [episodeReverse, setEpisodeReverse] = useState(false);
 
-  const deferredEpisodeQuery = useDeferredValue(episodeQuery)
-  const hasEpisode = Boolean(episode)
-  const [, setCanDenoise] = useState<boolean | null>(null)
-  const { canInstall, installing, triggerInstall } = useInstallPrompt()
+  const deferredEpisodeQuery = useDeferredValue(episodeQuery);
+  const hasEpisode = Boolean(episode);
+  const [, setCanDenoise] = useState<boolean | null>(null);
+  const { canInstall, installing, triggerInstall } = useInstallPrompt();
 
   const {
     isPlaying,
@@ -172,7 +174,7 @@ export function useAppOrchestrator() {
   } = useAppPlaybackDomain({
     audioRef,
     reportIssue,
-  })
+  });
 
   const {
     modelSupported,
@@ -208,7 +210,7 @@ export function useAppOrchestrator() {
     reportIssue,
     setCanDenoise,
     hasEpisode,
-  })
+  });
 
   const {
     searchTerm,
@@ -244,19 +246,19 @@ export function useAppOrchestrator() {
     setEpisodeQuery,
     libraryFeeds,
     rssUrl,
-  })
+  });
 
   const requestShowDetailsIfMobile = useCallback(() => {
-    if (!isMobile) return
-    openMobileShowDetailsView()
-  }, [isMobile, openMobileShowDetailsView])
+    if (!isMobile) return;
+    openMobileShowDetailsView();
+  }, [isMobile, openMobileShowDetailsView]);
 
   const recordRemoteEpisodeStart = useCallback(
     (event: { rssUrl: string; episodeTitle: string; feedTitle?: string }) => {
-      const rssUrlTrimmed = event.rssUrl.trim()
-      const episodeTitleTrimmed = event.episodeTitle.trim()
-      const feedTitleTrimmed = event.feedTitle?.trim()
-      if (!rssUrlTrimmed || !episodeTitleTrimmed) return
+      const rssUrlTrimmed = event.rssUrl.trim();
+      const episodeTitleTrimmed = event.episodeTitle.trim();
+      const feedTitleTrimmed = event.feedTitle?.trim();
+      if (!rssUrlTrimmed || !episodeTitleTrimmed) return;
       setRecentFeedPlays((prev) =>
         upsertRecentFeedPlay(prev, {
           rssUrl: rssUrlTrimmed,
@@ -264,94 +266,93 @@ export function useAppOrchestrator() {
           playedAt: Date.now(),
           ...(feedTitleTrimmed ? { feedTitle: feedTitleTrimmed } : {}),
         }),
-      )
+      );
     },
     [],
-  )
+  );
 
   const recentSidebarFeeds = useMemo(() => {
-    if (recentFeedPlays.length === 0) return []
+    if (recentFeedPlays.length === 0) return [];
     const libraryFeedByUrl = new Map<string, DefaultFeed>(
       libraryFeeds.map((feed) => [normalizeFeedUrlKey(feed.rssUrl), feed]),
-    )
-    return recentFeedPlays.slice(0, RECENT_SIDEBAR_FEEDS_LIMIT).map((recentPlay) => {
-      const libraryFeed = libraryFeedByUrl.get(normalizeFeedUrlKey(recentPlay.rssUrl))
-      const feedTitle = libraryFeed?.title || recentPlay.feedTitle || recentPlay.rssUrl
-      return {
-        title: feedTitle,
-        rssUrl: libraryFeed?.rssUrl ?? recentPlay.rssUrl,
-        category: libraryFeed?.category,
-        lastEpisodeTitle: recentPlay.episodeTitle,
-        lastPlayedAt: recentPlay.playedAt,
-      }
-    })
-  }, [libraryFeeds, recentFeedPlays])
+    );
+    return recentFeedPlays
+      .slice(0, RECENT_SIDEBAR_FEEDS_LIMIT)
+      .map((recentPlay) => {
+        const libraryFeed = libraryFeedByUrl.get(
+          normalizeFeedUrlKey(recentPlay.rssUrl),
+        );
+        const feedTitle =
+          libraryFeed?.title || recentPlay.feedTitle || recentPlay.rssUrl;
+        return {
+          title: feedTitle,
+          rssUrl: libraryFeed?.rssUrl ?? recentPlay.rssUrl,
+          category: libraryFeed?.category,
+          lastEpisodeTitle: recentPlay.episodeTitle,
+          lastPlayedAt: recentPlay.playedAt,
+        };
+      });
+  }, [libraryFeeds, recentFeedPlays]);
 
   const episodes = useMemo(() => {
-    const q = deferredEpisodeQuery.trim().toLowerCase()
+    const q = deferredEpisodeQuery.trim().toLowerCase();
     const filtered = !q
       ? episodesAll
       : episodesAll.filter((nextEpisode) =>
           nextEpisode.title.toLowerCase().includes(q),
-        )
-    return episodeReverse ? [...filtered].reverse() : filtered
-  }, [deferredEpisodeQuery, episodeReverse, episodesAll])
+        );
+    return episodeReverse ? [...filtered].reverse() : filtered;
+  }, [deferredEpisodeQuery, episodeReverse, episodesAll]);
 
   const { mobileEpisodeLimit, loadMoreMobileEpisodes } = useMobileEpisodeLimit({
     episodeReverse,
     rssUrl,
     deferredEpisodeQuery,
     episodesCount: episodes.length,
-  })
+  });
 
-  const {
-    startEpisode,
-    startLocalFile,
-    playPrev,
-    playNext,
-    canPrev,
-    canNext,
-  } = useEpisodePlaybackActions({
-    audioRef,
-    objectUrlRef,
-    proxyBypassRef,
-    proxyVerifiedRef,
-    footerCloseTimerRef,
-    episode,
-    episodesAll,
-    sourceKind,
-    podcastImageUrl: podcast?.feed.imageUrl,
-    rssUrl,
-    feedImages,
-    getRemotePlaybackUrl,
-    probeStreamProxy,
-    cancelFooterCloseTimer,
-    cancelFooterExpandTimer,
-    setLoadingEpisodeId,
-    resetProcessingState,
-    setEpisode,
-    setNowPlayingArtworkUrl,
-    setSourceKind,
-    setCanDenoise,
-    setEngineDetail,
-    reportIssue,
-    setIsFooterClosing,
-    setIsFooterExpanding,
-    setIsFooterExpanded,
-    setIsFooterCollapsing,
-    setIsSidebarCompact,
-    onRequestShowDetails: requestShowDetailsIfMobile,
-    onRemoteEpisodeStart: ({ rssUrl: recentRssUrl, episodeTitle }) =>
-      recordRemoteEpisodeStart({
-        rssUrl: recentRssUrl,
-        episodeTitle,
-        feedTitle: podcast?.feed.title,
-      }),
-    footerSlideMs: FOOTER_SLIDE_MS,
-  })
+  const { startEpisode, startLocalFile, playPrev, playNext, canPrev, canNext } =
+    useEpisodePlaybackActions({
+      audioRef,
+      objectUrlRef,
+      proxyBypassRef,
+      proxyVerifiedRef,
+      footerCloseTimerRef,
+      episode,
+      episodesAll,
+      sourceKind,
+      podcastImageUrl: podcast?.feed.imageUrl,
+      rssUrl,
+      feedImages,
+      getRemotePlaybackUrl,
+      probeStreamProxy,
+      cancelFooterCloseTimer,
+      cancelFooterExpandTimer,
+      setLoadingEpisodeId,
+      resetProcessingState,
+      setEpisode,
+      setNowPlayingArtworkUrl,
+      setSourceKind,
+      setCanDenoise,
+      setEngineDetail,
+      reportIssue,
+      setIsFooterClosing,
+      setIsFooterExpanding,
+      setIsFooterExpanded,
+      setIsFooterCollapsing,
+      setIsSidebarCompact,
+      onRequestShowDetails: requestShowDetailsIfMobile,
+      onRemoteEpisodeStart: ({ rssUrl: recentRssUrl, episodeTitle }) =>
+        recordRemoteEpisodeStart({
+          rssUrl: recentRssUrl,
+          episodeTitle,
+          feedTitle: podcast?.feed.title,
+        }),
+      footerSlideMs: FOOTER_SLIDE_MS,
+    });
 
   const isEpisodeLoading =
-    Boolean(loadingEpisodeId) && episode?.guid === loadingEpisodeId
+    Boolean(loadingEpisodeId) && episode?.guid === loadingEpisodeId;
 
   useAppLifecycle({
     rssError,
@@ -381,7 +382,7 @@ export function useAppOrchestrator() {
     audioRef,
     loadingEpisodeId,
     setLoadingEpisodeId,
-  })
+  });
 
   const {
     openMobileDiscoverSearchView,
@@ -401,7 +402,7 @@ export function useAppOrchestrator() {
     loadingFeedUrl,
     episode,
     seekBySecondsRaw,
-  })
+  });
 
   const {
     onProgressPointer,
@@ -428,7 +429,7 @@ export function useAppOrchestrator() {
     setIsFooterExpanding,
     setIsSidebarCompact,
     footerExpandRevealMs: FOOTER_EXPAND_REVEAL_MS,
-  })
+  });
 
   useMediaSessionController({
     audioRef,
@@ -442,7 +443,7 @@ export function useAppOrchestrator() {
     canPrev,
     canNext,
     isPlaying,
-  })
+  });
 
   const {
     isShowInfoLoading,
@@ -505,7 +506,7 @@ export function useAppOrchestrator() {
     isCurrentShowFollowed,
     commitFollowState,
     setLibraryFeeds,
-  })
+  });
 
   const appMainContentProps = useAppViewModel({
     showDetailsBase: {
@@ -614,7 +615,7 @@ export function useAppOrchestrator() {
     },
     isMobile,
     modelSupported,
-  })
+  });
 
   return {
     isMobile,
@@ -640,9 +641,6 @@ export function useAppOrchestrator() {
       triggerInstall,
       topStatus,
       denoiseEnabled,
-      hasEpisode,
-      modelSupported,
-      toggleDenoise,
     },
     desktopSidebarProps: {
       isVisible: !isMobile,
@@ -663,7 +661,7 @@ export function useAppOrchestrator() {
       audioRef,
       hasEpisode,
       nowPlayingArtworkUrl,
-      episodeTitle: episode?.title ?? 'Select an episode to start playback',
+      episodeTitle: episode?.title ?? "Select an episode to start playback",
       denoiseEnabled,
       modelSupported,
       isProcessingStarting,
@@ -692,5 +690,5 @@ export function useAppOrchestrator() {
       audioFileAccept: AUDIO_FILE_ACCEPT,
       startLocalFile,
     },
-  }
+  };
 }
